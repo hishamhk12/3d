@@ -1,0 +1,8 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(grep -r \"You are\\\\|system\\\\|instruction\" /c/Users/hisha/Downloads/3d --include=\"*.md\" ! -path \"*node_modules*\")",
+      "Bash(ls -la /c/Users/hisha/Downloads/3d/*.md)"
+    ]
+  }
+}

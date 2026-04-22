@@ -1,0 +1,43 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(npx tsc:*)",
+      "Bash(echo \"EXIT:$?\")",
+      "Bash(grep -E \"\\\\.ts$\")",
+      "Bash(npm install:*)",
+      "Bash(npx vitest:*)",
+      "Bash(npx prisma:*)",
+      "Bash(node -e \"const p = require\\('./package.json'\\); console.log\\(JSON.stringify\\(Object.keys\\(p.dependencies\\), null, 2\\)\\)\")",
+      "Bash(grep -r \"import.*\\\\\\(openai\\\\|anthropic\\\\|@google\\\\|gemini\\\\|claude\\\\\\)\" /c/Users/hisha/Downloads/3d --include=\"*.ts\" --include=\"*.tsx\" --include=\"*.js\" ! -path \"*node_modules*\" ! -path \"*.next*\")",
+      "Bash(grep -r \"GoogleGenAI\\\\|OpenAI\\\\|generateContent\" /c/Users/hisha/Downloads/3d --include=\"*.ts\" --include=\"*.tsx\" ! -path \"*node_modules*\" ! -path \"*.next*\")",
+      "Bash(grep -v \"^$\")",
+      "Bash(node -e \"const c=require\\('crypto'\\);console.log\\(c.randomBytes\\(32\\).toString\\('hex'\\)\\)\")",
+      "Bash(taskkill /PID 5280 /F)",
+      "Bash(cmd /c \"taskkill /PID 5280 /F\")",
+      "Bash(cmd /c \"netstat -ano | findstr :3000 | findstr LISTEN\")",
+      "Bash(npm run *)",
+      "Bash(npm test *)",
+      "Bash(node -e \"const pkg = require\\('./package.json'\\); console.log\\(pkg.dependencies.next\\)\")",
+      "Bash(npx eslint *)",
+      "Bash(npx next *)",
+      "Bash(ls c:\\\\Users\\\\hisha\\\\Downloads\\\\3d\\\\.env*)",
+      "Bash(grep -E \"\\\\.\\(ts|tsx|js\\)$\")",
+      "Bash(xargs grep *)",
+      "Bash(git stash *)",
+      "Bash(node -e ' *)",
+      "Bash(find node_modules/next/dist/client/app-* -name \"*.js\")",
+      "Bash(node -e \"const r = require\\('ioredis'\\); const c = new r\\('redis://localhost:9999', {lazyConnect:true}\\); console.log\\(Object.keys\\(r.prototype\\).filter\\(k=>k.includes\\('timeout'\\)||k.includes\\('Timeout'\\)\\)\\)\")",
+      "Bash(node -e \"const p = require\\('./node_modules/ioredis/package.json'\\); console.log\\(p.version\\)\")",
+      "Bash(rm -rf \"c:\\\\Users\\\\hisha\\\\Downloads\\\\مجلد جديد \\(5\\)\\\\3d\\\\app\\\\api\\\\room-preview\\\\debug\")",
+      "Bash(rm -rf \"c:\\\\Users\\\\hisha\\\\Downloads\\\\مجلد جديد \\(5\\)\\\\3d\\\\app\\\\api\\\\room-preview\\\\dev-test\")",
+      "Bash(rm -rf \"c:\\\\Users\\\\hisha\\\\Downloads\\\\مجلد جديد \\(5\\)\\\\3d\\\\app\\\\api\\\\room-preview\\\\parquet-render\")",
+      "Bash(mkdir -p \"c:\\\\Users\\\\hisha\\\\Downloads\\\\مجلد جديد \\(5\\)\\\\3d\\\\docs\")",
+      "Bash(mv \"c:\\\\Users\\\\hisha\\\\Downloads\\\\مجلد جديد \\(5\\)\\\\3d\\\\documentation.md\" \"c:\\\\Users\\\\hisha\\\\Downloads\\\\مجلد جديد \\(5\\)\\\\3d\\\\docs\\\\documentation.md\")",
+      "Bash(mv \"c:\\\\Users\\\\hisha\\\\Downloads\\\\مجلد جديد \\(5\\)\\\\3d\\\\system-design.md\" \"c:\\\\Users\\\\hisha\\\\Downloads\\\\مجلد جديد \\(5\\)\\\\3d\\\\docs\\\\system-design.md\")"
+    ],
+    "additionalDirectories": [
+      "c:\\Users\\hisha\\Downloads\\3d\\app\\api\\room-preview\\sessions\\[sessionId]",
+      "c:\\Users\\hisha\\Downloads\\3d\\app\\room-preview\\activate\\[sessionId]"
+    ]
+  }
+}

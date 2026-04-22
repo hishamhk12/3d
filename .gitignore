@@ -39,3 +39,11 @@ yarn-error.log*
 # typescript
 *.tsbuildinfo
 next-env.d.ts
+
+# room preview MVP runtime data
+/data/room-preview-sessions/
+/public/uploads/
+/public/test-assets/uploads/*
+!/public/test-assets/uploads/.gitkeep
+
+/lib/generated/prisma

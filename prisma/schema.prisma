@@ -1,0 +1,136 @@
+generator client {
+  provider = "prisma-client-js"
+  output   = "../lib/generated/prisma"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+// ─── Screens ──────────────────────────────────────────────────────────────────
+
+/// A registered physical showroom screen.
+/// Each screen has its own daily render budget and cooldown, so one screen's
+/// usage cannot exhaust another screen's quota.
+model Screen {
+  id           String    @id @default(cuid())
+  name         String
+  location     String?
+  /// SHA-256 hash of the screen's secret token (token shown once at creation).
+  secretHash   String    @unique
+  /// Max renders allowed per calendar day (UTC). Admin-configurable.
+  dailyBudget  Int       @default(15)
+  isActive     Boolean   @default(true)
+  /// Set to now() each time a render starts. Used to enforce cooldown in DB
+  /// (Redis cooldown is belt-and-suspenders; this survives Redis restarts).
+  lastRenderAt DateTime?
+  createdAt    DateTime  @default(now())
+  updatedAt    DateTime  @updatedAt
+
+  sessions     RoomPreviewSession[]
+}
+
+// ─── Room Preview ─────────────────────────────────────────────────────────────
+
+model RoomPreviewSession {
+  id              String    @id @default(cuid())
+  status          String
+  mobileConnected Boolean   @default(false)
+  renderCount     Int       @default(0)
+
+  selectedRoom    Json?
+  selectedProduct Json?
+  renderResult    Json?
+
+  expiresAt       DateTime?
+
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @updatedAt
+
+  /// Which physical screen created this session. Null for unregistered screens.
+  screenId        String?
+  screen          Screen?   @relation(fields: [screenId], references: [id])
+
+  /// SHA-256(roomImageUrl::productId) of the last successful render.
+  /// Used to return a cached result when the customer re-renders with the same inputs.
+  lastRenderHash  String?
+
+  userSessionId   String?   @unique
+  userSession     UserSession? @relation(fields: [userSessionId], references: [id])
+
+  renderJobs      RenderJob[]
+
+  @@index([status])
+  @@index([expiresAt])
+  @@index([userSessionId])
+  @@index([screenId])
+}
+
+model RenderJob {
+  id        String   @id @default(cuid())
+  sessionId String
+  status    String
+
+  input     Json
+  result    Json?
+
+  /// SHA-256(roomImageUrl::productId) — used for budget counting and audit.
+  inputHash String?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  session   RoomPreviewSession @relation(fields: [sessionId], references: [id], onDelete: Cascade)
+
+  @@index([sessionId, createdAt])
+}
+
+// ─── User Identity (Pre-Access Gate) ─────────────────────────────────────────
+
+/// An identified visitor who passed through the pre-access gate.
+/// One-to-one with RoomPreviewSession (userSession.roomSession).
+model UserSession {
+  id           String   @id @default(cuid())
+  name         String
+  /// "customer" | "employee"
+  role         String
+  /// Set when role = "customer"
+  phone        String?
+  /// Set when role = "employee"
+  employeeCode String?
+  /// Best-effort client IP, captured at gate submission time.
+  ip           String?
+  createdAt    DateTime @default(now())
+
+  roomSession  RoomPreviewSession?
+  events       Event[]
+
+  @@index([role])
+  @@index([createdAt])
+}
+
+// ─── Event Tracking ───────────────────────────────────────────────────────────
+
+/// A single tracked event in a user's journey.
+/// Written fire-and-forget — never blocks the main request pipeline.
+model Event {
+  id            String   @id @default(cuid())
+  userSessionId String
+  /// FK to RoomPreviewSession.id — available after gate completes.
+  sessionId     String?
+  /// e.g. "user_entered" | "qr_scanned" | "room_opened" |
+  ///       "render_started" | "render_completed" | "render_failed"
+  eventType     String
+  /// FK to RenderJob.id — set for render_* events.
+  renderJobId   String?
+  /// Arbitrary JSON payload (room source, device UA, duration, etc.)
+  metadata      Json?
+  createdAt     DateTime @default(now())
+
+  userSession   UserSession @relation(fields: [userSessionId], references: [id], onDelete: Cascade)
+
+  @@index([userSessionId])
+  @@index([sessionId])
+  @@index([eventType])
+  @@index([createdAt])
+}

@@ -1,0 +1,8 @@
+{
+  "crons": [
+    {
+      "path": "/api/room-preview/cleanup",
+      "schedule": "*/5 * * * *"
+    }
+  ]
+}

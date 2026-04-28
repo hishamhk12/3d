@@ -1,7 +1,7 @@
 import type { Direction, Locale } from "@/lib/i18n/types";
 import { SUPPORTED_LOCALES } from "@/lib/i18n/types";
 
-export const DEFAULT_LOCALE: Locale = "en";
+export const DEFAULT_LOCALE: Locale = "ar";
 export const LOCALE_COOKIE_NAME = "panorama-studio-locale";
 export const LOCALE_STORAGE_KEY = "panorama-studio-locale";
 

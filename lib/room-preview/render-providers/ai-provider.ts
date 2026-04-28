@@ -5,13 +5,12 @@ import path from "node:path";
 import { createReadStream } from "node:fs";
 import OpenAI, { toFile } from "openai";
 import { getRoomPreviewPublicAssetPath } from "@/lib/room-preview/local-assets";
-import { buildRenderPrompt } from "@/lib/room-preview/prompts";
+import { buildRenderPrompt } from "@/lib/room-preview/prompt-template-v2";
 import type {
   RoomPreviewRenderProvider,
   RoomPreviewRenderProviderRequest,
   RoomPreviewRenderProviderResult,
 } from "@/lib/room-preview/render-providers/types";
-import type { ProductType } from "@/lib/room-preview/types";
 
 const ROOM_PREVIEW_RENDER_OUTPUT_DIRECTORY = path.join(
   process.cwd(),

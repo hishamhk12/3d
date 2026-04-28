@@ -7,16 +7,12 @@ import { AnimatedButton } from "@/components/ui/AnimatedButton";
 import { useI18n } from "@/lib/i18n/provider";
 import type { RoomPreviewRoomSource, SelectedRoom } from "@/lib/room-preview/types";
 
-// ─── Props ────────────────────────────────────────────────────────────────────
-
 interface RoomStepProps {
   isSavingRoom: boolean;
   roomSaveStatusLabel: string | null;
   selectedRoom: SelectedRoom | null;
   onFileSelection: (source: Extract<RoomPreviewRoomSource, "gallery">, file: File | null) => void;
 }
-
-// ─── Component ────────────────────────────────────────────────────────────────
 
 export default function RoomStep({
   isSavingRoom,
@@ -35,9 +31,8 @@ export default function RoomStep({
   const isAr = locale === "ar";
 
   return (
-    <section className={`mt-8 rounded-[28px] border border-[rgba(255,255,255,0.8)] bg-white/75 p-6 backdrop-blur-md ${dir === "rtl" ? "text-right" : "text-left"}`}>
+    <section className={`mt-8 rounded-[28px] border border-[var(--border)] bg-[var(--bg-surface)] p-6 ${dir === "rtl" ? "text-right" : "text-left"}`}>
 
-      {/* Hidden native file input */}
       <input
         ref={inputRef}
         type="file"
@@ -52,46 +47,43 @@ export default function RoomStep({
         }}
       />
 
-      {/* ── Header ────────────────────────────────────────────────────────── */}
-      <p
-        className="text-xs font-semibold tracking-[0.18em] text-[#003C71] uppercase"
-        style={{ textShadow: "0 1px 1px rgba(255,255,255,0.7)" }}
-      >
+      {/* Header */}
+      <p className="text-xs font-semibold tracking-[0.18em] text-[var(--brand-cyan)] uppercase">
         {isAr ? "صورة الغرفة" : "Room Image"}
       </p>
-      <h2 className="font-display mt-2 text-2xl font-semibold text-[#1d1d1f]">
+      <h2 className="font-display mt-2 text-2xl font-semibold text-[var(--text-primary)]">
         {isAr ? "ارفع صورة غرفتك" : "Upload your room image"}
       </h2>
-      <p className="mt-3 text-sm leading-7 text-[#4a4a52]">
+      <p className="mt-3 text-sm leading-7 text-[var(--text-secondary)]">
         {isAr ? "اختر صورة واضحة من معرض الهاتف لتجربة المنتج داخل مساحتك." : "Choose a clear photo from your gallery to experience the product in your space."}
       </p>
 
-      {/* ── Upload tap area (no image selected yet) ───────────────────────── */}
+      {/* Upload tap area */}
       {!hasPreview ? (
         <AnimatedButton
           type="button"
           onClick={openPicker}
           disabled={isSavingRoom}
           aria-label={isAr ? "اختيار صورة من معرض الهاتف" : "Choose image from gallery"}
-          className="mt-6 flex w-full flex-col items-center justify-center gap-4 rounded-[24px] border-2 border-dashed border-[rgba(0,60,113,0.25)] bg-white/50 py-12 transition-all duration-200 hover:border-[rgba(0,60,113,0.45)] hover:bg-white/70 disabled:cursor-not-allowed disabled:opacity-60"
+          className="mt-6 flex w-full flex-col items-center justify-center gap-4 rounded-[24px] border-2 border-dashed border-[var(--brand-cyan)]/20 bg-[var(--brand-cyan)]/[0.04] py-12 transition-all duration-300 hover:border-[var(--brand-cyan)]/40 hover:bg-[var(--brand-cyan)]/[0.08] disabled:cursor-not-allowed disabled:opacity-50"
         >
           {isSavingRoom ? (
             <>
-              <LoaderCircle className="size-8 animate-spin text-[#003C71]" />
-              <span className="text-sm font-semibold text-[#003C71]">
+              <LoaderCircle className="size-8 animate-spin text-[var(--brand-cyan)]" />
+              <span className="text-sm font-semibold text-[var(--brand-cyan)]">
                 {roomSaveStatusLabel ?? t.common.actions.loading}
               </span>
             </>
           ) : (
             <>
-              <div className="flex h-[60px] w-[60px] items-center justify-center rounded-full bg-gradient-to-br from-[#003C71] to-[#0060b3] shadow-[0_6px_20px_rgba(0,60,113,0.30)]">
+              <div className="flex h-[60px] w-[60px] items-center justify-center rounded-full bg-gradient-to-br from-[#003C71] to-[#00AFD7]/60 shadow-[0_8px_24px_rgba(0,175,215,0.25)]">
                 <ImagePlus className="size-7 text-white" strokeWidth={1.75} />
               </div>
               <div className="flex flex-col items-center gap-1">
-                <span className="text-base font-semibold text-[#1d1d1f]">
+                <span className="text-base font-semibold text-[var(--text-primary)]">
                   {isAr ? "اختيار صورة من المعرض" : "Select image from gallery"}
                 </span>
-                <span className="text-xs text-[#7a9ab5]">
+                <span className="text-xs text-[var(--text-muted)]">
                   {isAr ? "اضغط هنا للاختيار" : "Tap here to select"}
                 </span>
               </div>
@@ -100,11 +92,10 @@ export default function RoomStep({
         </AnimatedButton>
       ) : null}
 
-      {/* ── Preview (image selected) ───────────────────────────────────────── */}
+      {/* Preview */}
       {hasPreview ? (
         <div className="mt-6">
-          {/* Image thumbnail */}
-          <div className="relative aspect-[4/3] w-full overflow-hidden rounded-[20px] border border-[rgba(0,60,113,0.12)] shadow-[0_4px_20px_rgba(0,0,0,0.08)]">
+          <div className="relative aspect-[4/3] w-full overflow-hidden rounded-[20px] border border-[var(--border)] shadow-[0_8px_32px_rgba(0,0,0,0.20)]">
             <Image
               src={selectedRoom!.imageUrl!}
               alt={isAr ? "صورة الغرفة المختارة" : "Selected room image"}
@@ -112,23 +103,21 @@ export default function RoomStep({
               unoptimized
               className="object-cover"
             />
-            {/* Saving overlay */}
             {isSavingRoom ? (
-              <div className="absolute inset-0 flex flex-col items-center justify-center gap-3 rounded-[20px] bg-white/85 backdrop-blur-sm">
-                <LoaderCircle className="size-7 animate-spin text-[#003C71]" />
-                <span className="text-sm font-semibold text-[#003C71]">
+              <div className="absolute inset-0 flex flex-col items-center justify-center gap-3 rounded-[20px] bg-[var(--bg-page)]/80 backdrop-blur-sm">
+                <LoaderCircle className="size-7 animate-spin text-[var(--brand-cyan)]" />
+                <span className="text-sm font-semibold text-[var(--text-secondary)]">
                   {roomSaveStatusLabel ?? t.common.actions.loading}
                 </span>
               </div>
             ) : null}
           </div>
 
-          {/* Change image button */}
           {!isSavingRoom ? (
             <AnimatedButton
               type="button"
               onClick={openPicker}
-              className="mt-4 flex w-full items-center justify-center gap-2 rounded-[20px] border border-[rgba(0,60,113,0.18)] bg-white/85 py-3 text-sm font-semibold text-[#003C71] backdrop-blur-sm transition-all duration-200 hover:bg-white/95"
+              className="mt-4 flex w-full items-center justify-center gap-2 rounded-[20px] border border-[var(--border)] bg-[var(--bg-surface-2)] py-3 text-sm font-semibold text-[var(--text-secondary)] transition-all duration-200 hover:border-[var(--border-strong)] hover:text-[var(--text-primary)]"
             >
               <RefreshCw className="size-4" strokeWidth={2} />
               {isAr ? "تغيير الصورة" : "Change Image"}

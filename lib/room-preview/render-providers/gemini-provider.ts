@@ -4,8 +4,9 @@ import fs from "node:fs/promises";
 import path from "node:path";
 import { GoogleGenAI } from "@google/genai";
 import { getRoomPreviewPublicAssetPath } from "@/lib/room-preview/local-assets";
-import { buildRenderPrompt, PROMPT_VERSION } from "@/lib/room-preview/prompts";
 import {
+  buildRenderPrompt,
+  PROMPT_VERSION,
   SENTINEL_FLOOR_NOT_VISIBLE,
   SENTINEL_MATERIAL_UNCLEAR,
 } from "@/lib/room-preview/prompt-template-v2";
@@ -14,7 +15,6 @@ import type {
   RoomPreviewRenderProviderRequest,
   RoomPreviewRenderProviderResult,
 } from "@/lib/room-preview/render-providers/types";
-import type { ProductType } from "@/lib/room-preview/types";
 import { storageUpload } from "@/lib/storage";
 import { getLogger } from "@/lib/logger";
 
@@ -181,14 +181,29 @@ async function generateContentWithTimeout(
   return Promise.race([ai.models.generateContent(params), timeout]);
 }
 
-// ─── Output validation ────────────────────────────────────────────────────────
+// ─── Output validation + normalization ───────────────────────────────────────
 
-async function validateOutputImage(
+const MAX_ASPECT_DRIFT = MAX_ASPECT_RATIO_DRIFT;
+
+async function normalizeOutputToInputDimensions(
+  buffer: Buffer<ArrayBuffer>,
+  targetWidth: number,
+  targetHeight: number,
+): Promise<Buffer<ArrayBuffer>> {
+  const { default: sharp } = await import("sharp");
+  return (await sharp(buffer)
+    .resize(targetWidth, targetHeight, { fit: "cover", position: "center" })
+    .png()
+    .toBuffer()) as Buffer<ArrayBuffer>;
+}
+
+async function validateAndNormalizeOutputImage(
   outputBase64: string,
   inputBase64: string,
   inputDimensions: { width: number; height: number },
-): Promise<{ width: number; height: number }> {
-  const buffer = Buffer.from(outputBase64, "base64");
+  context: { sessionId: string; modelName: string },
+): Promise<{ width: number; height: number; buffer: Buffer<ArrayBuffer> }> {
+  let buffer = Buffer.from(outputBase64, "base64") as Buffer<ArrayBuffer>;
 
   if (buffer.length < MIN_OUTPUT_BYTES) {
     throw new Error(
@@ -227,17 +242,32 @@ async function validateOutputImage(
     const drift = Math.abs(outputAspect - inputAspect) / inputAspect;
 
     if (drift > MAX_ASPECT_DRIFT) {
-      throw new Error(
-        `Output aspect ratio ${outputAspect.toFixed(3)} differs from input ${inputAspect.toFixed(3)} ` +
-        `(${(drift * 100).toFixed(1)}% drift) — model likely cropped or padded the image.`,
+      log.warn(
+        {
+          event: "output_aspect_ratio_normalized",
+          sessionId: context.sessionId,
+          modelName: context.modelName,
+          inputWidth: inputDimensions.width,
+          inputHeight: inputDimensions.height,
+          outputWidth: width,
+          outputHeight: height,
+          driftPercent: parseFloat((drift * 100).toFixed(2)),
+        },
+        "Output aspect ratio drifted — normalizing to input dimensions",
       );
+
+      buffer = await normalizeOutputToInputDimensions(
+        buffer,
+        inputDimensions.width,
+        inputDimensions.height,
+      );
+      width  = inputDimensions.width;
+      height = inputDimensions.height;
     }
   }
 
-  return { width, height };
+  return { width, height, buffer };
 }
-
-const MAX_ASPECT_DRIFT = MAX_ASPECT_RATIO_DRIFT;
 
 // ─── Retry helpers ────────────────────────────────────────────────────────────
 
@@ -269,7 +299,7 @@ export const geminiRoomPreviewRenderProvider = {
     const ai = getGeminiClient();
 
     const prompt = buildRenderPrompt(
-      (product.productType ?? null) as ProductType | null,
+      product.productType ?? null,
       product.name ?? null,
       room.floorQuad ?? null,
     );
@@ -344,14 +374,14 @@ export const geminiRoomPreviewRenderProvider = {
             );
           }
 
-          const { width, height } = await validateOutputImage(
+          const { width, height, buffer: imageBuffer } = await validateAndNormalizeOutputImage(
             imagePart.inlineData.data,
             roomImage.base64,
             inputDimensions,
+            { sessionId, modelName },
           );
 
           const storageKey = buildRenderStorageKey({ jobId: request.jobId, sessionId });
-          const imageBuffer = Buffer.from(imagePart.inlineData.data, "base64");
           const uploadResult = await storageUpload(storageKey, imageBuffer, "image/png");
 
           log.info(

@@ -2,6 +2,7 @@ import { createHash } from "node:crypto";
 import { after, NextResponse } from "next/server";
 import { getLogger } from "@/lib/logger";
 import { guardSession } from "@/lib/room-preview/api-guard";
+import { isRoomPreviewRateLimitDisabled } from "@/lib/room-preview/rate-limit-bypass";
 import { trackEvent, getUserSessionIdForSession } from "@/lib/analytics/event-tracker";
 import {
   isRoomPreviewSessionExpiredError,
@@ -23,6 +24,7 @@ import {
   tryIncrementRenderCount,
 } from "@/lib/room-preview/session-repository";
 import { executeRenderPipeline } from "@/lib/room-preview/render-service";
+import { openSessionIssue, trackSessionEvent } from "@/lib/room-preview/session-diagnostics";
 import {
   checkAndIncrementScreenBudget,
   checkScreenCooldown,
@@ -85,13 +87,27 @@ export async function POST(
   const unauthorized = guardSession(request, sessionId);
   if (unauthorized) return unauthorized;
 
+  const rateLimitDisabled = isRoomPreviewRateLimitDisabled();
+
+  await trackSessionEvent({
+    sessionId,
+    source: "server",
+    eventType: "render_requested",
+    level: "info",
+  });
+
   const deviceId = getDeviceFingerprint(request);
 
   // ── 2. Idempotency lock ────────────────────────────────────────────────────
-  const lock = await acquireRenderLock(sessionId);
-  if (!lock.acquired) {
-    log.warn({ sessionId }, "Render blocked — already in flight");
-    return tooManyRequests({ error: "Render already in progress. Please wait." }, 30);
+  let renderLockAcquired = false;
+  if (!rateLimitDisabled) {
+    const lock = await acquireRenderLock(sessionId);
+    if (!lock.acquired) {
+      log.warn({ sessionId }, "Render blocked — already in flight");
+      return tooManyRequests({ error: "Render already in progress. Please wait." }, 30);
+    }
+
+    renderLockAcquired = true;
   }
 
   let renderCountIncremented = false;
@@ -124,24 +140,28 @@ export async function POST(
     }
 
     // ── 5. Device cooldown ─────────────────────────────────────────────────
-    const cooldown = await checkDeviceCooldown(deviceId);
-    if (cooldown.limited) {
-      log.warn({ sessionId, deviceId, ttl: cooldown.ttl }, "Render blocked — device cooldown active");
-      return tooManyRequests({ error: "Try again after 5 minutes" }, cooldown.ttl);
+    if (!rateLimitDisabled) {
+      const cooldown = await checkDeviceCooldown(deviceId);
+      if (cooldown.limited) {
+        log.warn({ sessionId, deviceId, ttl: cooldown.ttl }, "Render blocked — device cooldown active");
+        return tooManyRequests({ error: "Try again after 5 minutes" }, cooldown.ttl);
+      }
     }
 
     // ── 6. Session render count ────────────────────────────────────────────
-    const countResult = await tryIncrementRenderCount(sessionId, MAX_RENDERS_PER_SESSION);
+    if (!rateLimitDisabled) {
+      const countResult = await tryIncrementRenderCount(sessionId, MAX_RENDERS_PER_SESSION);
 
-    if (!countResult.incremented) {
-      log.warn({ sessionId, currentCount: countResult.currentCount }, "Render blocked — session limit reached");
-      return tooManyRequests({ error: "Session limit reached" }, DEVICE_COOLDOWN_SECONDS);
+      if (!countResult.incremented) {
+        log.warn({ sessionId, currentCount: countResult.currentCount }, "Render blocked — session limit reached");
+        return tooManyRequests({ error: "Session limit reached" }, DEVICE_COOLDOWN_SECONDS);
+      }
+
+      renderCountIncremented = true;
     }
 
-    renderCountIncremented = true;
-
     // ── 7. Screen checks (cooldown + budget) ───────────────────────────────
-    if (screenId) {
+    if (!rateLimitDisabled && screenId) {
       const screen = await getActiveScreenById(screenId);
 
       if (screen) {
@@ -172,7 +192,9 @@ export async function POST(
 
     // Arm device cooldown now so rapid re-submissions are blocked regardless of
     // render outcome.
-    await setDeviceCooldown(deviceId);
+    if (!rateLimitDisabled) {
+      await setDeviceCooldown(deviceId);
+    }
 
     // Update screen's lastRenderAt and save the render hash for future deduplication.
     const afterPromises: Promise<void>[] = [];
@@ -239,6 +261,11 @@ export async function POST(
     }
 
     if (error instanceof RoomPreviewSessionTransitionError) {
+      await openSessionIssue({
+        sessionId,
+        type: "RENDER_FAILED",
+        metadata: { code: error.code, currentStatus: error.currentStatus },
+      });
       return NextResponse.json(
         { code: error.code, error: error.message },
         { status: 400 },
@@ -246,13 +273,20 @@ export async function POST(
     }
 
     log.error({ err: error, sessionId }, "Failed to start render session");
+    await openSessionIssue({
+      sessionId,
+      type: "RENDER_FAILED",
+      metadata: { phase: "render_request" },
+    });
     return NextResponse.json(
       { error: "Failed to start render session." },
       { status: 500 },
     );
   } finally {
-    await releaseRenderLock(sessionId).catch((err) => {
-      log.error({ err, sessionId }, "Failed to release render lock");
-    });
+    if (renderLockAcquired) {
+      await releaseRenderLock(sessionId).catch((err) => {
+        log.error({ err, sessionId }, "Failed to release render lock");
+      });
+    }
   }
 }

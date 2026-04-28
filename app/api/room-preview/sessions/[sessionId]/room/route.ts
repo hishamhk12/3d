@@ -14,6 +14,12 @@ import {
   RoomPreviewUploadError,
   saveRoomPreviewUploadedFile,
 } from "@/lib/room-preview/upload-service";
+import {
+  diagnosticsErrorMetadata,
+  openSessionIssue,
+  resolveSessionIssue,
+  trackSessionEvent,
+} from "@/lib/room-preview/session-diagnostics";
 import type { SelectedRoom } from "@/lib/room-preview/types";
 
 const log = getLogger("room-api");
@@ -39,6 +45,19 @@ export async function POST(
   const MAX_UPLOAD_BYTES = 10 * 1024 * 1024; // 10 MB
   const contentLength = request.headers.get("content-length");
   if (contentLength && parseInt(contentLength, 10) > MAX_UPLOAD_BYTES) {
+    await trackSessionEvent({
+      sessionId,
+      source: "server",
+      eventType: "room_upload_failed",
+      level: "warning",
+      code: "ROOM_UPLOAD_FILE_TOO_LARGE",
+      metadata: { contentLength, maxUploadBytes: MAX_UPLOAD_BYTES },
+    });
+    await openSessionIssue({
+      sessionId,
+      type: "IMAGE_TOO_LARGE",
+      metadata: { contentLength, maxUploadBytes: MAX_UPLOAD_BYTES },
+    });
     return NextResponse.json(
       { code: "ROOM_UPLOAD_FILE_TOO_LARGE", error: "File must be 10 MB or smaller." },
       { status: 413 },
@@ -120,6 +139,19 @@ export async function POST(
       );
     }
 
+    await trackSessionEvent({
+      sessionId,
+      source: "server",
+      eventType: "room_upload_started",
+      level: "info",
+      metadata: {
+        source: rawSource,
+        fileName: image.name,
+        fileSize: image.size,
+        fileType: image.type,
+      },
+    });
+
     try {
       const uploadedRoom = await saveRoomPreviewUploadedFile({
         file: image,
@@ -152,12 +184,68 @@ export async function POST(
       }
 
       if (err instanceof RoomPreviewUploadError) {
+        await trackSessionEvent({
+          sessionId,
+          source: "server",
+          eventType: "room_upload_failed",
+          level: "error",
+          code: err.code,
+          message: err.message,
+          metadata: {
+            error: diagnosticsErrorMetadata(err),
+            fileName: image.name,
+            fileSize: image.size,
+            fileType: image.type,
+            source: rawSource,
+          },
+        });
+        await openSessionIssue({
+          sessionId,
+          type:
+            err.code === "ROOM_UPLOAD_FILE_TOO_LARGE"
+              ? "IMAGE_TOO_LARGE"
+              : err.code === "ROOM_UPLOAD_INVALID_IMAGE" || err.code === "ROOM_UPLOAD_INVALID_MIME_TYPE"
+                ? "IMAGE_INVALID"
+                : "ROOM_UPLOAD_FAILED",
+          metadata: {
+            code: err.code,
+            fileName: image.name,
+            fileSize: image.size,
+            fileType: image.type,
+            source: rawSource,
+          },
+        });
         return NextResponse.json(
           { code: err.code, error: err.message },
           { status: err.status },
         );
       }
 
+      await trackSessionEvent({
+        sessionId,
+        source: "server",
+        eventType: "room_upload_failed",
+        level: "error",
+        code: "ROOM_UPLOAD_SAVE_FAILED",
+        message: err instanceof Error ? err.message : "Failed to save the uploaded image.",
+        metadata: {
+          error: diagnosticsErrorMetadata(err),
+          fileName: image.name,
+          fileSize: image.size,
+          fileType: image.type,
+          source: rawSource,
+        },
+      });
+      await openSessionIssue({
+        sessionId,
+        type: "ROOM_UPLOAD_FAILED",
+        metadata: {
+          fileName: image.name,
+          fileSize: image.size,
+          fileType: image.type,
+          source: rawSource,
+        },
+      });
       return NextResponse.json(
         {
           code: "ROOM_UPLOAD_SAVE_FAILED",
@@ -229,6 +317,23 @@ export async function POST(
       },
       "Missing room state after save",
     );
+    await trackSessionEvent({
+      sessionId,
+      source: "server",
+      eventType: "room_upload_failed",
+      level: "error",
+      code: "ROOM_UPLOAD_VERIFY_FAILED",
+      metadata: {
+        savedRoom: room,
+        sessionRoom: session.selectedRoom,
+        verifiedRoom: verifiedSession?.selectedRoom ?? null,
+      },
+    });
+    await openSessionIssue({
+      sessionId,
+      type: "ROOM_UPLOAD_FAILED",
+      metadata: { code: "ROOM_UPLOAD_VERIFY_FAILED", source: room.source },
+    });
     return NextResponse.json(
       {
         code: "ROOM_UPLOAD_VERIFY_FAILED",
@@ -261,6 +366,28 @@ export async function POST(
         },
       });
     }
+  });
+
+  await resolveSessionIssue({
+    sessionId,
+    type: "ROOM_UPLOAD_FAILED",
+    metadata: { source: session.selectedRoom.source },
+  });
+  await resolveSessionIssue({
+    sessionId,
+    type: "ROOM_UPLOAD_STUCK",
+    metadata: { source: session.selectedRoom.source },
+  });
+  await trackSessionEvent({
+    sessionId,
+    source: "server",
+    eventType: "room_upload_completed",
+    level: "info",
+    statusAfter: session.status,
+    metadata: {
+      source: session.selectedRoom.source,
+      demoRoomId: session.selectedRoom.demoRoomId ?? null,
+    },
   });
 
   return NextResponse.json({

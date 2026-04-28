@@ -8,6 +8,8 @@ import {
 } from "@/lib/ip-rate-limit";
 import { createRoomPreviewSession } from "@/lib/room-preview/session-service";
 import { generateSessionToken } from "@/lib/room-preview/session-token";
+import { SCREEN_TOKEN_COOKIE } from "@/lib/room-preview/cookies";
+import { isRoomPreviewRateLimitDisabled } from "@/lib/room-preview/rate-limit-bypass";
 
 const log = getLogger("sessions-api");
 
@@ -24,35 +26,47 @@ const SESSION_CREATE_WINDOW_SECONDS = 60;
 const MAX_ACTIVE_SESSIONS_PER_IP = 5;
 
 export async function POST(request: NextRequest) {
+  const rateLimitDisabled = isRoomPreviewRateLimitDisabled();
   const ip = getClientIp(request.headers);
+  const source = request.headers.get("x-room-preview-source") ?? "unknown";
+
+  console.info("[room-preview] create_session_called", {
+    existingSessionId: null,
+    route: "/api/room-preview/sessions",
+    source,
+    timestamp: new Date().toISOString(),
+  });
+  log.info({ ip, source }, "Room Preview session create request received");
 
   // ── 1. Rate limit: creation frequency ─────────────────────────────────────
-  const rateLimit = await checkIpRateLimit(ip, {
-    keyPrefix: "session-create",
-    limit: SESSION_CREATE_LIMIT,
-    windowSeconds: SESSION_CREATE_WINDOW_SECONDS,
-  });
+  if (!rateLimitDisabled) {
+    const rateLimit = await checkIpRateLimit(ip, {
+      keyPrefix: "session-create",
+      limit: SESSION_CREATE_LIMIT,
+      windowSeconds: SESSION_CREATE_WINDOW_SECONDS,
+    });
 
-  if (rateLimit.limited) {
-    log.warn({ ip }, "Session creation rate limit exceeded");
-    return NextResponse.json(
-      { error: "Too many requests. Please try again shortly." },
-      {
-        status: 429,
-        headers: { "Retry-After": String(rateLimit.retryAfterSeconds) },
-      },
-    );
-  }
+    if (rateLimit.limited) {
+      log.warn({ ip }, "Session creation rate limit exceeded");
+      return NextResponse.json(
+        { error: "Too many requests. Please try again shortly." },
+        {
+          status: 429,
+          headers: { "Retry-After": String(rateLimit.retryAfterSeconds) },
+        },
+      );
+    }
 
   // ── 2. Rate limit: concurrent active sessions per IP ──────────────────────
-  const underLimit = await checkActiveSessionsPerIp(ip, MAX_ACTIVE_SESSIONS_PER_IP);
+    const underLimit = await checkActiveSessionsPerIp(ip, MAX_ACTIVE_SESSIONS_PER_IP);
 
-  if (!underLimit) {
-    log.warn({ ip, max: MAX_ACTIVE_SESSIONS_PER_IP }, "Active session limit exceeded");
-    return NextResponse.json(
-      { error: "Too many active sessions from your network. Please wait for existing sessions to expire." },
-      { status: 429 },
-    );
+    if (!underLimit) {
+      log.warn({ ip, max: MAX_ACTIVE_SESSIONS_PER_IP }, "Active session limit exceeded");
+      return NextResponse.json(
+        { error: "Too many active sessions from your network. Please wait for existing sessions to expire." },
+        { status: 429 },
+      );
+    }
   }
 
   // ── 3. Create session ──────────────────────────────────────────────────────
@@ -63,11 +77,19 @@ export async function POST(request: NextRequest) {
 
     // Register the session against the IP's active-session tracker.
     // Non-blocking — a failure here does not roll back the created session.
-    if (session.expiresAt) {
+    if (!rateLimitDisabled && session.expiresAt) {
       await registerSessionForIp(ip, session.id, new Date(session.expiresAt).getTime());
     }
 
-    return NextResponse.json({ ...session, token }, { status: 201 });
+    const response = NextResponse.json({ ...session, token }, { status: 201 });
+    response.cookies.set(SCREEN_TOKEN_COOKIE, token, {
+      httpOnly: true,
+      secure: process.env.NODE_ENV === "production",
+      sameSite: "strict",
+      path: "/",
+      maxAge: 90 * 60,
+    });
+    return response;
   } catch (err) {
     log.error({ err }, "Failed to create session");
     return NextResponse.json(

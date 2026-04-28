@@ -27,10 +27,10 @@ export default function SessionStatePanel({
   const resolvedEyebrow = eyebrow ?? t.roomPreview.shared.eyebrow;
 
   return (
-    <div className="tour-panel w-full rounded-[32px] p-8 text-center">
-      <p className="text-xs font-semibold tracking-[0.22em] text-[#8B6914] uppercase" style={{textShadow:'0 1px 2px rgba(255,255,255,0.8)'}}>{resolvedEyebrow}</p>
-      <h1 className="font-display mt-4 text-4xl font-semibold text-[#0a1f3d]">{title}</h1>
-      <p className="mx-auto mt-4 max-w-xl text-sm leading-7 text-[#3a5472]">{description}</p>
+    <div className="tour-panel w-full rounded-3xl p-8 md:p-12 text-center animate-in fade-in duration-700">
+      <p className="text-xs font-semibold tracking-[0.22em] text-[var(--brand-cyan)] uppercase">{resolvedEyebrow}</p>
+      <h1 className="font-display mt-4 text-3xl md:text-4xl font-bold text-[var(--text-primary)] tracking-tight">{title}</h1>
+      <p className="mx-auto mt-4 max-w-xl text-base leading-7 text-[var(--text-secondary)]">{description}</p>
 
       {actions?.length ? (
         <div className="mt-8 flex flex-wrap items-center justify-center gap-3">
@@ -39,11 +39,7 @@ export default function SessionStatePanel({
               <Link
                 key={`${action.label}-${action.href}`}
                 href={action.href}
-                className={`inline-flex rounded-full px-5 py-3 text-sm font-semibold ${
-                  action.variant === "secondary"
-                    ? "border border-[rgba(0,60,113,0.20)] bg-white/70 text-[#3a5472] hover:border-[rgba(201,162,74,0.40)] hover:text-[#0a1f3d]"
-                    : "tour-button"
-                }`}
+                className={action.variant === "secondary" ? "btn-secondary px-6 py-3 text-sm" : "btn-primary px-6 py-3 text-sm"}
               >
                 {action.label}
               </Link>
@@ -52,11 +48,7 @@ export default function SessionStatePanel({
                 key={action.label}
                 type="button"
                 onClick={action.onClick}
-                className={`inline-flex rounded-full px-5 py-3 text-sm font-semibold ${
-                  action.variant === "secondary"
-                    ? "border border-[rgba(0,60,113,0.20)] bg-white/70 text-[#3a5472] hover:border-[rgba(201,162,74,0.40)] hover:text-[#0a1f3d]"
-                    : "tour-button"
-                }`}
+                className={action.variant === "secondary" ? "btn-secondary px-6 py-3 text-sm" : "btn-primary px-6 py-3 text-sm"}
               >
                 {action.label}
               </button>

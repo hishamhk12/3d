@@ -174,7 +174,7 @@ export function isCreateRoomPreviewSessionResponse(
 export function isConnectRoomPreviewSessionResponse(
   value: unknown,
 ): value is ConnectRoomPreviewSessionResponse {
-  return isRecord(value) && value.success === true;
+  return isRoomPreviewSessionResponse(value);
 }
 
 export function isSaveRoomPreviewSessionRoomResponse(

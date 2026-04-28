@@ -33,7 +33,16 @@
       "Bash(rm -rf \"c:\\\\Users\\\\hisha\\\\Downloads\\\\مجلد جديد \\(5\\)\\\\3d\\\\app\\\\api\\\\room-preview\\\\parquet-render\")",
       "Bash(mkdir -p \"c:\\\\Users\\\\hisha\\\\Downloads\\\\مجلد جديد \\(5\\)\\\\3d\\\\docs\")",
       "Bash(mv \"c:\\\\Users\\\\hisha\\\\Downloads\\\\مجلد جديد \\(5\\)\\\\3d\\\\documentation.md\" \"c:\\\\Users\\\\hisha\\\\Downloads\\\\مجلد جديد \\(5\\)\\\\3d\\\\docs\\\\documentation.md\")",
-      "Bash(mv \"c:\\\\Users\\\\hisha\\\\Downloads\\\\مجلد جديد \\(5\\)\\\\3d\\\\system-design.md\" \"c:\\\\Users\\\\hisha\\\\Downloads\\\\مجلد جديد \\(5\\)\\\\3d\\\\docs\\\\system-design.md\")"
+      "Bash(mv \"c:\\\\Users\\\\hisha\\\\Downloads\\\\مجلد جديد \\(5\\)\\\\3d\\\\system-design.md\" \"c:\\\\Users\\\\hisha\\\\Downloads\\\\مجلد جديد \\(5\\)\\\\3d\\\\docs\\\\system-design.md\")",
+      "Bash(DIRECT_URL=\"postgresql://postgres.tgclznqzhmrekvuthlnp:@Hishamhk1234@aws-1-ap-northeast-1.pooler.supabase.com:5432/postgres\" DATABASE_URL=\"postgresql://postgres.tgclznqzhmrekvuthlnp:@Hishamhk1234@aws-1-ap-northeast-1.pooler.supabase.com:5432/postgres\" npx prisma migrate deploy)",
+      "Bash(node -e \"const p=require\\('./package.json'\\); console.log\\(p.dependencies['framer-motion'] || p.devDependencies?.['framer-motion'] || 'NOT INSTALLED'\\)\")",
+      "Bash(node -e \"console.log\\(require\\('./package.json'\\).dependencies.next\\)\")",
+      "Bash(node -e \"console.log\\(require\\('./node_modules/framer-motion/package.json'\\).version\\)\")",
+      "Bash(node -e \"const fm = require\\('./node_modules/framer-motion'\\); console.log\\(Object.keys\\(fm\\).filter\\(k => ['motion','useReducedMotion','AnimatePresence','useAnimation','useMotionValue','useSpring'].includes\\(k\\)\\)\\)\")",
+      "Bash(node -e \"const fm = require\\('./node_modules/framer-motion'\\); console.log\\(['useMotionTemplate','useMotionValue','animate'].filter\\(k => k in fm\\)\\)\")",
+      "Bash(curl -s -o /dev/null -w \"%{http_code} %{time_total}s\" http://localhost:3000/api/health)",
+      "Bash(curl -s http://localhost:3000/api/health)",
+      "Bash(curl -s -w \"\\\\nTime: %{time_total}s\\\\n\" http://localhost:3000/api/health)"
     ],
     "additionalDirectories": [
       "c:\\Users\\hisha\\Downloads\\3d\\app\\api\\room-preview\\sessions\\[sessionId]",

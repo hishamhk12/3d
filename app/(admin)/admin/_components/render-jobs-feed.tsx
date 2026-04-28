@@ -45,6 +45,7 @@ function getProductName(input: unknown): string {
 const JOB_STATUS_STYLES: Record<string, string> = {
   pending: "bg-gray-800 text-gray-400",
   processing: "bg-amber-950 text-amber-300 animate-pulse",
+  stuck: "bg-red-950 text-red-200 ring-1 ring-red-700/60",
   completed: "bg-green-950 text-green-300",
   failed: "bg-red-950 text-red-300",
 };
@@ -105,7 +106,7 @@ export async function RenderJobsFeed() {
               <tr
                 key={job.id}
                 className={`hover:bg-gray-900/60 transition-colors ${
-                  job.status === "failed" ? "bg-red-950/5" : ""
+                  job.status === "failed" || job.isStuck ? "bg-red-950/5" : ""
                 }`}
               >
                 <td className="px-4 py-3">
@@ -119,7 +120,7 @@ export async function RenderJobsFeed() {
                   </span>
                 </td>
                 <td className="px-4 py-3">
-                  <JobStatusBadge status={job.status} />
+                  <JobStatusBadge status={job.isStuck ? "stuck" : job.status} />
                 </td>
                 <td className="px-4 py-3 max-w-[160px]">
                   <span className="text-gray-300 truncate block text-xs">

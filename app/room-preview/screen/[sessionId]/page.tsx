@@ -7,6 +7,7 @@ import { LOCALE_COOKIE_NAME, normalizeLocale } from "@/lib/i18n/config";
 import { dictionaries } from "@/lib/i18n/dictionaries";
 import { ROOM_PREVIEW_ROUTES } from "@/lib/room-preview/constants";
 import { SCREEN_TOKEN_COOKIE } from "@/lib/room-preview/cookies";
+import { trackSessionEvent } from "@/lib/room-preview/session-diagnostics";
 import GlassBackground from "@/components/GlassBackground";
 
 function getLocalNetworkIp() {
@@ -61,8 +62,8 @@ export default async function ScreenSessionPage({ params }: ScreenSessionPagePro
   // Using ?t= (not #t=) ensures QR scanner apps that strip URL fragments
   // still deliver a working link.
   const activatePath = token
-    ? `/api/room-preview/sessions/${sessionId}/activate?t=${encodeURIComponent(token)}`
-    : ROOM_PREVIEW_ROUTES.mobileSession(sessionId);
+    ? `/api/room-preview/sessions/${sessionId}/activate?t=${encodeURIComponent(token)}&lang=${locale}`
+    : `${ROOM_PREVIEW_ROUTES.mobileSession(sessionId)}?lang=${locale}`;
   const mobileUrl = baseUrl ? `${baseUrl}${activatePath}` : null;
 
   let qrDataUrl: string | null = null;
@@ -74,23 +75,45 @@ export default async function ScreenSessionPage({ params }: ScreenSessionPagePro
         width: 400,
         color: { dark: "#000000", light: "#ffffff" },
       });
+      await trackSessionEvent({
+        sessionId,
+        source: "screen",
+        eventType: "qr_displayed",
+        level: "info",
+        metadata: { locale, hasToken: Boolean(token) },
+      });
     } catch (err) {
       console.error("[qrcode] Server-side generation failed:", err);
     }
   }
 
   return (
-    <main className="relative min-h-screen overflow-hidden text-[#1d1d1f]">
+    <main className="dark relative min-h-screen overflow-hidden bg-[var(--bg-page)] text-[var(--text-primary)]">
       <GlassBackground />
-      <div className="mx-auto flex min-h-screen w-full max-w-[1200px] flex-col items-center justify-center gap-10 px-6 lg:flex-row lg:items-start lg:pt-24 pb-12">
-        <div className="w-full max-w-sm shrink-0 lg:sticky lg:top-24">
+      <div className="mx-auto flex min-h-screen w-full max-w-[1400px] flex-col items-center justify-center gap-12 px-8 lg:flex-row lg:items-start lg:gap-20 lg:pt-32 pb-16">
+        <div className="w-full max-w-md shrink-0 lg:sticky lg:top-32">
           {qrDataUrl ? (
-            <SessionQRCode dataUrl={qrDataUrl} alt={t.roomPreview.qr.alt} />
+            <SessionQRCode dataUrl={qrDataUrl} />
           ) : (
-            <div className="w-full rounded-[28px] border border-amber-300/40 bg-amber-400/20 backdrop-blur-md px-6 py-6 text-center shadow-lg">
-              <p className="font-bold text-[#7a3a00]">Missing NEXT_PUBLIC_BASE_URL</p>
-              <p className="mt-2 text-sm leading-6 text-[#7a3a00]/80">
-                Set NEXT_PUBLIC_BASE_URL in .env.local so the QR code can be generated.
+            <div className="w-full rounded-3xl border border-[#F1B434]/25 bg-[#F1B434]/06 backdrop-blur-xl px-8 py-8 text-center shadow-[0_20px_60px_rgba(0,0,0,0.5)]">
+              <p className="font-bold text-[#F1B434]">{t.roomPreview.screen.baseUrlMissingTitle}</p>
+              <p className="mt-2 text-sm leading-6 text-[#F1B434]/70">
+                {t.roomPreview.screen.baseUrlMissingDescription}
+              </p>
+            </div>
+          )}
+
+          {process.env.NODE_ENV === "development" && (
+            <div className="mt-4 space-y-2">
+              <a
+                href={`/api/room-preview/dev-entry?sessionId=${sessionId}&lang=${locale}`}
+                className="flex w-full items-center justify-center gap-2.5 rounded-2xl border border-dashed border-yellow-400/35 bg-yellow-400/[0.05] px-4 py-3 text-sm font-semibold text-yellow-400/75 transition-colors hover:bg-yellow-400/10 hover:text-yellow-400 hover:border-yellow-400/50"
+              >
+                <span className="inline-block h-2 w-2 rounded-full bg-yellow-400 animate-pulse" />
+                Dev — الدخول بدون QR
+              </a>
+              <p className="text-center font-mono text-[10px] text-yellow-400/40 break-all px-1">
+                session: {sessionId}
               </p>
             </div>
           )}

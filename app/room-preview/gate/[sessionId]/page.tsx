@@ -1,7 +1,6 @@
-import LanguageSwitcher from "@/components/LanguageSwitcher";
 import { GateForm } from "./_components/gate-form";
 import { cookies } from "next/headers";
-import { LOCALE_COOKIE_NAME, normalizeLocale } from "@/lib/i18n/config";
+import { isSupportedLocale, LOCALE_COOKIE_NAME, normalizeLocale } from "@/lib/i18n/config";
 import { dictionaries } from "@/lib/i18n/dictionaries";
 import { CompanyLogo } from "@/components/CompanyLogo";
 
@@ -9,6 +8,7 @@ type GatePageProps = {
   params: Promise<{ sessionId: string }>;
   searchParams: Promise<{
     error?: string;
+    lang?: string;
     role?: string;
     name?: string;
   }>;
@@ -16,10 +16,12 @@ type GatePageProps = {
 
 export default async function GatePage({ params, searchParams }: GatePageProps) {
   const { sessionId } = await params;
-  const { error, role, name } = await searchParams;
+  const { error, lang, role, name } = await searchParams;
 
   const cookieStore = await cookies();
-  const locale = normalizeLocale(cookieStore.get(LOCALE_COOKIE_NAME)?.value);
+  const locale = isSupportedLocale(lang)
+    ? lang
+    : normalizeLocale(cookieStore.get(LOCALE_COOKIE_NAME)?.value);
   const t = dictionaries[locale];
 
   const validRole =
@@ -27,37 +29,38 @@ export default async function GatePage({ params, searchParams }: GatePageProps) 
 
   return (
     <main
-      className="relative min-h-screen overflow-hidden bg-[#e8f3fc] text-[#0a1f3d]"
+      className="relative min-h-screen overflow-hidden gate-bg text-[var(--text-primary)]"
       dir={locale === "ar" ? "rtl" : "ltr"}
       lang={locale}
     >
-        <div className="mx-auto flex min-h-screen max-w-2xl flex-col px-4 py-10">
-          {/* Language switcher */}
-          <div className="flex w-full justify-end mb-8">
-            <LanguageSwitcher />
-          </div>
+      {/* Bokeh — خلف الفورم، مركّزة فوقه وتحته فقط */}
+      <div aria-hidden="true" className="gate-bokeh">
+        <span /><span /><span /><span /><span /><span />
+      </div>
 
-          {/* Card */}
-          <div className="flex-1 flex flex-col justify-center">
-            <div className="bg-white/70 backdrop-blur-sm rounded-3xl border border-[#0a1f3d]/10 p-8 shadow-sm">
-              {/* Header */}
-              <div className="text-center mb-8 flex flex-col items-center">
-                <CompanyLogo className="h-14 w-40 object-contain text-[#0a1f3d] mb-4" />
-                <p className="text-sm text-[#0a1f3d]/60 mt-1">{t.gate.subtitle}</p>
-              </div>
-
-              {/* Dynamic form */}
-              <GateForm
-                sessionId={sessionId}
-                locale={locale}
-                t={t.gate}
-                initialRole={validRole}
-                initialName={name}
-                error={error}
-              />
+      <div className="mx-auto flex min-h-screen max-w-2xl flex-col px-4 py-10">
+        <div className="flex-1 flex flex-col justify-center">
+          <div
+            className="tour-panel rounded-3xl p-8"
+            style={{ boxShadow: "var(--shadow-xl)" }}
+          >
+            {/* Header */}
+            <div className="text-center mb-8 flex flex-col items-center">
+              <CompanyLogo className="h-14 w-40 object-contain text-[var(--brand-navy)] mb-4" />
+              <p className="text-sm text-[var(--text-secondary)] mt-1">{t.gate.subtitle}</p>
             </div>
+
+            <GateForm
+              sessionId={sessionId}
+              locale={locale}
+              t={t.gate}
+              initialRole={validRole}
+              initialName={name}
+              error={error}
+            />
           </div>
         </div>
+      </div>
     </main>
   );
 }

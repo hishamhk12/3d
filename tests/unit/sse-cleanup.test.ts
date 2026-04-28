@@ -60,8 +60,10 @@ function makeStream(
   const stream = new ReadableStream({
     start(controller) {
       let closed = false;
-      let unsubscribe: (() => void) | undefined;
-      let heartbeat: ReturnType<typeof setInterval> | undefined;
+      const cleanup: {
+        heartbeat?: ReturnType<typeof setInterval>;
+        unsubscribe?: () => void;
+      } = {};
 
       const safeEnqueue = (chunk: string) => {
         if (closed) return;
@@ -75,8 +77,8 @@ function makeStream(
       const close = () => {
         if (closed) return;
         closed = true;
-        clearInterval(heartbeat);
-        unsubscribe?.();
+        clearInterval(cleanup.heartbeat);
+        cleanup.unsubscribe?.();
         request.signal.removeEventListener("abort", close);
         try { controller.close(); } catch { /* already closed */ }
       };
@@ -85,8 +87,8 @@ function makeStream(
 
       safeEnqueue("connected");
 
-      unsubscribe = subscribeRedis(sessionId, (msg) => safeEnqueue(msg));
-      heartbeat = setInterval(() => safeEnqueue("keepalive"), 60_000);
+      cleanup.unsubscribe = subscribeRedis(sessionId, (msg) => safeEnqueue(msg));
+      cleanup.heartbeat = setInterval(() => safeEnqueue("keepalive"), 60_000);
       request.signal.addEventListener("abort", close);
     },
     cancel() {

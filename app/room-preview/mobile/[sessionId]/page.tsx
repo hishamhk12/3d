@@ -1,35 +1,40 @@
 import { redirect } from "next/navigation";
-import { headers } from "next/headers";
-import LanguageSwitcher from "@/components/LanguageSwitcher";
+import { cookies, headers } from "next/headers";
 import MobileSessionClient from "@/components/room-preview/MobileSessionClient";
-import SplashScreen from "@/components/SplashScreen";
 import { getRoomPreviewMockProducts } from "@/data/room-preview/mock-products";
 import { sessionHasCompletedGate } from "@/lib/analytics/user-session-service";
 import { getLogger } from "@/lib/logger";
+import { trackSessionEvent } from "@/lib/room-preview/session-diagnostics";
 
 const log = getLogger("mobile-page");
 
 type MobileSessionPageProps = {
-  params: Promise<{
-    sessionId: string;
-  }>;
+  params: Promise<{ sessionId: string }>;
+  searchParams: Promise<{ devEntry?: string; lang?: string }>;
 };
 
-export default async function MobileSessionPage({ params }: MobileSessionPageProps) {
+export default async function MobileSessionPage({ params, searchParams }: MobileSessionPageProps) {
   const { sessionId } = await params;
+  const { devEntry, lang } = await searchParams;
+  const langQuery = lang === "ar" || lang === "en" ? `?lang=${lang}` : "";
 
-  // ── Gate check ──────────────────────────────────────────────────────────────
-  // Users must identify themselves before accessing the experience.
-  // Redirect to the gate if they haven't done so yet.
-  const gateCompleted = await sessionHasCompletedGate(sessionId);
+  const skipGateForDevEntry =
+    process.env.NODE_ENV === "development" && devEntry === "1";
+
+  const cookieStore = await cookies();
+  const gateJustCompleted = cookieStore.get(`gate_ok_${sessionId}`)?.value === "1";
+
+  const gateCompleted =
+    skipGateForDevEntry ||
+    gateJustCompleted ||
+    (await sessionHasCompletedGate(sessionId));
+
   if (!gateCompleted) {
-    redirect(`/room-preview/gate/${sessionId}`);
+    redirect(`/room-preview/gate/${sessionId}${langQuery}`);
   }
 
   const products = getRoomPreviewMockProducts();
 
-  // Log every SSR render so you can confirm in the terminal whether
-  // the phone's request is actually reaching the server.
   if (process.env.NODE_ENV === "development") {
     const reqHeaders = await headers();
     log.info({
@@ -39,20 +44,19 @@ export default async function MobileSessionPage({ params }: MobileSessionPagePro
     }, "Mobile page SSR render");
   }
 
-  return (
-    <SplashScreen>
-      <main className="relative min-h-screen overflow-hidden bg-[#e8f3fc] text-[#0a1f3d]">
-        <div className="mx-auto flex min-h-screen max-w-2xl flex-col items-center justify-center px-4 py-10">
-          <div className="mb-6 flex w-full justify-center lg:justify-end">
-            <LanguageSwitcher />
-          </div>
+  void trackSessionEvent({
+    sessionId,
+    source: "mobile",
+    eventType: "mobile_page_loaded",
+    level: "info",
+    metadata: { locale: lang ?? null },
+  });
 
-          <MobileSessionClient
-            sessionId={sessionId}
-            products={products}
-          />
-        </div>
-      </main>
-    </SplashScreen>
+  return (
+    <main className="relative min-h-screen overflow-hidden bg-[var(--bg-page)] text-[var(--text-primary)]">
+      <div className="mx-auto flex min-h-screen max-w-2xl flex-col items-center justify-center px-4 py-10">
+        <MobileSessionClient sessionId={sessionId} products={products} />
+      </div>
+    </main>
   );
 }

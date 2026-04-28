@@ -17,6 +17,7 @@ import {
   LOCALE_STORAGE_KEY,
   normalizeLocale,
 } from "@/lib/i18n/config";
+import { setLocaleCookie } from "@/lib/i18n/actions";
 import { dictionaries } from "@/lib/i18n/dictionaries";
 import type { TranslationDictionary } from "@/lib/i18n/dictionaries";
 import type { Direction, Locale } from "@/lib/i18n/types";
@@ -35,6 +36,7 @@ type I18nContextValue = {
 type I18nProviderProps = {
   children: React.ReactNode;
   initialLocale?: Locale;
+  initialLocaleCookiePresent?: boolean;
 };
 
 const I18nContext = createContext<I18nContextValue | null>(null);
@@ -73,6 +75,7 @@ function applyDocumentLocale(locale: Locale) {
 export function I18nProvider({
   children,
   initialLocale = DEFAULT_LOCALE,
+  initialLocaleCookiePresent = false,
 }: I18nProviderProps) {
   const router = useRouter();
   const [isChangingLocale, startTransition] = useTransition();
@@ -83,11 +86,13 @@ export function I18nProvider({
       typeof window !== "undefined" ? window.localStorage.getItem(LOCALE_STORAGE_KEY) : null;
     const normalizedStoredLocale = isSupportedLocale(storedLocale) ? storedLocale : null;
 
-    if (normalizedStoredLocale && normalizedStoredLocale !== locale) {
+    if (!initialLocaleCookiePresent && normalizedStoredLocale && normalizedStoredLocale !== locale) {
       // eslint-disable-next-line react-hooks/set-state-in-effect
       setLocaleState(normalizedStoredLocale);
       persistLocale(normalizedStoredLocale);
       applyDocumentLocale(normalizedStoredLocale);
+      // Also sync to the server cookie so the next SSR picks it up.
+      void setLocaleCookie(normalizedStoredLocale);
       // NOTE: router.refresh() was removed here intentionally.
       // Calling router.refresh() on locale mismatch causes Next.js to re-render
       // the full RSC tree, which remounts client components (including SplashScreen)
@@ -99,7 +104,7 @@ export function I18nProvider({
 
     persistLocale(locale);
     applyDocumentLocale(locale);
-  }, [locale, router]);
+  }, [initialLocaleCookiePresent, locale, router]);
 
   const value = useMemo<I18nContextValue>(() => {
     const normalizedLocale = normalizeLocale(locale);
@@ -121,6 +126,10 @@ export function I18nProvider({
         applyDocumentLocale(normalizedNextLocale);
         setLocaleState(normalizedNextLocale);
         startTransition(() => {
+          // Fire server action but do not await it. On LAN, Next.js might block
+          // the server action due to strict Origin checks, which would throw
+          // an error and prevent router.refresh() if awaited.
+          setLocaleCookie(normalizedNextLocale).catch(() => {});
           router.refresh();
         });
       },

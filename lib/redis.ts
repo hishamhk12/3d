@@ -19,6 +19,15 @@ if (!REDIS_FLAG_ENABLED && process.env.NODE_ENV === "development") {
   console.debug("[redis] ENABLE_REDIS=false — Redis is disabled. All calls will use safe in-process fallbacks.");
 }
 
+if (process.env.NODE_ENV === "production" && (!REDIS_FLAG_ENABLED || !REDIS_URL)) {
+  // Real-time pub/sub and rate limiting degrade silently without Redis in prod.
+  console.warn(
+    "[redis] WARNING: Redis is not configured in production. " +
+    (REDIS_URL ? "ENABLE_REDIS=false is set — remove it to enable Redis." : "Set REDIS_URL to enable Redis.") +
+    " SSE updates, render concurrency limits, and caching fall back to in-process only.",
+  );
+}
+
 /**
  * Whether Redis is available and enabled.
  * Returns false when ENABLE_REDIS=false OR REDIS_URL is not set.

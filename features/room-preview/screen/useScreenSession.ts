@@ -17,6 +17,7 @@ import {
 } from "@/lib/room-preview/session-client";
 import { createRoomPreviewSessionEventsClient } from "@/lib/room-preview/session-events-client";
 import { createRoomPreviewSessionPoller } from "@/lib/room-preview/session-polling";
+import { trackClientSessionEvent } from "@/lib/room-preview/session-diagnostics-client";
 import type { TranslationDictionary } from "@/lib/i18n/dictionaries";
 import type { RoomPreviewSession } from "@/lib/room-preview/types";
 
@@ -95,6 +96,27 @@ export function useScreenSession({ sessionId }: { sessionId: string }): UseScree
     session?.renderResult?.imageUrl && session?.status === "result_ready",
   );
 
+  useEffect(() => {
+    trackClientSessionEvent(sessionId, {
+      source: "screen",
+      eventType: "screen_loaded",
+      level: "info",
+    });
+  }, [sessionId]);
+
+  useEffect(() => {
+    trackClientSessionEvent(sessionId, {
+      source: "screen",
+      eventType: "screen_render_branch_changed",
+      level: "info",
+      statusAfter: session?.status ?? null,
+      metadata: {
+        branch: hasRenderResult ? "result" : viewState,
+        pollError: pollError !== null,
+      },
+    });
+  }, [hasRenderResult, pollError, session?.status, sessionId, viewState]);
+
   // ── Initial session load ───────────────────────────────────────────────────
   useEffect(() => {
     let active = true;
@@ -110,6 +132,13 @@ export function useScreenSession({ sessionId }: { sessionId: string }): UseScree
         if (!active) return;
         setSession(nextSession);
         setViewState("ready");
+        trackClientSessionEvent(sessionId, {
+          source: "screen",
+          eventType: "screen_received_session_update",
+          level: "info",
+          statusAfter: nextSession.status,
+          metadata: { transport: "initial_fetch" },
+        });
       } catch (loadError) {
         if (!active) return;
         const failure = getViewStateFromError(loadError, t);
@@ -138,11 +167,25 @@ export function useScreenSession({ sessionId }: { sessionId: string }): UseScree
         if (!active) return;
         setPollError(t.roomPreview.screen.realtimeInterrupted);
         setIsUsingPollingFallback(true);
+        trackClientSessionEvent(sessionId, {
+          source: "screen",
+          eventType: "screen_stale_detected",
+          level: "warning",
+          code: "SCREEN_NOT_UPDATING",
+          message: "Realtime updates interrupted; falling back to polling.",
+        });
       },
       onSessionUpdate: (nextSession) => {
         if (!active) return;
         setPollError(null);
         setSession(nextSession);
+        trackClientSessionEvent(sessionId, {
+          source: "screen",
+          eventType: "screen_received_session_update",
+          level: "info",
+          statusAfter: nextSession.status,
+          metadata: { transport: "sse" },
+        });
       },
     });
 
@@ -155,6 +198,12 @@ export function useScreenSession({ sessionId }: { sessionId: string }): UseScree
   // ── Polling fallback ───────────────────────────────────────────────────────
   useEffect(() => {
     if (viewState !== "ready" || !hasLoadedSession || !isUsingPollingFallback) return;
+
+    trackClientSessionEvent(sessionId, {
+      source: "screen",
+      eventType: "screen_polling_started",
+      level: "info",
+    });
 
     const stopPolling = createRoomPreviewSessionPoller(sessionId, {
       intervalMs: 2000,
@@ -173,6 +222,13 @@ export function useScreenSession({ sessionId }: { sessionId: string }): UseScree
       onUpdate: (nextSession) => {
         setPollError(null);
         setSession(nextSession);
+        trackClientSessionEvent(sessionId, {
+          source: "screen",
+          eventType: "screen_received_session_update",
+          level: "info",
+          statusAfter: nextSession.status,
+          metadata: { transport: "polling" },
+        });
       },
     });
 

@@ -9,6 +9,7 @@ import {
   startRenderSession,
 } from "@/lib/room-preview/session-service";
 import { executeRenderPipeline } from "@/lib/room-preview/render-service";
+import { trackSessionEvent } from "@/lib/room-preview/session-diagnostics";
 import type { SelectedProduct } from "@/lib/room-preview/types";
 
 export const maxDuration = 300;
@@ -22,6 +23,14 @@ export async function POST(
 
   const unauthorized = guardSession(request, sessionId);
   if (unauthorized) return unauthorized;
+
+  await trackSessionEvent({
+    sessionId,
+    source: "server",
+    eventType: "render_requested",
+    level: "info",
+    metadata: { testRender: true },
+  });
 
   let body: unknown;
   try {

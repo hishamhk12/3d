@@ -61,6 +61,9 @@ export function createRoomPreviewSessionPoller(
 export function pollForRenderResult(
   sessionId: string,
   timeoutMs = ROOM_PREVIEW_TIMEOUTS.RENDER_POLL_TIMEOUT_MS,
+  options?: {
+    onUpdate?: (session: RoomPreviewSession) => void;
+  },
 ): Promise<RoomPreviewSession> {
   return new Promise((resolve, reject) => {
     let stop: (() => void) | null = null;
@@ -77,6 +80,8 @@ export function pollForRenderResult(
     stop = createRoomPreviewSessionPoller(sessionId, {
       intervalMs: ROOM_PREVIEW_TIMEOUTS.RENDER_POLL_MS,
       onUpdate(session) {
+        options?.onUpdate?.(session);
+
         if (session.status === "result_ready" || session.status === "failed") {
           settle(() => resolve(session));
         }

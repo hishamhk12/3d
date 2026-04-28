@@ -42,7 +42,7 @@ const pool =
     connectionString,
     max: MAX_CONNECTIONS,
     idleTimeoutMillis: 10_000,
-    connectionTimeoutMillis: 5_000,
+    connectionTimeoutMillis: 12_000,
   });
 
 const adapter = new PrismaPg(pool);

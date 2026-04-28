@@ -5,6 +5,7 @@
   "scripts": {
     "dev": "next dev --hostname 0.0.0.0 --webpack",
     "dev:lan": "next dev --hostname 0.0.0.0",
+    "dev:ip": "node -e \"const os=require('os');const ip=Object.values(os.networkInterfaces()).flat().find(i=>i&&i.family==='IPv4'&&!i.internal);console.log('\\n  LAN IP:',ip?.address??'not found','\\n  Set NEXT_PUBLIC_BASE_URL=http://'+(ip?.address??'?')+':3000 in .env.local\\n');\"",
     "build": "prisma generate && next build",
     "start": "next start",
     "start:lan": "next start --hostname 0.0.0.0",
@@ -18,17 +19,14 @@
   "dependencies": {
     "@aws-sdk/client-s3": "^3.1029.0",
     "@google/genai": "^1.49.0",
-    "@google/generative-ai": "^0.24.1",
+    "@next/bundle-analyzer": "^16.2.4",
     "@photo-sphere-viewer/core": "^5.14.1",
     "@photo-sphere-viewer/markers-plugin": "^5.14.1",
     "@prisma/adapter-pg": "^7.6.0",
     "@prisma/client": "^7.6.0",
-    "@react-three/drei": "^10.7.7",
-    "@react-three/fiber": "^9.6.0",
     "@sentry/nextjs": "^10.48.0",
     "clsx": "^2.1.1",
     "framer-motion": "^12.38.0",
-    "gsap": "^3.15.0",
     "ioredis": "^5.10.1",
     "lucide-react": "^1.7.0",
     "next": "16.2.1",
@@ -40,7 +38,6 @@
     "react": "19.2.4",
     "react-dom": "19.2.4",
     "sharp": "^0.34.5",
-    "three": "^0.184.0",
     "zod": "^4.3.6"
   },
   "devDependencies": {
@@ -50,7 +47,6 @@
     "@types/qrcode": "^1.5.6",
     "@types/react": "^19",
     "@types/react-dom": "^19",
-    "@types/three": "^0.184.0",
     "@vitest/coverage-v8": "^4.1.4",
     "eslint": "^9",
     "eslint-config-next": "16.2.1",

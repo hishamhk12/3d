@@ -9,6 +9,11 @@ import {
   type SessionStatusGroup,
 } from "@/lib/room-preview/session-status";
 import type { RoomPreviewSessionStatus } from "@/lib/room-preview/types";
+import {
+  getRenderJobStuckThresholdMs,
+  isRenderJobStuck,
+  markStuckRenderJobsAsFailed,
+} from "@/lib/room-preview/render-job-cleanup";
 
 export type { SessionStatusGroup } from "@/lib/room-preview/session-status";
 
@@ -149,14 +154,21 @@ export type AdminRenderJob = {
   id: string;
   sessionId: string;
   status: string;
+  isStuck: boolean;
+  stuckThresholdMs: number;
   input: unknown;
   result: unknown;
+  failureReason: string | null;
   durationMs: number;
   createdAt: string;
   updatedAt: string;
 };
 
 export async function getAdminRenderJobs(): Promise<AdminRenderJob[]> {
+  await markStuckRenderJobsAsFailed();
+
+  const now = new Date();
+  const stuckThresholdMs = getRenderJobStuckThresholdMs();
   const rows = await prisma.renderJob.findMany({
     orderBy: { createdAt: "desc" },
     take: 50,
@@ -166,15 +178,22 @@ export async function getAdminRenderJobs(): Promise<AdminRenderJob[]> {
       status: true,
       input: true,
       result: true,
+      failureReason: true,
       createdAt: true,
       updatedAt: true,
     },
   });
 
-  return rows.map((r) => ({
-    ...r,
-    durationMs: r.updatedAt.getTime() - r.createdAt.getTime(),
-    createdAt: r.createdAt.toISOString(),
-    updatedAt: r.updatedAt.toISOString(),
-  }));
+  return rows.map((r) => {
+    const isStuck = isRenderJobStuck(r, now, stuckThresholdMs);
+
+    return {
+      ...r,
+      isStuck,
+      stuckThresholdMs,
+      durationMs: r.updatedAt.getTime() - r.createdAt.getTime(),
+      createdAt: r.createdAt.toISOString(),
+      updatedAt: r.updatedAt.toISOString(),
+    };
+  });
 }

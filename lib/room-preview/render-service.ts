@@ -27,6 +27,12 @@ import type {
 import { isFloorMaterialProduct } from "@/lib/room-preview/validators";
 import { getLogger } from "@/lib/logger";
 import { trackEvent, getUserSessionIdForSession } from "@/lib/analytics/event-tracker";
+import {
+  diagnosticsErrorMetadata,
+  openSessionIssue,
+  resolveSessionIssue,
+  trackSessionEvent,
+} from "@/lib/room-preview/session-diagnostics";
 
 const log = getLogger("render-service");
 
@@ -44,6 +50,17 @@ async function persistSessionTransition(nextSession: RoomPreviewSession) {
     type: "session_updated",
     session: updatedSession,
   });
+
+  if (nextSession.status !== updatedSession.status) {
+    await trackSessionEvent({
+      sessionId: updatedSession.id,
+      source: "renderer",
+      eventType: "session_status_changed",
+      level: "info",
+      statusAfter: updatedSession.status,
+      metadata: { transition: "render_pipeline" },
+    });
+  }
 
   return updatedSession;
 }
@@ -112,6 +129,14 @@ async function runRoomPreviewRenderPipeline(sessionId: string) {
       session,
     });
 
+    await trackSessionEvent({
+      sessionId,
+      source: "renderer",
+      eventType: "render_started",
+      level: "info",
+      statusAfter: session.status,
+    });
+
     const input = buildRenderJobInput(session);
     const inputHash =
       input.room.imageUrl && input.product.id
@@ -130,6 +155,14 @@ async function runRoomPreviewRenderPipeline(sessionId: string) {
 
     await updateRenderJob(createdJob.id, {
       status: "processing",
+    });
+
+    await trackSessionEvent({
+      sessionId,
+      source: "renderer",
+      eventType: "render_job_processing",
+      level: "info",
+      metadata: { renderJobId: createdJob.id },
     });
 
     const semaphore = await acquireGeminiSlot();
@@ -158,6 +191,28 @@ async function runRoomPreviewRenderPipeline(sessionId: string) {
     await updateRenderJob(createdJob.id, {
       result,
       status: "completed",
+    });
+
+    await resolveSessionIssue({
+      sessionId,
+      type: "RENDER_FAILED",
+      metadata: { renderJobId: createdJob.id },
+    });
+    await resolveSessionIssue({
+      sessionId,
+      type: "RENDER_TIMEOUT",
+      metadata: { renderJobId: createdJob.id },
+    });
+    await trackSessionEvent({
+      sessionId,
+      source: "renderer",
+      eventType: "render_completed",
+      level: "info",
+      statusAfter: "result_ready",
+      metadata: {
+        renderJobId: createdJob.id,
+        modelName: composedPreview.modelName,
+      },
     });
 
     after(async () => {
@@ -194,6 +249,23 @@ async function runRoomPreviewRenderPipeline(sessionId: string) {
     }
 
     await markSessionAsFailed(sessionId).catch(() => undefined);
+    await openSessionIssue({
+      sessionId,
+      type: "RENDER_FAILED",
+      metadata: {
+        renderJobId,
+        error: diagnosticsErrorMetadata(err),
+      },
+    });
+    await trackSessionEvent({
+      sessionId,
+      source: "renderer",
+      eventType: "render_failed",
+      level: "error",
+      code: "RENDER_FAILED",
+      message: err instanceof Error ? err.message : String(err),
+      metadata: { renderJobId },
+    });
     await decrementRenderCount(sessionId).catch((error) => {
       log.error({ err: error, sessionId }, "Failed to roll back render count after pipeline failure");
     });

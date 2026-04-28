@@ -1,5 +1,6 @@
 "use client";
 
+import { useEffect, useState } from "react";
 import Image from "next/image";
 import { LoaderCircle } from "lucide-react";
 import { useI18n } from "@/lib/i18n/provider";
@@ -31,17 +32,15 @@ function formatCountdown(seconds: number): string {
 function ResetProgressBar({
   remaining,
   total,
-  colorClass = "bg-[#003C71]",
 }: {
   remaining: number;
   total: number;
-  colorClass?: string;
 }) {
   const pct = total > 0 ? Math.max(0, Math.min(100, (remaining / total) * 100)) : 0;
   return (
-    <div className="mt-3 h-1.5 w-full overflow-hidden rounded-full bg-black/10">
+    <div className="mt-3 h-2 w-full overflow-hidden rounded-full bg-white/10">
       <div
-        className={`h-full rounded-full transition-all duration-1000 ease-linear ${colorClass}`}
+        className={`h-full rounded-full transition-all duration-1000 ease-linear animate-pulse bg-gradient-to-r from-cyan-400 to-teal-400`}
         style={{ width: `${pct}%` }}
       />
     </div>
@@ -75,6 +74,13 @@ function getSessionHelperMessage(
 
 // ─── Props ────────────────────────────────────────────────────────────────────
 
+function getRenderingStageMessage(seconds: number, t: TranslationDictionary) {
+  if (seconds >= 45) return t.roomPreview.screen.renderingStages.finishing;
+  if (seconds >= 25) return t.roomPreview.screen.renderingStages.qualityRetry;
+  if (seconds >= 10) return t.roomPreview.screen.renderingStages.qualityCheck;
+  return t.roomPreview.screen.renderingStages.started;
+}
+
 interface StatusPanelProps {
   session: RoomPreviewSession;
   hasSelectedProduct: boolean;
@@ -98,12 +104,31 @@ export default function StatusPanel({
 }: StatusPanelProps) {
   const { dir, formatMessage, locale, t } = useI18n();
   const sectionAlignClass = dir === "rtl" ? "text-right" : "text-left";
+  const [nowMs, setNowMs] = useState(() => Date.now());
 
   const selectedProduct  = session.selectedProduct;
   const renderResult     = session.renderResult;
   const hasRenderResult  = Boolean(renderResult?.imageUrl && session.status === "result_ready");
   const statusMessage    = getScreenStatusMessage(session.status, t);
   const helperMessage    = getSessionHelperMessage(session, hasSelectedProduct, hasSelectedRoom, t);
+  const renderingStartedAtMs = Date.parse(session.updatedAt);
+  const renderingSeconds =
+    session.status === "rendering" && Number.isFinite(renderingStartedAtMs)
+      ? Math.max(0, Math.floor((nowMs - renderingStartedAtMs) / 1000))
+      : 0;
+  const renderingStageMessage = getRenderingStageMessage(renderingSeconds, t);
+
+  useEffect(() => {
+    if (session.status !== "rendering") {
+      return;
+    }
+
+    const interval = window.setInterval(() => {
+      setNowMs(Date.now());
+    }, 1000);
+
+    return () => window.clearInterval(interval);
+  }, [session.status]);
 
   const localizedProductType = getProductTypeLabel(selectedProduct?.productType ?? null, locale);
   const localizedBarcode = selectedProduct?.barcode
@@ -115,32 +140,49 @@ export default function StatusPanel({
       })
     : null;
 
+  const statusColors: Record<string, string> = {
+    waiting_mobile: "border-blue-500/30 bg-blue-500/5",
+    mobile_connected: "border-cyan-500/30 bg-cyan-500/5",
+    room_selected: "border-cyan-500/30 bg-cyan-500/5",
+    product_selected: "border-cyan-500/30 bg-cyan-500/5",
+    ready_to_render: "border-cyan-500/30 bg-cyan-500/5",
+    rendering: "border-purple-500/40 bg-gradient-to-br from-purple-500/10 via-white/5 to-white/10",
+    result_ready: "border-green-500/30 bg-green-500/5",
+    failed: "border-rose-500/30 bg-rose-500/5",
+    expired: "border-gray-500/30 bg-gray-500/5",
+  };
+  const statusBorderClass = statusColors[session.status] || statusColors.waiting_mobile;
+
   return (
-    <div className={`mt-0 w-full rounded-[32px] border border-[rgba(255,255,255,0.8)] bg-white/75 backdrop-blur-md px-6 py-8 md:px-8 ${sectionAlignClass} shadow-xl`}>
-      <p className="text-sm font-semibold tracking-[0.18em] text-[#003C71] uppercase" style={{ textShadow: "0 1px 1px rgba(255,255,255,0.7)" }}>
+    <div className={`mt-0 w-full rounded-3xl border border-[var(--border)] bg-[var(--bg-surface)] backdrop-blur-xl p-8 md:p-12 ${sectionAlignClass} shadow-[var(--shadow-xl)] animate-in fade-in duration-700 ${statusBorderClass}`}>
+      <p className="text-sm text-[var(--text-muted)] uppercase tracking-widest">
         {t.roomPreview.screen.sessionStatus}
       </p>
-      <p className="mt-4 text-2xl font-semibold text-[#1d1d1f] tracking-tight">{statusMessage}</p>
+      <p className="mt-4 text-3xl md:text-4xl font-bold text-[var(--text-primary)] tracking-tight">{statusMessage}</p>
 
       {helperMessage ? (
-        <p className="mt-2 text-sm text-[#003C71]">{helperMessage}</p>
+        <p className="mt-2 text-base text-[var(--text-secondary)]">{helperMessage}</p>
       ) : null}
 
       {session.status === "rendering" ? (
-        <div className="mt-5 rounded-[24px] border border-[rgba(255,255,255,0.6)] bg-[rgba(0,60,113,0.15)] px-4 py-4 text-sm text-[#003C71]">
+        <div className="mt-6 rounded-2xl border border-cyan-400/20 bg-cyan-400/10 px-5 py-4 text-base text-cyan-100">
           <div className="flex items-center gap-3">
-            <LoaderCircle className="size-4 animate-spin" style={{ color: "#003C71" }} />
-            {t.roomPreview.screen.renderingNow}
+            <LoaderCircle className="size-5 animate-spin text-cyan-300" />
+            <span className="animate-pulse">{t.roomPreview.screen.renderingNow}</span>
+          </div>
+          <p className="mt-3 text-sm leading-6 text-white/68">{renderingStageMessage}</p>
+          <div className="mt-4 h-1.5 w-full overflow-hidden rounded-full bg-white/10">
+            <div className="rendering-wait-bar h-full w-1/3 rounded-full bg-gradient-to-r from-transparent via-cyan-200 to-transparent" />
           </div>
         </div>
       ) : null}
 
       {session.status === "failed" ? (
-        <div className="mt-5 rounded-[24px] border border-rose-400/30 bg-[rgba(155,50,89,0.08)] px-4 py-4 text-sm text-[#7a1a3a]">
+        <div className="mt-6 rounded-2xl border border-rose-500/20 bg-rose-500/10 px-5 py-4 text-base text-rose-200">
           <p>{t.roomPreview.screen.pipelineFailed}</p>
           {resetCountdown !== null ? (
             <>
-              <p className="mt-2 text-xs text-[#7a1a3a]/70">
+              <p className="mt-3 text-sm text-rose-200/70">
                 {locale === "ar"
                   ? `العودة للبداية خلال ${formatCountdown(resetCountdown)} ثانية`
                   : `Returning to start in ${formatCountdown(resetCountdown)}s`}
@@ -148,7 +190,6 @@ export default function StatusPanel({
               <ResetProgressBar
                 remaining={resetCountdown}
                 total={Math.round(SCREEN_FAILED_RESET_MS / 1000)}
-                colorClass="bg-[#7a1a3a]/50"
               />
             </>
           ) : null}
@@ -156,8 +197,8 @@ export default function StatusPanel({
       ) : null}
 
       {idleCountdown !== null && !session.mobileConnected ? (
-        <div className="mt-3">
-          <p className="text-xs text-[#003C71]/50 text-center">
+        <div className="mt-5">
+          <p className="text-sm text-[var(--text-muted)] text-center">
             {locale === "ar"
               ? `إعادة التشغيل تلقائياً خلال ${formatCountdown(idleCountdown)}`
               : `Auto-reset in ${formatCountdown(idleCountdown)}`}
@@ -165,20 +206,17 @@ export default function StatusPanel({
           <ResetProgressBar
             remaining={idleCountdown}
             total={Math.round(SCREEN_IDLE_RESET_MS / 1000)}
-            colorClass="bg-[#003C71]/30"
           />
         </div>
       ) : null}
 
-      <div className="mt-8 grid grid-cols-1 gap-6 sm:grid-cols-2 lg:gap-8">
+      <div className="mt-10 grid grid-cols-1 gap-8 sm:grid-cols-2 lg:gap-10">
         {(session.selectedRoom?.imageUrl || hasSelectedProduct) ? (
           <>
             {session.selectedRoom?.imageUrl ? (
-              <div className="w-full rounded-[24px] border border-[rgba(255,255,255,0.8)] bg-white/85 backdrop-blur-md p-5 shadow-sm transition-all hover:bg-white/95">
-                <p className="text-base font-semibold text-[#1d1d1f]">
-                  {t.roomPreview.shared.selectedRoomThumbnail}
-                </p>
-                <div className="relative mt-5 aspect-[4/3] w-full overflow-hidden rounded-[20px] border border-[rgba(0,60,113,0.15)] bg-white/40 shadow-inner">
+              <div className="w-full rounded-2xl border border-[var(--border)] bg-[var(--bg-surface-2)] p-6 shadow-lg transition-transform hover:scale-[1.02] duration-300">
+                <p className="text-sm text-[var(--text-muted)] uppercase tracking-wider mb-3">صورة الغرفة</p>
+                <div className="relative aspect-[4/3] w-full overflow-hidden rounded-xl border border-[var(--border)] shadow-inner">
                   <Image
                     src={session.selectedRoom.imageUrl}
                     alt={t.roomPreview.shared.selectedRoomThumbnail}
@@ -191,23 +229,26 @@ export default function StatusPanel({
             ) : <div />}
 
             {hasSelectedProduct ? (
-              <div className="w-full rounded-[24px] border border-[rgba(255,255,255,0.8)] bg-white/85 backdrop-blur-md p-5 shadow-sm transition-all hover:bg-white/95">
-                <p className="text-base font-semibold text-[#1d1d1f]">{t.roomPreview.shared.selectedItem}</p>
-                <p className="mt-2 text-xl font-bold text-[#003C71]">{selectedProduct?.name}</p>
-                {localizedProductType ? (
-                  <p className="mt-1 text-sm font-medium text-[#4a4a52]">{localizedProductType}</p>
-                ) : null}
-                {localizedBarcode ? (
-                  <p className="mt-1 text-xs text-[#7a9ab5]">{localizedBarcode}</p>
-                ) : null}
-                <div className="relative mt-4 aspect-[4/3] w-full overflow-hidden rounded-[20px] border border-[rgba(0,60,113,0.15)] bg-white/40 shadow-inner">
-                  <Image
-                    src={selectedProduct?.imageUrl ?? ""}
-                    alt={selectedProduct?.name ?? t.roomPreview.shared.selectedProductThumbnail}
-                    fill
-                    sizes="(max-width: 640px) 100vw, 50vw"
-                    className="object-cover"
-                  />
+              <div className="w-full rounded-2xl border border-[var(--border)] bg-[var(--bg-surface-2)] p-6 shadow-lg transition-transform hover:scale-[1.02] duration-300 relative overflow-hidden">
+                <div className="absolute inset-0 bg-gradient-to-br from-[var(--brand-cyan)]/[0.04] to-transparent z-0 pointer-events-none" />
+                <div className="relative z-10 flex flex-col h-full">
+                  <p className="text-sm text-[var(--text-muted)] uppercase tracking-wider mb-2">العنصر المختار</p>
+                  <p className="text-2xl font-bold text-[var(--text-primary)]">{selectedProduct?.name}</p>
+                  {localizedProductType ? (
+                    <p className="mt-1 text-base text-[var(--text-secondary)]">{localizedProductType}</p>
+                  ) : null}
+                  {localizedBarcode ? (
+                    <p className="mt-1 text-sm text-[var(--text-muted)]">{localizedBarcode}</p>
+                  ) : null}
+                  <div className="relative mt-5 aspect-[4/3] w-full overflow-hidden rounded-xl border border-[var(--border)] shadow-inner mt-auto">
+                    <Image
+                      src={selectedProduct?.imageUrl ?? ""}
+                      alt={selectedProduct?.name ?? t.roomPreview.shared.selectedProductThumbnail}
+                      fill
+                      sizes="(max-width: 640px) 100vw, 50vw"
+                      className="object-cover"
+                    />
+                  </div>
                 </div>
               </div>
             ) : <div />}
@@ -215,12 +256,12 @@ export default function StatusPanel({
         ) : null}
 
         {hasRenderResult ? (
-          <div className="col-span-1 sm:col-span-2 mt-2 w-full rounded-[28px] border border-emerald-500/30 bg-[rgba(108,194,74,0.12)] p-6 shadow-sm">
-            <p className="text-base font-bold text-[#1d1d1f]">{t.roomPreview.shared.renderedPreview}</p>
+          <div className="col-span-1 sm:col-span-2 mt-4 w-full rounded-2xl border border-emerald-500/20 bg-emerald-500/10 p-8 shadow-lg">
+            <p className="text-lg font-bold text-[var(--text-primary)]">{t.roomPreview.shared.renderedPreview}</p>
             {localizedCompletedAt ? (
-              <p className="mt-1.5 text-sm font-medium text-[#1a6e2a]">{localizedCompletedAt}</p>
+              <p className="mt-2 text-base text-emerald-300/80">{localizedCompletedAt}</p>
             ) : null}
-            <div className="relative mt-5 aspect-[16/9] w-full overflow-hidden rounded-[24px] border border-emerald-600/20 bg-black/5 shadow-inner">
+            <div className="relative mt-6 aspect-[16/9] w-full overflow-hidden rounded-xl border border-emerald-500/25 shadow-inner">
               <Image
                 src={renderResult?.imageUrl ?? ""}
                 alt={t.roomPreview.shared.renderedPreview}
@@ -230,8 +271,8 @@ export default function StatusPanel({
               />
             </div>
             {resetCountdown !== null ? (
-              <div className="mt-5 mx-auto max-w-sm">
-                <p className="text-sm font-semibold text-[#1a6e2a] text-center">
+              <div className="mt-8 mx-auto max-w-sm">
+                <p className="text-base text-emerald-300 text-center mb-3">
                   {locale === "ar"
                     ? `جلسة جديدة خلال ${formatCountdown(resetCountdown)} ثانية`
                     : `New session starting in ${formatCountdown(resetCountdown)}s`}
@@ -239,7 +280,6 @@ export default function StatusPanel({
                 <ResetProgressBar
                   remaining={resetCountdown}
                   total={Math.round(SCREEN_RESULT_RESET_MS / 1000)}
-                  colorClass="bg-[#1a6e2a]"
                 />
               </div>
             ) : null}
@@ -248,13 +288,13 @@ export default function StatusPanel({
       </div>
 
       {pollError ? (
-        <div className="mt-4 rounded-[20px] border border-orange-400/30 bg-[rgba(250,70,22,0.08)] px-4 py-3 text-sm text-[#7a2800]">
-          <p>{t.roomPreview.screen.pollFailedTitle}</p>
-          <p className="mt-1 text-[#5a3000]">{pollError}</p>
+        <div className="mt-6 rounded-2xl border border-orange-500/30 bg-orange-500/10 px-5 py-4 text-base text-orange-200">
+          <p className="font-semibold">{t.roomPreview.screen.pollFailedTitle}</p>
+          <p className="mt-2 text-orange-200/80">{pollError}</p>
           <button
             type="button"
             onClick={onRetry}
-            className="tour-button mt-3 inline-flex rounded-full px-4 py-2 text-xs font-semibold"
+            className="btn-secondary mt-4 inline-flex px-6 py-2.5 text-sm"
           >
             {t.common.actions.retry}
           </button>

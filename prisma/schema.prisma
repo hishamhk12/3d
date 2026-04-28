@@ -27,38 +27,40 @@ model Screen {
   createdAt    DateTime  @default(now())
   updatedAt    DateTime  @updatedAt
 
-  sessions     RoomPreviewSession[]
+  sessions RoomPreviewSession[]
 }
 
 // ─── Room Preview ─────────────────────────────────────────────────────────────
 
 model RoomPreviewSession {
-  id              String    @id @default(cuid())
+  id              String  @id @default(cuid())
   status          String
-  mobileConnected Boolean   @default(false)
-  renderCount     Int       @default(0)
+  mobileConnected Boolean @default(false)
+  renderCount     Int     @default(0)
 
   selectedRoom    Json?
   selectedProduct Json?
   renderResult    Json?
 
-  expiresAt       DateTime?
+  expiresAt DateTime?
 
-  createdAt       DateTime  @default(now())
-  updatedAt       DateTime  @updatedAt
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 
   /// Which physical screen created this session. Null for unregistered screens.
-  screenId        String?
-  screen          Screen?   @relation(fields: [screenId], references: [id])
+  screenId String?
+  screen   Screen? @relation(fields: [screenId], references: [id])
 
   /// SHA-256(roomImageUrl::productId) of the last successful render.
   /// Used to return a cached result when the customer re-renders with the same inputs.
-  lastRenderHash  String?
+  lastRenderHash String?
 
-  userSessionId   String?   @unique
-  userSession     UserSession? @relation(fields: [userSessionId], references: [id])
+  userSessionId String?      @unique
+  userSession   UserSession? @relation(fields: [userSessionId], references: [id])
 
-  renderJobs      RenderJob[]
+  renderJobs    RenderJob[]
+  sessionEvents SessionEvent[]
+  sessionIssues SessionIssue[]
 
   @@index([status])
   @@index([expiresAt])
@@ -67,12 +69,13 @@ model RoomPreviewSession {
 }
 
 model RenderJob {
-  id        String   @id @default(cuid())
+  id        String @id @default(cuid())
   sessionId String
   status    String
 
-  input     Json
-  result    Json?
+  input         Json
+  result        Json?
+  failureReason String?
 
   /// SHA-256(roomImageUrl::productId) — used for budget counting and audit.
   inputHash String?
@@ -80,9 +83,56 @@ model RenderJob {
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
-  session   RoomPreviewSession @relation(fields: [sessionId], references: [id], onDelete: Cascade)
+  session RoomPreviewSession @relation(fields: [sessionId], references: [id], onDelete: Cascade)
 
   @@index([sessionId, createdAt])
+}
+
+model SessionEvent {
+  id           String   @id @default(cuid())
+  sessionId    String
+  timestamp    DateTime @default(now())
+  source       String
+  eventType    String
+  level        String   @default("info")
+  statusBefore String?
+  statusAfter  String?
+  code         String?
+  message      String?
+  metadata     Json?
+
+  session RoomPreviewSession @relation(fields: [sessionId], references: [id], onDelete: Cascade)
+
+  @@index([sessionId, timestamp])
+  @@index([eventType])
+  @@index([level])
+  @@index([source])
+  @@map("session_events")
+}
+
+model SessionIssue {
+  id                 String   @id @default(cuid())
+  sessionId          String
+  issueType          String
+  dedupeKey          String?  @unique
+  severity           String
+  status             String   @default("open")
+  userVisible        Boolean  @default(false)
+  customerMessageKey String?
+  adminMessage       String
+  recommendedAction  String?
+  firstSeenAt        DateTime @default(now())
+  lastSeenAt         DateTime @default(now())
+  count              Int      @default(1)
+  metadata           Json?
+
+  session RoomPreviewSession @relation(fields: [sessionId], references: [id], onDelete: Cascade)
+
+  @@index([sessionId, status])
+  @@index([issueType])
+  @@index([severity])
+  @@index([lastSeenAt])
+  @@map("session_issues")
 }
 
 // ─── User Identity (Pre-Access Gate) ─────────────────────────────────────────
@@ -102,8 +152,8 @@ model UserSession {
   ip           String?
   createdAt    DateTime @default(now())
 
-  roomSession  RoomPreviewSession?
-  events       Event[]
+  roomSession RoomPreviewSession?
+  events      Event[]
 
   @@index([role])
   @@index([createdAt])
@@ -127,7 +177,7 @@ model Event {
   metadata      Json?
   createdAt     DateTime @default(now())
 
-  userSession   UserSession @relation(fields: [userSessionId], references: [id], onDelete: Cascade)
+  userSession UserSession @relation(fields: [userSessionId], references: [id], onDelete: Cascade)
 
   @@index([userSessionId])
   @@index([sessionId])

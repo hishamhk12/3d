@@ -204,38 +204,34 @@ export function getRoomPreviewErrorLogDetails(error: unknown) {
   });
 }
 
-/**
- * Ask the server to store the session token in an HttpOnly cookie so it is
- * never exposed in the URL, browser history, or proxy logs.
- *
- * The server verifies the token is valid for the given sessionId before
- * writing the cookie — an invalid token is rejected with 400.
- *
- * Throws `RoomPreviewRequestError` on failure.
- */
-export async function storeScreenSessionToken(
-  sessionId: string,
-  token: string,
-): Promise<void> {
-  const response = await fetch(ROOM_PREVIEW_ROUTES.screenTokenApi(sessionId), {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ token }),
-    cache: "no-store",
-  });
 
-  if (!response.ok) {
-    throw new RoomPreviewRequestError(
-      "server",
-      "Could not store session token securely. Please retry.",
-      { status: response.status },
-    );
-  }
-}
+export type RoomPreviewSessionCreateSource =
+  | "hero_try_button"
+  | "screen_launcher"
+  | "dev_entry"
+  | "mobile_gate"
+  | "unknown";
 
-export async function createRoomPreviewSession(screenToken?: string) {
-  const headers: Record<string, string> = {};
+export async function createRoomPreviewSession(
+  screenToken?: string,
+  options?: {
+    existingSessionId?: string | null;
+    source?: RoomPreviewSessionCreateSource;
+  },
+) {
+  const source = options?.source ?? "unknown";
+  const existingSessionId = options?.existingSessionId ?? null;
+  const headers: Record<string, string> = {
+    "x-room-preview-source": source,
+  };
   if (screenToken) headers["x-screen-token"] = screenToken;
+
+  console.info("[room-preview] create_session_called", {
+    existingSessionId,
+    route: ROOM_PREVIEW_ROUTES.sessionsApi,
+    source,
+    timestamp: new Date().toISOString(),
+  });
 
   const data = await requestRoomPreviewJson(
     ROOM_PREVIEW_ROUTES.sessionsApi,
@@ -253,16 +249,12 @@ export async function createRoomPreviewSession(screenToken?: string) {
     "The server did not return a valid session.",
   );
 
-  // The server also returns a `token` field alongside the session.
   const token =
     typeof (data as Record<string, unknown>).token === "string"
       ? ((data as Record<string, unknown>).token as string)
       : undefined;
 
-  return {
-    sessionId: session.id,
-    token,
-  } satisfies CreateRoomPreviewSessionResponse;
+  return { sessionId: session.id, token } satisfies CreateRoomPreviewSessionResponse;
 }
 
 export async function fetchRoomPreviewSession(sessionId: string) {

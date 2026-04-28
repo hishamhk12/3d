@@ -2,6 +2,13 @@ import "server-only";
 
 import type { FloorQuad } from "@/lib/room-preview/types";
 
+/**
+ * Bump this whenever the prompt structure changes in a way that would make
+ * old and new render outputs incompatible. Stored on each render job so
+ * A/B comparisons and rollbacks are auditable.
+ */
+export const PROMPT_VERSION = "gemini-floor-v3";
+
 // ─── Types ────────────────────────────────────────────────────────────────────
 
 export interface FloorRenderPromptV2Input {
@@ -20,6 +27,14 @@ export interface FloorRenderPromptV2Input {
 export const SENTINEL_FLOOR_NOT_VISIBLE = "FLOOR_NOT_VISIBLE";
 export const SENTINEL_MATERIAL_UNCLEAR  = "MATERIAL_UNCLEAR";
 
+/**
+ * Strip characters that could break prompt structure or enable injection.
+ * Caps length at 80 characters; product names longer than that add no value.
+ */
+export function sanitizeProductName(name: string): string {
+  return name.trim().slice(0, 80).replace(/["\n\r\t]/g, " ");
+}
+
 // ─── Prompt builder ───────────────────────────────────────────────────────────
 
 /**
@@ -33,6 +48,8 @@ export const SENTINEL_MATERIAL_UNCLEAR  = "MATERIAL_UNCLEAR";
  *  - QUALITY CHECK section acts as an implicit self-review step before output.
  */
 export function buildFloorRenderPromptV2(input: FloorRenderPromptV2Input): string {
+  void input;
+
   return `Replace ONLY the visible FLOOR surface in the provided room image with the selected parquet product texture/reference.
 
 OUTPUT REQUIREMENTS:
@@ -79,4 +96,24 @@ SUCCESS CONDITION:
 - The final image must clearly show distinct parquet planks with visible natural seams and realistic board structure.
 
 If no floor is visible, return exactly: ${SENTINEL_FLOOR_NOT_VISIBLE}`;
+}
+
+/**
+ * Central render-prompt dispatch. This file is the single prompt source for
+ * room-preview rendering.
+ */
+export function buildRenderPrompt(
+  productType: string | null,
+  productName: string | null,
+  floorQuad?: FloorQuad | null,
+): string {
+  if (productType === "floor_material") {
+    const cleanedName = productName ? sanitizeProductName(productName) : null;
+    return buildFloorRenderPromptV2({
+      productName: cleanedName && cleanedName.length > 0 ? cleanedName : null,
+      floorPolygon: floorQuad ?? null,
+    });
+  }
+
+  throw new Error(`Unsupported product type: ${String(productType)}`);
 }

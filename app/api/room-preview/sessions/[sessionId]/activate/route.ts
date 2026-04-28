@@ -1,8 +1,10 @@
-import { type NextRequest, NextResponse } from "next/server";
+import { type NextRequest, NextResponse, after } from "next/server";
 import { getLogger } from "@/lib/logger";
+import { isSupportedLocale, LOCALE_COOKIE_NAME } from "@/lib/i18n/config";
 import { verifySessionToken } from "@/lib/room-preview/session-token";
 import { ROOM_PREVIEW_ROUTES } from "@/lib/room-preview/constants";
 import { MOBILE_TOKEN_COOKIE } from "@/lib/room-preview/cookies";
+import { trackSessionEvent } from "@/lib/room-preview/session-diagnostics";
 
 const log = getLogger("activate-mobile-api");
 
@@ -21,6 +23,23 @@ function cookieOptions(env: string | undefined) {
     path: "/",
     maxAge: COOKIE_MAX_AGE_SECONDS,
   };
+}
+
+function localeCookieOptions(env: string | undefined) {
+  return {
+    secure: env === "production",
+    sameSite: "lax" as const,
+    path: "/",
+    maxAge: 60 * 60 * 24 * 365,
+  };
+}
+
+function setLocaleFromRequest(response: NextResponse, request: NextRequest) {
+  const locale = request.nextUrl.searchParams.get("lang");
+
+  if (isSupportedLocale(locale)) {
+    response.cookies.set(LOCALE_COOKIE_NAME, locale, localeCookieOptions(process.env.NODE_ENV));
+  }
 }
 
 /**
@@ -47,12 +66,27 @@ export async function GET(request: NextRequest, { params }: RouteParams) {
   if (!token || !verifySessionToken(token, sessionId)) {
     log.warn({ sessionId }, "Rejected invalid mobile activation token (GET)");
     const dest = new URL(`/room-preview/gate/${sessionId}?error=invalid_session`, origin);
-    return NextResponse.redirect(dest, 302);
+    const response = NextResponse.redirect(dest, 302);
+    setLocaleFromRequest(response, request);
+    return response;
   }
 
   const dest = new URL(ROOM_PREVIEW_ROUTES.mobileSession(sessionId), origin);
   const response = NextResponse.redirect(dest, 302);
   response.cookies.set(MOBILE_TOKEN_COOKIE, token, cookieOptions(process.env.NODE_ENV));
+  setLocaleFromRequest(response, request);
+
+  after(() => trackSessionEvent({
+    sessionId,
+    source: "server",
+    eventType: "qr_opened",
+    level: "info",
+    metadata: {
+      host,
+      method: "GET",
+      userAgent: request.headers.get("user-agent") ?? null,
+    },
+  }));
 
   log.info({ sessionId, host }, "Mobile activated via QR (GET)");
   return response;
@@ -85,6 +119,17 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
 
   const response = NextResponse.json({ ok: true });
   response.cookies.set(MOBILE_TOKEN_COOKIE, token, cookieOptions(process.env.NODE_ENV));
+
+  after(() => trackSessionEvent({
+    sessionId,
+    source: "server",
+    eventType: "qr_opened",
+    level: "info",
+    metadata: {
+      method: "POST",
+      userAgent: request.headers.get("user-agent") ?? null,
+    },
+  }));
 
   log.info({ sessionId }, "Mobile activated via client-side handler (POST)");
   return response;

@@ -1,32 +1,62 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef, type CSSProperties } from "react";
+import { createPortal } from "react-dom";
 import Image from "next/image";
-import { Download, LoaderCircle, RotateCcw, Share2, ZoomIn, X, Check } from "lucide-react";
-import { motion, AnimatePresence } from "framer-motion";
+import { Download, RotateCcw, Share2, ZoomIn, X } from "lucide-react";
 import { AnimatedButton } from "@/components/ui/AnimatedButton";
 import { useI18n } from "@/lib/i18n/provider";
 import { getProductTypeLabel } from "@/features/room-preview/shared/helpers";
 import type { RoomPreviewSession } from "@/lib/room-preview/types";
 
-// ─── Props ────────────────────────────────────────────────────────────────────
+// Brand-palette confetti
+const CONFETTI_COLORS = ["#F1B434", "#00AFD7", "#003C71", "#FFD97D", "#ffffff"];
+
+function seededRandom(seed: number) {
+  const x = Math.sin(seed * 999) * 10000;
+  return x - Math.floor(x);
+}
+
+const CONFETTI_PARTICLES = Array.from({ length: 14 }).map((_, i) => {
+  const angle = (i * 360) / 14 + (seededRandom(i + 1) * 20 - 10);
+  const distance = 40 + seededRandom(i + 2) * 40;
+  const startRotation = seededRandom(i + 4) * 360;
+
+  return {
+    id: i,
+    x: Math.cos((angle * Math.PI) / 180) * distance,
+    y: Math.sin((angle * Math.PI) / 180) * distance,
+    size: 4 + seededRandom(i + 3) * 5,
+    startRotation,
+    endRotation: startRotation + (seededRandom(i + 5) * 180 - 90),
+    color: CONFETTI_COLORS[Math.floor(seededRandom(i + 6) * CONFETTI_COLORS.length)],
+    duration: 0.8 + seededRandom(i + 7) * 0.4,
+  };
+});
+
+function getRenderingStageMessage(seconds: number, stages: {
+  started: string;
+  qualityCheck: string;
+  qualityRetry: string;
+  finishing: string;
+}) {
+  if (seconds >= 45) return stages.finishing;
+  if (seconds >= 25) return stages.qualityRetry;
+  if (seconds >= 10) return stages.qualityCheck;
+  return stages.started;
+}
 
 interface ResultStepProps {
   session: RoomPreviewSession;
-  /** Doubles as the render-in-progress loading flag (same state var as product saving). */
   isSavingProduct: boolean;
-  isScanning: boolean;
   showResult: boolean;
-  onCreateRender: () => void;
+  onCreateRender: () => Promise<void>;
   onModify: () => void;
 }
-
-// ─── Component ────────────────────────────────────────────────────────────────
 
 export default function ResultStep({
   session,
   isSavingProduct,
-  isScanning,
   showResult,
   onCreateRender,
   onModify,
@@ -35,212 +65,198 @@ export default function ResultStep({
   const [isFullscreen, setIsFullscreen] = useState(false);
   const [btnState, setBtnState] = useState<"idle" | "loading" | "success">("idle");
   const [localShowResult, setLocalShowResult] = useState(showResult);
+  const [nowMs, setNowMs] = useState(() => Date.now());
+  const renderClickLockedRef = useRef(false);
 
   useEffect(() => {
-    if (isSavingProduct) {
-      setBtnState("loading");
-    } else if (showResult && btnState === "loading") {
-      setBtnState("success");
-      const timer = setTimeout(() => {
-        setLocalShowResult(true);
-      }, 1500); // give confetti time to show
+    if (showResult) {
+      const timer = setTimeout(() => setLocalShowResult(true), 1500);
       return () => clearTimeout(timer);
-    } else if (showResult) {
-      setLocalShowResult(true);
-    } else if (!isSavingProduct && !showResult) {
+    }
+    const timer = setTimeout(() => {
       setBtnState("idle");
       setLocalShowResult(false);
-    }
-  }, [isSavingProduct, showResult, btnState]);
+    }, 0);
+    return () => clearTimeout(timer);
+  }, [showResult]);
 
-  const confettiColors = ["#4f46e5", "#818cf8", "#c084fc", "#6366f1", "#a855f7"];
-  const selectedProduct  = session.selectedProduct;
+  useEffect(() => {
+    if (!isSavingProduct || localShowResult) return;
+    const interval = window.setInterval(() => setNowMs(Date.now()), 1000);
+    return () => window.clearInterval(interval);
+  }, [isSavingProduct, localShowResult]);
+
+  useEffect(() => {
+    if (!isFullscreen) return;
+
+    const previousBodyOverflow = document.body.style.overflow;
+    const previousHtmlOverflow = document.documentElement.style.overflow;
+
+    document.body.style.overflow = "hidden";
+    document.documentElement.style.overflow = "hidden";
+
+    return () => {
+      document.body.style.overflow = previousBodyOverflow;
+      document.documentElement.style.overflow = previousHtmlOverflow;
+    };
+  }, [isFullscreen]);
+
+  const selectedProduct = session.selectedProduct;
   const localizedProductType = getProductTypeLabel(selectedProduct?.productType ?? null, locale);
+  const currentBtnState = isSavingProduct
+    ? "loading"
+    : showResult && !localShowResult
+      ? "success"
+      : btnState;
+  const renderingStartedAtMs = Date.parse(session.updatedAt);
+  const renderingSeconds =
+    currentBtnState === "loading" && Number.isFinite(renderingStartedAtMs)
+      ? Math.max(0, Math.floor((nowMs - renderingStartedAtMs) / 1000))
+      : 0;
+  const renderingStageMessage = getRenderingStageMessage(
+    renderingSeconds,
+    t.roomPreview.mobile.renderingStages,
+  );
+  const fullscreenLightbox = isFullscreen ? (
+    <div
+      className="fullscreen-fade-in fixed inset-0 z-[1000] flex items-center justify-center overflow-hidden bg-black/90 p-3"
+      onClick={() => setIsFullscreen(false)}
+    >
+      <button
+        type="button"
+        className="absolute top-6 right-6 sm:top-8 sm:right-8 z-[1010] text-white/60 hover:text-white bg-white/08 hover:bg-white/14 transition-all backdrop-blur-md rounded-full p-2.5"
+        onClick={(e) => { e.stopPropagation(); setIsFullscreen(false); }}
+      >
+        <X size={28} />
+      </button>
+
+      <div
+        className="fullscreen-scale-in relative h-[90svh] w-[96vw] max-h-[90svh] max-w-[96vw] overflow-hidden cursor-default"
+        onClick={(e) => e.stopPropagation()}
+      >
+        <Image
+          src={session.renderResult?.imageUrl ?? "/rs/rs.png"}
+          alt="Full screen preview"
+          fill
+          unoptimized
+          className="object-contain object-center"
+          sizes="96vw"
+          priority
+        />
+      </div>
+    </div>
+  ) : null;
 
   return (
-    <div className="mt-12 flex flex-col items-center">
-      <style>{`
-        .create-pulse-btn {
-          position: relative;
-          background: linear-gradient(180deg, #ffffff 0%, #f0f0f5 100%);
-          color: #1d1d1f;
-          border-radius: 9999px;
-          border: 1px solid rgba(255, 255, 255, 0.8);
-          box-shadow: 
-            0 20px 40px -10px rgba(0, 0, 0, 0.4), 
-            0 0 40px 5px rgba(255, 140, 50, 0.5), 
-            inset 0 1px 1px rgba(255, 255, 255, 1); 
-          transition: all 0.3s cubic-bezier(0.25, 1, 0.5, 1);
-          z-index: 1;
-        }
-
-        .create-pulse-btn:hover {
-          transform: translateY(-2px) scale(1.02);
-          box-shadow: 
-            0 25px 50px -12px rgba(0, 0, 0, 0.5),
-            0 0 50px 10px rgba(255, 150, 60, 0.6),
-            inset 0 1px 1px rgba(255, 255, 255, 1);
-        }
-
-        .create-pulse-btn:active {
-          transform: translateY(2px) scale(0.98);
-          box-shadow: 
-            0 10px 20px -5px rgba(0, 0, 0, 0.3),
-            0 0 20px 2px rgba(255, 140, 50, 0.4),
-            inset 0 1px 1px rgba(255, 255, 255, 1);
-        }
-
-        .create-pulse-btn::after {
-          content: "";
-          position: absolute;
-          inset: -4px;
-          border-radius: 9999px;
-          border: 2px solid rgba(255, 140, 50, 0.8);
-          opacity: 0;
-          transform: scale(0.95);
-          pointer-events: none;
-        }
-
-        .create-pulse-btn:active::after {
-          animation: actomePulse 0.5s ease-out;
-        }
-
-        @keyframes actomePulse {
-          0% { transform: scale(0.95); opacity: 0.8; border-width: 4px; }
-          100% { transform: scale(1.2); opacity: 0; border-width: 0px; }
-        }
-      `}</style>
-
+    <div
+      className={
+        localShowResult
+          ? "-mx-8 -mb-8 mt-0 flex w-[calc(100%+4rem)] flex-col items-center overflow-hidden rounded-b-[32px]"
+          : "mt-12 flex flex-col items-center"
+      }
+    >
       {!localShowResult ? (
-        <div className="relative flex items-center justify-center h-20 w-full mt-4">
-          <motion.button
-            type="button"
-            layout
-            className="create-pulse-btn relative flex items-center justify-center overflow-hidden transition disabled:opacity-60"
-            style={{ height: 68 }}
-            animate={{
-              width: btnState === "loading" ? 68 : 220,
-            }}
-            transition={{ type: "spring", bounce: 0, duration: 0.5 }}
-            onClick={() => void onCreateRender()}
-            disabled={isSavingProduct || isScanning || btnState === "success"}
-          >
-            <AnimatePresence mode="wait" initial={false}>
-              {btnState === "idle" && (
-                <motion.div
-                  key="idle"
-                  initial={{ opacity: 0, y: 15 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  exit={{ opacity: 0, y: -15, transition: { duration: 0.2 } }}
-                  transition={{ duration: 0.4, ease: "easeOut" }}
-                  className="flex items-center gap-2"
-                >
-                  <span className="text-xl font-bold">{t.common.actions.create}</span>
-                </motion.div>
+        <>
+          {/* ── CTA Button ── */}
+          <div className="relative flex items-center justify-center h-20 w-full mt-4">
+            <button
+              type="button"
+              className={`btn-cta relative flex items-center justify-center overflow-hidden transition-[width,transform,opacity] duration-500 ease-out disabled:opacity-50 ${
+                currentBtnState === "loading" ? "rounded-full" : ""
+              }`}
+              style={{
+                height: 68,
+                width: currentBtnState === "loading" ? 68 : 220,
+                padding: currentBtnState === "loading" ? 0 : undefined,
+              }}
+              onClick={() => {
+                if (renderClickLockedRef.current) return;
+                renderClickLockedRef.current = true;
+                setBtnState("loading");
+                void onCreateRender().finally(() => {
+                  renderClickLockedRef.current = false;
+                });
+              }}
+              disabled={isSavingProduct || currentBtnState === "loading" || currentBtnState === "success"}
+            >
+              {currentBtnState === "idle" && (
+                <div className="button-state-in flex items-center gap-2">
+                  <span className="text-xl font-bold text-[var(--text-on-gold)]">{t.common.actions.create}</span>
+                </div>
               )}
 
-              {btnState === "loading" && (
-                <motion.div
-                  key="loading"
-                  initial={{ opacity: 0 }}
-                  animate={{ opacity: 1 }}
-                  exit={{ opacity: 0, scale: 0.8, transition: { duration: 0.2 } }}
-                  className="flex items-center justify-center gap-1.5"
-                >
+              {currentBtnState === "loading" && (
+                <div className="button-state-in flex items-center justify-center gap-1.5">
                   {[0, 1, 2].map((i) => (
-                    <motion.div
+                    <span
                       key={i}
-                      className="size-2 rounded-full bg-[#1d1d1f]/70"
-                      animate={{ y: ["0%", "-40%", "0%"] }}
-                      transition={{
-                        duration: 0.6,
-                        repeat: Infinity,
-                        ease: "easeInOut",
-                        delay: i * 0.12,
-                      }}
+                      className="loading-dot size-2 rounded-full bg-[var(--text-on-gold)]/60"
+                      style={{ animationDelay: `${i * 0.12}s` }}
                     />
                   ))}
-                </motion.div>
+                </div>
               )}
 
-              {btnState === "success" && (
-                <motion.div
-                  key="success"
-                  initial={{ opacity: 0, scale: 0.8 }}
-                  animate={{ opacity: 1, scale: 1 }}
-                  exit={{ opacity: 0, y: 15, transition: { duration: 0.2 } }}
-                  transition={{ duration: 0.4, type: "spring", bounce: 0 }}
-                  className="flex items-center gap-2"
-                >
-                  <Check className="size-6 text-emerald-500" strokeWidth={3} />
-                  <span className="text-xl font-bold">{locale === "ar" ? "نجاح" : "Success"}</span>
-                </motion.div>
+              {currentBtnState === "success" && (
+                <div className="button-state-in flex items-center gap-2">
+                  <svg className="size-6 text-[var(--text-on-gold)]" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
+                  </svg>
+                  <span className="text-xl font-bold text-[var(--text-on-gold)]">{locale === "ar" ? "نجاح" : "Done"}</span>
+                </div>
               )}
-            </AnimatePresence>
-          </motion.button>
+            </button>
 
-          {/* Confetti Burst */}
-          <AnimatePresence>
-            {btnState === "success" && (
-              <div className="absolute inset-0 pointer-events-none z-50">
-                {Array.from({ length: 14 }).map((_, i) => {
-                  const angle = (i * 360) / 14 + (Math.random() * 20 - 10);
-                  const distance = 40 + Math.random() * 40;
-                  const x = Math.cos((angle * Math.PI) / 180) * distance;
-                  const y = Math.sin((angle * Math.PI) / 180) * distance;
-                  const size = 4 + Math.random() * 5;
-                  const startRotation = Math.random() * 360;
-                  const endRotation = startRotation + (Math.random() * 180 - 90);
-                  const color = confettiColors[Math.floor(Math.random() * confettiColors.length)];
-
-                  return (
-                    <motion.div
-                      key={i}
-                      className="absolute left-1/2 top-1/2 rounded-sm"
-                      style={{
-                        width: size,
-                        height: size,
-                        backgroundColor: color,
-                        x: "-50%",
-                        y: "-50%",
-                      }}
-                      initial={{ opacity: 1, x: "-50%", y: "-50%", rotate: startRotation }}
-                      animate={{
-                        opacity: 0,
-                        x: `calc(-50% + ${x}px)`,
-                        y: `calc(-50% + ${y}px)`,
-                        rotate: endRotation,
-                      }}
-                      transition={{
-                        duration: 0.8 + Math.random() * 0.4,
-                        ease: [0.25, 1, 0.5, 1],
-                      }}
-                    />
-                  );
-                })}
+            {/* Confetti burst */}
+            {currentBtnState === "success" && (
+              <div className="pointer-events-none absolute inset-0 z-50">
+                {CONFETTI_PARTICLES.map((particle) => (
+                  <span
+                    key={particle.id}
+                    className="success-confetti-piece absolute left-1/2 top-1/2 rounded-sm"
+                    style={{
+                      width: particle.size,
+                      height: particle.size,
+                      backgroundColor: particle.color,
+                      "--confetti-x": `${particle.x}px`,
+                      "--confetti-y": `${particle.y}px`,
+                      "--confetti-start-rotation": `${particle.startRotation}deg`,
+                      "--confetti-end-rotation": `${particle.endRotation}deg`,
+                      animationDuration: `${particle.duration}s`,
+                    } as CSSProperties}
+                  />
+                ))}
               </div>
             )}
-          </AnimatePresence>
-        </div>
+          </div>
+
+          {/* Rendering progress card */}
+          {currentBtnState === "loading" ? (
+            <div className="mt-5 w-full max-w-sm rounded-[24px] border border-[var(--brand-cyan)]/15 bg-[var(--brand-cyan)]/[0.05] px-5 py-4 text-center">
+              <p className="text-sm font-bold text-[var(--brand-cyan)]">{t.roomPreview.mobile.renderingTitle}</p>
+              <p className="mt-2 text-xs leading-6 text-[var(--text-muted)]">{renderingStageMessage}</p>
+              <div className="mt-4 h-1.5 w-full overflow-hidden rounded-full bg-[var(--border)]">
+                <div className="rendering-wait-bar h-full w-1/3 rounded-full bg-gradient-to-r from-transparent via-[var(--brand-cyan)] to-transparent" />
+              </div>
+            </div>
+          ) : null}
+        </>
       ) : (
-        /* ── Premium result hero ── */
-        <div className="mt-6 w-full animate-in fade-in duration-700">
+        /* ── Result reveal ── */
+        <div className="w-full animate-in fade-in duration-700">
 
           {/* Eyebrow */}
-          <p
-            className="mb-5 text-center text-[11px] font-bold tracking-[0.22em] uppercase text-[#003C71]"
-            style={{ textShadow: "0 1px 2px rgba(255,255,255,0.8)" }}
-          >
+          <p className="mb-5 text-center text-[11px] font-bold tracking-[0.22em] uppercase text-[var(--brand-cyan)]">
             {t.roomPreview.shared.resultReady}
           </p>
 
-          {/* Hero image + overlaid glass card */}
-          <div className="relative w-full overflow-hidden rounded-[32px] shadow-[0_24px_64px_rgba(0,60,113,0.18),0_8px_24px_rgba(0,0,0,0.12)]">
-            <div 
-              className="relative aspect-[4/5] sm:aspect-square md:aspect-[4/3] w-full group cursor-pointer transition-all active:scale-[0.98]" 
+          {/* Hero image */}
+          <div className="relative w-full overflow-hidden bg-black shadow-[0_24px_64px_rgba(0,0,0,0.60)] sm:rounded-[32px]">
+            <div
+              className="group relative h-[72svh] min-h-[460px] w-full cursor-pointer transition-all active:scale-[0.98] sm:h-[70vh] sm:max-h-[760px] sm:min-h-[560px]"
               onClick={() => setIsFullscreen(true)}
             >
-              <div className="absolute top-4 right-4 z-20 bg-black/40 backdrop-blur-md text-white/90 p-2.5 rounded-full opacity-60 sm:opacity-0 sm:group-hover:opacity-100 transition-opacity">
+              <div className="absolute top-4 right-4 z-20 bg-black/50 backdrop-blur-md text-white/80 p-2.5 rounded-full opacity-70 sm:opacity-0 sm:group-hover:opacity-100 transition-opacity">
                 <ZoomIn size={20} />
               </div>
 
@@ -249,24 +265,23 @@ export default function ResultStep({
                 alt={t.roomPreview.shared.renderedPreview}
                 fill
                 unoptimized
-                className="object-cover transition-transform duration-700 ease-out group-hover:scale-105"
+                className="object-cover object-center transition-transform duration-700 ease-out group-hover:scale-105"
                 priority
+                sizes="100vw"
               />
 
-              {/* Gradient veil — fades bottom so card text stays legible */}
-              <div className="absolute inset-x-0 bottom-0 h-1/2 bg-gradient-to-t from-black/80 via-black/30 to-transparent pointer-events-none" />
+              <div className="absolute inset-x-0 bottom-0 h-1/2 bg-gradient-to-t from-black/85 via-black/35 to-transparent pointer-events-none" />
 
-              {/* Floating product spec card */}
+              {/* Floating product spec card — always dark (overlaid on photo) */}
               {selectedProduct ? (
                 <div
                   className="absolute inset-x-3 bottom-3 animate-in slide-in-from-bottom-3 fade-in duration-700"
                   style={{ animationDelay: "350ms", animationFillMode: "backwards" }}
                 >
-                  <div className="rounded-[22px] border border-white/20 bg-white/10 p-3 shadow-[0_8px_32px_rgba(0,0,0,0.25)] backdrop-blur-2xl">
+                  <div className="rounded-[22px] border border-white/12 bg-black/60 p-3 shadow-[0_8px_32px_rgba(0,0,0,0.50)] backdrop-blur-2xl">
                     <div className={`flex items-center gap-3 ${dir === "rtl" ? "flex-row-reverse" : ""}`}>
 
-                      {/* Texture swatch */}
-                      <div className="relative h-14 w-14 shrink-0 overflow-hidden rounded-[14px] border-2 border-white/30 shadow-md">
+                      <div className="relative h-14 w-14 shrink-0 overflow-hidden rounded-[14px] border-2 border-white/20 shadow-md">
                         <Image
                           src={selectedProduct.imageUrl ?? ""}
                           alt={selectedProduct.name ?? ""}
@@ -276,23 +291,22 @@ export default function ResultStep({
                         />
                       </div>
 
-                      {/* Product copy */}
                       <div className={`min-w-0 flex-1 ${dir === "rtl" ? "text-right" : "text-left"}`}>
                         <p className="truncate text-sm font-semibold leading-tight text-white">
                           {selectedProduct.name}
                         </p>
                         {localizedProductType ? (
-                          <p className="mt-0.5 text-xs text-white/60">{localizedProductType}</p>
+                          <p className="mt-0.5 text-xs text-white/55">{localizedProductType}</p>
                         ) : null}
                         {selectedProduct.barcode ? (
-                          <p className="mt-1 font-mono text-[10px] text-white/40">{selectedProduct.barcode}</p>
+                          <p className="mt-1 font-mono text-[10px] text-white/35">{selectedProduct.barcode}</p>
                         ) : null}
                       </div>
 
                       {/* Ready pill */}
-                      <div className="shrink-0 flex items-center gap-1.5 rounded-full border border-emerald-400/40 bg-emerald-500/25 px-2.5 py-1.5">
-                        <span className="block h-1.5 w-1.5 animate-pulse rounded-full bg-emerald-400" />
-                        <span className="whitespace-nowrap text-[11px] font-semibold text-emerald-300">
+                      <div className="shrink-0 flex items-center gap-1.5 rounded-full border border-[#F1B434]/35 bg-[#F1B434]/15 px-2.5 py-1.5">
+                        <span className="block h-1.5 w-1.5 animate-pulse rounded-full bg-[#F1B434]" />
+                        <span className="whitespace-nowrap text-[11px] font-semibold text-[#F1B434]">
                           {locale === "ar" ? "جاهز" : "Ready"}
                         </span>
                       </div>
@@ -309,22 +323,20 @@ export default function ResultStep({
             className="mt-4 grid grid-cols-3 gap-3 animate-in slide-in-from-bottom-2 fade-in duration-700"
             style={{ animationDelay: "500ms", animationFillMode: "backwards" }}
           >
-            {/* Download */}
             <a
               href={session.renderResult?.imageUrl ?? "/rs/rs.png"}
               download="bayt-alebaa-render.jpg"
-              className="flex flex-col items-center gap-2 rounded-[20px] border border-white/60 bg-white/50 py-4 shadow-sm backdrop-blur-sm transition hover:bg-white/70 active:scale-95"
+              className="flex flex-col items-center gap-2 rounded-[20px] border border-[var(--border)] bg-[var(--bg-surface)] py-4 transition hover:bg-[var(--bg-surface-2)] hover:border-[var(--border-strong)] active:scale-95"
             >
-              <Download className="size-5 text-[#003C71]" />
-              <span className="text-[11px] font-semibold text-[#1d1d1f]">
+              <Download className="size-5 text-[var(--brand-cyan)]" />
+              <span className="text-[11px] font-semibold text-[var(--text-secondary)]">
                 {locale === "ar" ? "تحميل" : "Download"}
               </span>
             </a>
 
-            {/* Share */}
             <AnimatedButton
               type="button"
-              className="flex flex-col items-center gap-2 rounded-[20px] border border-white/60 bg-white/50 py-4 shadow-sm backdrop-blur-sm transition hover:bg-white/70"
+              className="flex flex-col items-center gap-2 rounded-[20px] border border-[var(--border)] bg-[var(--bg-surface)] py-4 transition hover:bg-[var(--bg-surface-2)] hover:border-[var(--border-strong)]"
               onClick={() => {
                 if (typeof navigator !== "undefined" && navigator.share) {
                   void navigator.share({
@@ -334,20 +346,19 @@ export default function ResultStep({
                 }
               }}
             >
-              <Share2 className="size-5 text-[#003C71]" />
-              <span className="text-[11px] font-semibold text-[#1d1d1f]">
+              <Share2 className="size-5 text-[var(--brand-cyan)]" />
+              <span className="text-[11px] font-semibold text-[var(--text-secondary)]">
                 {locale === "ar" ? "مشاركة" : "Share"}
               </span>
             </AnimatedButton>
 
-            {/* Modify selection */}
             <AnimatedButton
               type="button"
-              className="flex flex-col items-center gap-2 rounded-[20px] border border-white/60 bg-white/50 py-4 shadow-sm backdrop-blur-sm transition hover:bg-white/70"
+              className="flex flex-col items-center gap-2 rounded-[20px] border border-[var(--border)] bg-[var(--bg-surface)] py-4 transition hover:bg-[var(--bg-surface-2)] hover:border-[var(--border-strong)]"
               onClick={onModify}
             >
-              <RotateCcw className="size-5 text-[#003C71]" />
-              <span className="text-[11px] font-semibold text-[#1d1d1f]">
+              <RotateCcw className="size-5 text-[var(--brand-cyan)]" />
+              <span className="text-[11px] font-semibold text-[var(--text-secondary)]">
                 {locale === "ar" ? "تعديل" : "Modify"}
               </span>
             </AnimatedButton>
@@ -356,47 +367,10 @@ export default function ResultStep({
         </div>
       )}
 
-      {/* Fullscreen Lightbox Modal */}
-      <AnimatePresence>
-        {isFullscreen && (
-          <motion.div
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            exit={{ opacity: 0 }}
-            transition={{ duration: 0.3 }}
-            className="fixed inset-0 z-[100] flex items-center justify-center bg-black/95 backdrop-blur-lg"
-            onClick={() => setIsFullscreen(false)}
-          >
-            <button
-              className="absolute top-6 right-6 sm:top-8 sm:right-8 z-[110] text-white/70 hover:text-white bg-white/10 hover:bg-white/20 transition-all backdrop-blur-md rounded-full p-2.5"
-              onClick={(e) => {
-                e.stopPropagation();
-                setIsFullscreen(false);
-              }}
-            >
-              <X size={28} />
-            </button>
-
-            <motion.div
-               initial={{ scale: 0.95, opacity: 0 }}
-               animate={{ scale: 1, opacity: 1 }}
-               exit={{ scale: 0.95, opacity: 0 }}
-               transition={{ type: "spring", damping: 30, stiffness: 300 }}
-               className="relative w-[95%] h-[90%] flex items-center justify-center cursor-default"
-               onClick={(e) => e.stopPropagation()} // Prevent closing when clicking the image container itself
-            >
-              <Image
-                src={session.renderResult?.imageUrl ?? "/rs/rs.png"}
-                alt="Full screen preview"
-                fill
-                unoptimized
-                className="object-contain"
-                sizes="100vw"
-              />
-            </motion.div>
-          </motion.div>
-        )}
-      </AnimatePresence>
+      {/* Fullscreen lightbox rendered at document body level for stable mobile viewport sizing */}
+      {fullscreenLightbox && typeof document !== "undefined"
+        ? createPortal(fullscreenLightbox, document.body)
+        : null}
     </div>
   );
 }

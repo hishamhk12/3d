@@ -7,6 +7,7 @@ import {
   failStuckRenderingSessions,
   completeResultReadySessions,
 } from "@/lib/room-preview/session-cleanup";
+import { detectStuckSessions } from "@/lib/room-preview/stuck-detection";
 
 const log = getLogger("cleanup-api");
 
@@ -39,6 +40,7 @@ export async function GET(request: NextRequest) {
   }
 
   try {
+    const detectedIssues = await detectStuckSessions();
     const [stuckFailed, completed, idleExpired, expired] = await Promise.all([
       failStuckRenderingSessions(),
       completeResultReadySessions(),
@@ -46,7 +48,7 @@ export async function GET(request: NextRequest) {
       expireOldSessions(),
     ]);
 
-    log.info({ stuckFailed, completed, idleExpired, expired }, "Session cleanup complete");
+    log.info({ stuckFailed, completed, idleExpired, expired, detectedIssues }, "Session cleanup complete");
 
     return NextResponse.json({
       ok: true,
@@ -54,6 +56,7 @@ export async function GET(request: NextRequest) {
       idleExpired,
       stuckFailed,
       completed,
+      detectedIssues,
       ranAt: new Date().toISOString(),
     });
   } catch (err) {

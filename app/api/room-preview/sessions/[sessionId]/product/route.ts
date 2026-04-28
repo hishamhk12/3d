@@ -12,6 +12,7 @@ import {
   RoomPreviewSessionTransitionError,
   selectProductForSession,
 } from "@/lib/room-preview/session-service";
+import { trackSessionEvent } from "@/lib/room-preview/session-diagnostics";
 import type { SelectedProduct } from "@/lib/room-preview/types";
 
 const log = getLogger("product-api");
@@ -154,6 +155,19 @@ export async function POST(
     },
     "Product saved",
   );
+
+  await trackSessionEvent({
+    sessionId,
+    source: "server",
+    eventType: "product_selected",
+    level: "info",
+    statusAfter: session.status,
+    metadata: {
+      productId: session.selectedProduct.id,
+      barcode: session.selectedProduct.barcode,
+      productType: session.selectedProduct.productType,
+    },
+  });
 
   return NextResponse.json({
     success: true,

@@ -2,6 +2,7 @@
 
 import clsx from "clsx";
 import { Languages, LoaderCircle } from "lucide-react";
+import { useCallback } from "react";
 import { getLocaleLabel } from "@/lib/i18n/config";
 import { useI18n } from "@/lib/i18n/provider";
 import { SUPPORTED_LOCALES } from "@/lib/i18n/types";
@@ -13,6 +14,15 @@ type LanguageSwitcherProps = {
 
 export default function LanguageSwitcher({ className }: LanguageSwitcherProps) {
   const { isChangingLocale, locale, setLocale, t } = useI18n();
+
+  // Handle locale change from either click or touch
+  const handleLocaleChange = useCallback(
+    (entry: Locale) => {
+      if (isChangingLocale || entry === locale) return;
+      setLocale(entry);
+    },
+    [isChangingLocale, locale, setLocale],
+  );
 
   return (
     <div
@@ -43,16 +53,21 @@ export default function LanguageSwitcher({ className }: LanguageSwitcherProps) {
             <button
               key={entry}
               type="button"
-              onClick={() => setLocale(entry as Locale)}
-              disabled={isChangingLocale || isActive}
+              role="switch"
+              aria-checked={isActive}
+              onClick={() => handleLocaleChange(entry as Locale)}
+              aria-disabled={isChangingLocale || isActive}
               aria-pressed={isActive}
               className={clsx(
-                "inline-flex min-w-20 items-center justify-center rounded-full px-4 py-2 text-sm transition-all duration-300",
+                "inline-flex min-w-20 min-h-[44px] items-center justify-center rounded-full px-4 py-2 text-sm transition-all duration-300",
+                "touch-manipulation select-none cursor-pointer",
                 isActive
                   ? "bg-white/80 font-bold border border-white/90 text-[#003C71] shadow-sm transform scale-105"
-                  : "font-medium text-[#1d1d1f]/70 border border-transparent hover:bg-white/30 hover:text-[#1d1d1f]",
-                "disabled:cursor-not-allowed",
+                  : "font-medium text-[#1d1d1f]/70 border border-transparent hover:bg-white/30 hover:text-[#1d1d1f] active:bg-white/50",
               )}
+              style={{
+                WebkitTapHighlightColor: "transparent",
+              }}
             >
               {getLocaleLabel(entry)}
             </button>

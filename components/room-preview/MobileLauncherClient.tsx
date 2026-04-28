@@ -6,9 +6,49 @@ import SessionStatePanel from "@/components/room-preview/SessionStatePanel";
 import { ROOM_PREVIEW_ROUTES } from "@/lib/room-preview/constants";
 import {
   createRoomPreviewSession,
+  fetchRoomPreviewSession,
   isRoomPreviewRequestError,
 } from "@/lib/room-preview/session-client";
 import { useI18n } from "@/lib/i18n/provider";
+import type { RoomPreviewSession } from "@/lib/room-preview/types";
+
+const STORAGE_KEY = "room-preview:mobile-launcher-session";
+const TERMINAL_STATUSES = new Set(["expired", "failed", "completed"]);
+
+type StoredSession = { sessionId: string; token: string };
+
+function getStoredSession(): StoredSession | null {
+  try {
+    const raw = localStorage.getItem(STORAGE_KEY);
+    if (!raw) return null;
+    const parsed = JSON.parse(raw) as unknown;
+    if (
+      typeof parsed === "object" && parsed !== null &&
+      typeof (parsed as Record<string, unknown>).sessionId === "string" &&
+      typeof (parsed as Record<string, unknown>).token === "string"
+    ) {
+      return parsed as StoredSession;
+    }
+    return null;
+  } catch {
+    return null;
+  }
+}
+
+function saveSession(sessionId: string, token: string) {
+  try {
+    localStorage.setItem(STORAGE_KEY, JSON.stringify({ sessionId, token }));
+  } catch { /* non-fatal */ }
+}
+
+function clearSession() {
+  try { localStorage.removeItem(STORAGE_KEY); } catch { /* non-fatal */ }
+}
+
+function isReusable(session: RoomPreviewSession): boolean {
+  if (TERMINAL_STATUSES.has(session.status)) return false;
+  return !session.expiresAt || new Date(session.expiresAt).getTime() > Date.now();
+}
 
 type MobileLauncherState = "creating" | "failed";
 
@@ -21,44 +61,54 @@ export default function MobileLauncherClient() {
   useEffect(() => {
     let active = true;
 
-    async function createSession() {
+    async function run() {
       setState("creating");
       setError(null);
 
       try {
-        const data = await createRoomPreviewSession();
-
-        if (!active) {
-          return;
+        // ── Reuse stored session if still valid (prevents new session on refresh) ──
+        const stored = getStoredSession();
+        if (stored) {
+          try {
+            const session = await fetchRoomPreviewSession(stored.sessionId);
+            if (isReusable(session)) {
+              const activateUrl = `/api/room-preview/sessions/${stored.sessionId}/activate?t=${encodeURIComponent(stored.token)}`;
+              window.location.replace(activateUrl);
+              return;
+            }
+          } catch { /* session gone — fall through to create */ }
+          clearSession();
         }
 
-        if (!data.token) {
-          throw new Error("Session token was not returned.");
-        }
+        // ── Create new session only when none exists ──────────────────────────────
+        const data = await createRoomPreviewSession(undefined, {
+          existingSessionId: null,
+          source: "mobile_gate",
+        });
+
+        if (!active) return;
+
+        if (!data.token) throw new Error("Session token was not returned.");
+
+        saveSession(data.sessionId, data.token);
 
         const activateUrl =
           `/api/room-preview/sessions/${data.sessionId}/activate?t=${encodeURIComponent(data.token)}`;
-
         window.location.replace(activateUrl);
-      } catch (createError) {
-        if (!active) {
-          return;
-        }
-
+      } catch (err) {
+        if (!active) return;
         setState("failed");
         setError(
-          isRoomPreviewRequestError(createError)
-            ? createError.message
+          isRoomPreviewRequestError(err)
+            ? err.message
             : t.roomPreview.launcher.createFailed,
         );
       }
     }
 
-    void createSession();
+    void run();
 
-    return () => {
-      active = false;
-    };
+    return () => { active = false; };
   }, [attempt, t.roomPreview.launcher.createFailed]);
 
   return (

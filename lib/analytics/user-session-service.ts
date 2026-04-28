@@ -17,11 +17,8 @@ export async function sessionHasCompletedGate(sessionId: string): Promise<boolea
 }
 
 /**
- * Create a UserSession from validated gate form data, then atomically
- * link it to the given RoomPreviewSession.
- *
- * Uses a transaction so we never create an orphaned UserSession if the
- * RoomPreviewSession update fails.
+ * Create a UserSession from validated gate form data, then link it to the
+ * given RoomPreviewSession.
  *
  * Returns the new UserSession id.
  */
@@ -30,24 +27,25 @@ export async function createAndBindUserSession(
   data: GateFormInput,
   ip: string | null,
 ): Promise<string> {
-  const userSession = await prisma.$transaction(async (tx) => {
-    const created = await tx.userSession.create({
-      data: {
-        name: data.name,
-        role: data.role,
-        phone: data.role === "customer" ? data.phone : null,
-        employeeCode: data.role === "employee" ? data.employeeCode : null,
-        ip,
-      },
-    });
+  const created = await prisma.userSession.create({
+    data: {
+      name: data.name,
+      role: data.role,
+      phone: data.role === "customer" ? data.phone : null,
+      employeeCode: data.role === "employee" ? data.employeeCode : null,
+      ip,
+    },
+  });
 
-    await tx.roomPreviewSession.update({
+  try {
+    await prisma.roomPreviewSession.update({
       where: { id: sessionId },
       data: { userSessionId: created.id },
     });
+  } catch (error) {
+    await prisma.userSession.delete({ where: { id: created.id } }).catch(() => undefined);
+    throw error;
+  }
 
-    return created;
-  });
-
-  return userSession.id;
+  return created.id;
 }

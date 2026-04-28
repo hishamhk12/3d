@@ -2,6 +2,7 @@ import "server-only";
 
 import { Prisma } from "@/lib/generated/prisma";
 import { SESSION_EXPIRY_MINUTES } from "@/lib/room-preview/constants";
+import { LIVE_STATUSES } from "@/lib/room-preview/session-status";
 import {
   ROOM_PREVIEW_SESSION_STATUSES,
   type RoomPreviewRenderResult,
@@ -86,14 +87,17 @@ function toJsonValue(
   return value === null ? Prisma.JsonNull : value;
 }
 
-export async function createSession(screenId?: string) {
+export async function createSession(
+  screenId?: string,
+  initialState?: SessionUpdateData,
+) {
   const session = await prisma.roomPreviewSession.create({
     data: {
-      status: "created",
-      mobileConnected: false,
-      selectedRoom: Prisma.JsonNull,
-      selectedProduct: Prisma.JsonNull,
-      renderResult: Prisma.JsonNull,
+      status: initialState?.status ?? "created",
+      mobileConnected: initialState?.mobileConnected ?? false,
+      selectedRoom: toJsonValue(initialState?.selectedRoom) ?? Prisma.JsonNull,
+      selectedProduct: toJsonValue(initialState?.selectedProduct) ?? Prisma.JsonNull,
+      renderResult: toJsonValue(initialState?.renderResult) ?? Prisma.JsonNull,
       expiresAt: buildExpiresAt(),
       ...(screenId ? { screenId } : {}),
     },
@@ -208,4 +212,24 @@ export async function decrementRenderCount(sessionId: string): Promise<void> {
     where: { id: sessionId, renderCount: { gt: 0 } },
     data: { renderCount: { decrement: 1 } },
   });
+}
+
+/**
+ * Returns all live (non-expired) sessions, newest first.
+ * Used by Single Active Screen Session Mode to detect duplicates.
+ */
+export async function findActiveLiveSessions() {
+  const now = new Date();
+  const sessions = await prisma.roomPreviewSession.findMany({
+    where: {
+      status: { in: [...LIVE_STATUSES] },
+      expiresAt: { gt: now },
+    },
+    orderBy: { createdAt: "desc" },
+  });
+  return sessions.map(mapSession);
+}
+
+export async function expireSessionById(id: string) {
+  return updateSession(id, { status: "expired" });
 }

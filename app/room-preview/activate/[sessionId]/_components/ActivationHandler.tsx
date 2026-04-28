@@ -22,7 +22,7 @@ export function ActivationHandler({ sessionId }: { sessionId: string }) {
     if (!token) {
       // No token: back-navigation or direct URL visit. Go to the mobile page;
       // if the cookie is present the experience loads, otherwise the gate redirects.
-      setState("redirecting");
+      queueMicrotask(() => setState("redirecting"));
       router.replace(ROOM_PREVIEW_ROUTES.mobileSession(sessionId));
       return;
     }

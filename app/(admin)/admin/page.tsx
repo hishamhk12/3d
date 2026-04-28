@@ -4,6 +4,7 @@ import { HealthBar } from "./_components/health-bar";
 import { SessionTable } from "./_components/session-table";
 import { RenderJobsFeed } from "./_components/render-jobs-feed";
 import { AutoRefresh } from "./_components/auto-refresh";
+import { MarkStuckRenderJobsButton } from "./_components/mark-stuck-render-jobs-button";
 
 export const metadata = {
   title: "Admin Dashboard — Ibdaa 360",
@@ -69,6 +70,7 @@ export default function AdminHomePage() {
           <div className="flex items-center justify-between mb-3">
             <h2 className="text-sm font-semibold text-white">Render Jobs</h2>
             <div className="flex items-center gap-3">
+              <MarkStuckRenderJobsButton />
               <AutoRefresh intervalSeconds={10} />
             </div>
           </div>

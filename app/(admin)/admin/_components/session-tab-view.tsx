@@ -18,8 +18,8 @@ const TABS: { id: Tab; label: string; group?: SessionStatusGroup }[] = [
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
-function relativeTime(isoString: string): string {
-  const diffMs = Date.now() - new Date(isoString).getTime();
+function relativeTime(isoString: string, now: number): string {
+  const diffMs = now - new Date(isoString).getTime();
   const s = Math.floor(diffMs / 1000);
   if (s < 60) return `${s}s ago`;
   if (s < 3600) return `${Math.floor(s / 60)}m ago`;
@@ -27,9 +27,9 @@ function relativeTime(isoString: string): string {
   return `${Math.floor(s / 86400)}d ago`;
 }
 
-function countdown(isoString: string | null): string {
+function formatCountdown(isoString: string | null, now: number): string {
   if (!isoString) return "—";
-  const diffMs = new Date(isoString).getTime() - Date.now();
+  const diffMs = new Date(isoString).getTime() - now;
   if (diffMs <= 0) return "expired";
   const s = Math.floor(diffMs / 1000);
   if (s < 60) return `${s}s`;
@@ -113,6 +113,8 @@ function SessionActions({ session }: { session: DashboardSession }) {
 // ─── Table ────────────────────────────────────────────────────────────────────
 
 function SessionRow({ session, now }: { session: DashboardSession; now: number }) {
+  const countdown = (isoString: string | null) => formatCountdown(isoString, now);
+
   return (
     <tr
       className={`hover:bg-gray-900/60 transition-colors ${
@@ -145,7 +147,7 @@ function SessionRow({ session, now }: { session: DashboardSession; now: number }
       </td>
       <td className="px-4 py-3">
         <span className="text-gray-500 text-xs whitespace-nowrap">
-          {relativeTime(session.createdAt)}
+          {relativeTime(session.createdAt, now)}
         </span>
       </td>
       <td className="px-4 py-3">
@@ -169,7 +171,7 @@ function SessionRow({ session, now }: { session: DashboardSession; now: number }
 }
 
 function SessionTable({ sessions }: { sessions: DashboardSession[] }) {
-  const now = Date.now();
+  const [now] = useState(() => Date.now());
 
   if (sessions.length === 0) {
     return (

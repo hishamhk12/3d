@@ -1,7 +1,6 @@
 "use client";
 
 import React, { MouseEvent, useState } from "react";
-import { motion, AnimatePresence } from "framer-motion";
 import { useAnimatedNavigation } from "@/hooks/useAnimatedNavigation";
 
 export interface AnimatedLinkProps {
@@ -56,13 +55,11 @@ export function AnimatedLink({
   };
 
   return (
-    <motion.a
+    <a
       href={href}
       onClick={handleClick}
-      whileHover={{ scale: 1.02, y: -2 }}
-      whileTap={{ scale: 0.95 }}
-      transition={{ type: "spring", stiffness: 400, damping: 25 }}
-      className={`relative inline-block overflow-hidden transition-shadow hover:shadow-lg ${className}`}
+      className={`relative inline-block overflow-hidden transition-[transform,box-shadow] duration-200 ease-out hover:-translate-y-0.5 hover:scale-[1.02] hover:shadow-lg active:translate-y-0 active:scale-95 ${className}`}
+      style={{ touchAction: "manipulation" }}
       target={target}
       rel={rel}
       aria-label={ariaLabel}
@@ -71,25 +68,21 @@ export function AnimatedLink({
         {children}
       </span>
 
-      <AnimatePresence>
-        {ripples.map((ripple) => (
-          <motion.span
-            key={ripple.id}
-            initial={{ top: ripple.y, left: ripple.x, scale: 0, opacity: 1 }}
-            animate={{ scale: 4, opacity: 0 }}
-            exit={{ opacity: 0 }}
-            transition={{ duration: 0.6, ease: "easeOut" }}
-            className="pointer-events-none absolute z-0 rounded-full"
-            style={{
-              width: "100px",
-              height: "100px",
-              marginTop: "-50px",
-              marginLeft: "-50px",
-              background: `radial-gradient(circle, ${glowColor} 0%, transparent 70%)`,
-            }}
-          />
-        ))}
-      </AnimatePresence>
-    </motion.a>
+      {ripples.map((ripple) => (
+        <span
+          key={ripple.id}
+          className="animated-ripple pointer-events-none absolute z-0 rounded-full"
+          style={{
+            top: ripple.y,
+            left: ripple.x,
+            width: "100px",
+            height: "100px",
+            marginTop: "-50px",
+            marginLeft: "-50px",
+            background: `radial-gradient(circle, ${glowColor} 0%, transparent 70%)`,
+          }}
+        />
+      ))}
+    </a>
   );
 }

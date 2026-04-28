@@ -1,15 +1,23 @@
 import os from "os";
 import type { NextConfig } from "next";
+import bundleAnalyzer from "@next/bundle-analyzer";
 import { withSentryConfig } from "@sentry/nextjs";
 
 const isProd = process.env.NODE_ENV === "production";
+const withBundleAnalyzer = bundleAnalyzer({
+  enabled: process.env.ANALYZE === "true",
+});
 
 /**
  * Collect every non-loopback IPv4 address on the machine.
  *
- * `allowedDevOrigins` and `serverActions.allowedOrigins` both accept exact
+ * Both `allowedDevOrigins` and `serverActions.allowedOrigins` accept exact
  * hostnames/IPs — NOT CIDR ranges. We enumerate the real addresses so the
  * config stays valid regardless of which DHCP lease the machine received.
+ *
+ * IMPORTANT: Next.js reads this file once at startup. If your machine's IP
+ * changes (DHCP reassignment), restart the dev server so the new IP is
+ * picked up. Also update NEXT_PUBLIC_BASE_URL in .env.local to match.
  */
 function getLanIpAddresses(): string[] {
   const addrs: string[] = [];
@@ -43,13 +51,32 @@ const customStoragePattern = (() => {
     return null;
   }
 })();
-// Next.js 16 compares the full Origin header (host + port) against
-// allowedDevOrigins entries. Include both bare IPs and IP:port variants
-// so the check passes whether or not the port appears in the header.
+
+// Next.js strips the protocol from the Origin header and compares only the
+// host[:port] portion against allowedDevOrigins entries. We include both the
+// bare IP and the IP:port form so the check passes regardless of whether the
+// browser includes the port in the Origin header (it does when non-standard,
+// but some mobile browsers omit it even for non-80/443 ports).
 const port = process.env.PORT ?? "3000";
 const lanOrigins = isProd
   ? []
   : lanIps.flatMap((ip) => [ip, `${ip}:${port}`]);
+
+// Log at startup so it's easy to verify which IPs are allowlisted.
+// If mobile HMR is still blocked after restart, check that the IP shown
+// here matches NEXT_PUBLIC_BASE_URL and the address the phone uses to reach
+// the dev server.
+if (!isProd && lanOrigins.length > 0) {
+  console.info(
+    `[next.config] LAN origins allowlisted for dev: ${lanOrigins.join(", ")}`,
+  );
+} else if (!isProd) {
+  console.warn(
+    "[next.config] No LAN IPs detected — allowedDevOrigins not set. " +
+    "Mobile devices will be blocked from /_next/* endpoints. " +
+    "Ensure the dev machine has a network interface other than loopback.",
+  );
+}
 
 const nextConfig: NextConfig = {
   images: {
@@ -65,21 +92,21 @@ const nextConfig: NextConfig = {
   },
 
   // Allow LAN devices (phones, tablets) to load Next.js dev resources.
-  // `allowedDevOrigins` unblocks /_next/webpack-hmr cross-origin requests so
-  // the JS bundle fully hydrates on a physical phone — without it the page
-  // hangs permanently on the splash screen.
+  // Without this, /_next/webpack-hmr WebSocket connections from any IP other
+  // than localhost are rejected with 403, which stalls JS bundle loading on
+  // some mobile browsers (iOS Safari connection-pool bug) → stuck splash screen.
+  // Restart the dev server after any IP change for this to take effect.
   ...(!isProd && lanOrigins.length > 0 && {
     allowedDevOrigins: lanOrigins,
   }),
 
   // Allow Server Actions submitted from LAN devices.
-  // Next.js 15+ validates the Origin header on every Server Action POST; LAN
-  // origins are rejected by default, causing silent action failures on mobile.
+  // In Next.js 16 `serverActions` is a top-level key (no longer experimental).
+  // Next.js validates the Origin header on every Server Action POST; without
+  // this, gate form submissions from mobile are rejected with a CSRF error.
   ...(!isProd && lanOrigins.length > 0 && {
-    experimental: {
-      serverActions: {
-        allowedOrigins: lanOrigins,
-      },
+    serverActions: {
+      allowedOrigins: lanOrigins,
     },
   }),
 
@@ -149,7 +176,7 @@ const nextConfig: NextConfig = {
   },
 };
 
-export default withSentryConfig(nextConfig, {
+export default withBundleAnalyzer(withSentryConfig(nextConfig, {
   // Sentry organisation and project slugs — set these in your CI/CD environment.
   org: process.env.SENTRY_ORG,
   project: process.env.SENTRY_PROJECT,
@@ -165,4 +192,4 @@ export default withSentryConfig(nextConfig, {
 
   // Automatically instrument Vercel Cron Monitors.
   automaticVercelMonitors: true,
-});
+}));

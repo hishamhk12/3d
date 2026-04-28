@@ -14,7 +14,8 @@ function CleanupButton() {
   );
 
   const total = result
-    ? result.expired + result.idleExpired + result.stuckFailed + result.completed
+    ? result.expired + result.idleExpired + result.stuckFailed + result.stuckRenderJobsFailed + result.completed
+      + result.detectedIssues
     : 0;
 
   return (
@@ -34,7 +35,9 @@ function CleanupButton() {
                 result.expired > 0 && `${result.expired} expired`,
                 result.idleExpired > 0 && `${result.idleExpired} idle`,
                 result.stuckFailed > 0 && `${result.stuckFailed} failed`,
+                result.stuckRenderJobsFailed > 0 && `${result.stuckRenderJobsFailed} jobs failed`,
                 result.completed > 0 && `${result.completed} completed`,
+                result.detectedIssues > 0 && `${result.detectedIssues} issues`,
               ]
                 .filter(Boolean)
                 .join(" · ")}
@@ -92,6 +95,7 @@ export function AdminHeader() {
           <nav className="flex items-center gap-1">
             {navLink("/admin", "Dashboard")}
             {navLink("/admin/analytics", "Analytics")}
+            {navLink("/admin/diagnostics", "Diagnostics")}
           </nav>
         </div>
 

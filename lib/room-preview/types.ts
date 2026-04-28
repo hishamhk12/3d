@@ -88,9 +88,7 @@ export type RoomPreviewSession = {
 
 export type RoomPreviewSessionResponse = RoomPreviewSession;
 
-export type ConnectRoomPreviewSessionResponse = {
-  success: true;
-};
+export type ConnectRoomPreviewSessionResponse = RoomPreviewSession;
 
 export type DemoRoom = {
   id: string;
@@ -133,7 +131,7 @@ export type SaveRoomPreviewSessionProductResult = {
 
 export type CreateRoomPreviewSessionResponse = {
   sessionId: string;
-  /** HMAC session token. Embed in the QR code URL and send as `x-session-token` on mutation requests. */
+  /** HMAC session token — used by MobileLauncherClient to build the activate URL. */
   token: string | undefined;
 };
 

@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { ADMIN_SESSION_COOKIE, verifyAdminToken } from "@/lib/admin/auth";
 import { checkIpRateLimit, getClientIp } from "@/lib/ip-rate-limit";
+import { isRoomPreviewRateLimitDisabled } from "@/lib/room-preview/rate-limit-bypass";
 
 // ─── Limits configuration ─────────────────────────────────────────────────────
 //
@@ -41,6 +42,7 @@ export async function proxy(request: NextRequest) {
 
   // ── Admin auth guard ─────────────────────────────────────────────────────────
   // Protect all /admin routes except /admin/login.
+  // Room Preview diagnostics live under /api/room-preview/* and must never use admin auth.
   if (path.startsWith("/admin") && !path.startsWith("/admin/login")) {
     const token = request.cookies.get(ADMIN_SESSION_COOKIE)?.value;
     if (!token || !(await verifyAdminToken(token))) {
@@ -51,10 +53,13 @@ export async function proxy(request: NextRequest) {
     }
   }
 
-  const ip = getClientIp(request.headers);
+  const bypassRoomPreviewRateLimit =
+    path.startsWith("/api/room-preview/") && isRoomPreviewRateLimitDisabled();
 
   // ── Rate limiting (API routes only) ─────────────────────────────────────────
-  if (path.startsWith("/api/")) {
+  if (path.startsWith("/api/") && !bypassRoomPreviewRateLimit) {
+    const ip = getClientIp(request.headers);
+
     for (const [fragment, limit, windowSeconds] of RATE_LIMIT_RULES) {
       if (path.includes(fragment)) {
         const result = await checkIpRateLimit(ip, {

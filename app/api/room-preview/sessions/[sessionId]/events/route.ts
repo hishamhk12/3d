@@ -70,8 +70,10 @@ export async function GET(
 
       // Declare before close() so there is no temporal dead zone if close()
       // is invoked early (e.g. safeEnqueue throws on the initial messages).
-      let unsubscribe: (() => void) | undefined;
-      let heartbeat: ReturnType<typeof setInterval> | undefined;
+      const cleanup: {
+        heartbeat?: ReturnType<typeof setInterval>;
+        unsubscribe?: () => void;
+      } = {};
 
       const safeEnqueue = (chunk: Uint8Array) => {
         if (closed) return;
@@ -86,8 +88,8 @@ export async function GET(
         if (closed) return;
         closed = true;
 
-        clearInterval(heartbeat);
-        unsubscribe?.();
+        clearInterval(cleanup.heartbeat);
+        cleanup.unsubscribe?.();
         request.signal.removeEventListener("abort", close);
 
         log.info({ sessionId }, "SSE stream closed — all listeners removed");
@@ -119,7 +121,7 @@ export async function GET(
         ),
       );
 
-      unsubscribe = subscribeToRoomPreviewSessionEvents(
+      cleanup.unsubscribe = subscribeToRoomPreviewSessionEvents(
         sessionId,
         (event) => {
           safeEnqueue(createSseMessage(event.type, JSON.stringify(event)));
@@ -132,7 +134,7 @@ export async function GET(
         },
       );
 
-      heartbeat = setInterval(() => {
+      cleanup.heartbeat = setInterval(() => {
         safeEnqueue(createSseComment("keepalive"));
       }, ROOM_PREVIEW_TIMEOUTS.SSE_KEEPALIVE_MS);
 

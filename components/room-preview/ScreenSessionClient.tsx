@@ -42,13 +42,13 @@ export default function ScreenSessionClient({ sessionId }: { sessionId: string }
 
   if (viewState === "loading") {
     return (
-      <div className="mt-6 rounded-[24px] border border-[rgba(255,255,255,0.6)] bg-white/40 backdrop-blur-md px-5 py-4 text-center">
-        <p className="text-xs font-semibold tracking-[0.18em] text-[#003C71] uppercase" style={{ textShadow: "0 1px 1px rgba(255,255,255,0.7)" }}>
+      <div className="mt-6 w-full rounded-3xl border border-white/10 bg-white/10 backdrop-blur-xl p-8 text-center shadow-[0_20px_60px_rgba(0,0,0,0.4)] animate-in fade-in duration-700">
+        <p className="text-sm tracking-widest text-white/60 uppercase">
           {t.roomPreview.screen.sessionStatus}
         </p>
-        <p className="mt-3 text-lg font-semibold text-[#1d1d1f]">{t.roomPreview.screen.loadingTitle}</p>
-        <div className="mt-4 flex items-center justify-center gap-3 text-sm text-[#4a4a52]">
-          <LoaderCircle className="size-4 animate-spin" style={{ color: "#003C71" }} />
+        <p className="mt-4 text-3xl font-bold text-white tracking-tight">{t.roomPreview.screen.loadingTitle}</p>
+        <div className="mt-6 flex items-center justify-center gap-3 text-base text-white/80">
+          <LoaderCircle className="size-6 animate-spin text-cyan-400" />
           {t.roomPreview.screen.loadingDescription}
         </div>
       </div>
@@ -57,15 +57,15 @@ export default function ScreenSessionClient({ sessionId }: { sessionId: string }
 
   // Shared countdown footer used by all three error view states.
   const errorCountdownFooter = errorCountdown !== null ? (
-    <div className="mt-4 px-1">
-      <p className="text-center text-xs text-[#4a4a52]">
+    <div className="mt-6 px-1">
+      <p className="text-center text-sm text-white/60">
         {locale === "ar"
           ? `العودة للبداية خلال ${formatCountdown(errorCountdown)} ثانية`
           : `Returning to start in ${formatCountdown(errorCountdown)}s`}
       </p>
-      <div className="mt-3 h-1.5 w-full overflow-hidden rounded-full bg-black/10">
+      <div className="mt-4 h-2 w-full overflow-hidden rounded-full bg-white/10">
         <div
-          className="h-full rounded-full bg-[#003C71]/50 transition-all duration-1000 ease-linear"
+          className="h-full rounded-full bg-gradient-to-r from-cyan-400 to-teal-400 transition-all duration-1000 ease-linear animate-pulse"
           style={{ width: `${Math.max(0, (errorCountdown / Math.round(SCREEN_ERROR_RESET_MS / 1000)) * 100)}%` }}
         />
       </div>

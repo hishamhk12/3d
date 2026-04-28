@@ -21,7 +21,7 @@ export async function POST(
   if (unauthorized) return unauthorized;
 
   try {
-    await connectMobileToSession(sessionId);
+    const session = await connectMobileToSession(sessionId);
 
     after(async () => {
       const userSessionId = await getUserSessionIdForSession(sessionId);
@@ -30,7 +30,7 @@ export async function POST(
       }
     });
 
-    return NextResponse.json({ success: true });
+    return NextResponse.json(session);
   } catch (error) {
     if (isRoomPreviewSessionNotFoundError(error)) {
       return NextResponse.json(

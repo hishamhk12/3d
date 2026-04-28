@@ -1,5 +1,6 @@
 import "server-only";
 
+import { openSessionIssue, trackSessionEvent } from "@/lib/room-preview/session-diagnostics";
 import { prisma } from "@/lib/server/prisma";
 
 /**
@@ -8,6 +9,16 @@ import { prisma } from "@/lib/server/prisma";
  * field was added) — they are permanent orphans and should be closed out.
  */
 export async function expireOldSessions(): Promise<number> {
+  const sessions = await prisma.roomPreviewSession.findMany({
+    where: {
+      status: { notIn: ["failed", "expired", "completed"] },
+      OR: [
+        { expiresAt: null },
+        { expiresAt: { lte: new Date() } },
+      ],
+    },
+    select: { id: true, status: true },
+  });
   const result = await prisma.roomPreviewSession.updateMany({
     where: {
       status: { notIn: ["failed", "expired", "completed"] },
@@ -18,6 +29,17 @@ export async function expireOldSessions(): Promise<number> {
     },
     data: { status: "expired" },
   });
+  await Promise.all(sessions.map((session) =>
+    trackSessionEvent({
+      sessionId: session.id,
+      source: "server",
+      eventType: "session_expired",
+      level: "warning",
+      statusBefore: session.status,
+      statusAfter: "expired",
+      metadata: { reason: "expires_at" },
+    }),
+  ));
   return result.count;
 }
 
@@ -33,6 +55,13 @@ export async function expireIdleWaitingSessions(
   idleAfterMs = 1 * 60 * 1000,
 ): Promise<number> {
   const cutoff = new Date(Date.now() - idleAfterMs);
+  const sessions = await prisma.roomPreviewSession.findMany({
+    where: {
+      status: "waiting_for_mobile",
+      updatedAt: { lte: cutoff },
+    },
+    select: { id: true, status: true, updatedAt: true },
+  });
   const result = await prisma.roomPreviewSession.updateMany({
     where: {
       status: "waiting_for_mobile",
@@ -40,6 +69,22 @@ export async function expireIdleWaitingSessions(
     },
     data: { status: "expired" },
   });
+  await Promise.all(sessions.map(async (session) => {
+    await openSessionIssue({
+      sessionId: session.id,
+      type: "SESSION_STUCK",
+      metadata: { status: session.status, idleAfterMs, updatedAt: session.updatedAt.toISOString() },
+    });
+    await trackSessionEvent({
+      sessionId: session.id,
+      source: "server",
+      eventType: "session_expired",
+      level: "warning",
+      statusBefore: session.status,
+      statusAfter: "expired",
+      metadata: { reason: "idle_waiting_for_mobile", idleAfterMs },
+    });
+  }));
   return result.count;
 }
 
@@ -54,6 +99,13 @@ export async function failStuckRenderingSessions(
   stuckAfterMs = 7 * 60 * 1000,
 ): Promise<number> {
   const cutoff = new Date(Date.now() - stuckAfterMs);
+  const sessions = await prisma.roomPreviewSession.findMany({
+    where: {
+      status: { in: ["rendering", "ready_to_render"] },
+      updatedAt: { lte: cutoff },
+    },
+    select: { id: true, status: true, updatedAt: true },
+  });
   const result = await prisma.roomPreviewSession.updateMany({
     where: {
       status: { in: ["rendering", "ready_to_render"] },
@@ -61,6 +113,23 @@ export async function failStuckRenderingSessions(
     },
     data: { status: "failed" },
   });
+  await Promise.all(sessions.map(async (session) => {
+    await openSessionIssue({
+      sessionId: session.id,
+      type: "RENDER_TIMEOUT",
+      metadata: { status: session.status, stuckAfterMs, updatedAt: session.updatedAt.toISOString() },
+    });
+    await trackSessionEvent({
+      sessionId: session.id,
+      source: "server",
+      eventType: "render_timeout",
+      level: "error",
+      statusBefore: session.status,
+      statusAfter: "failed",
+      code: "RENDER_TIMEOUT",
+      metadata: { stuckAfterMs },
+    });
+  }));
   return result.count;
 }
 

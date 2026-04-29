@@ -232,7 +232,7 @@ export type UploadFileToR2Options = {
   onR2Failure?: (details: R2FailureDetails) => void;
 };
 
-export function uploadFileToR2(
+export async function uploadFileToR2(
   uploadUrl: string,
   file: File,
   options?: UploadFileToR2Options,
@@ -241,12 +241,21 @@ export function uploadFileToR2(
   let uploadHost = "unknown";
   try { uploadHost = new URL(uploadUrl).hostname; } catch { /* ignore */ }
 
+  // Convert to ArrayBuffer BEFORE opening the XHR.
+  //
+  // xhr.send(file) — where file is a File (subclass of Blob) — automatically
+  // sets Content-Type to file.type per the XHR spec, even without an explicit
+  // setRequestHeader call. That implicit Content-Type triggers a CORS preflight
+  // on iOS Safari (and all browsers), which R2 may not satisfy.
+  //
+  // Sending an ArrayBuffer carries no type metadata, so the browser sets zero
+  // Content-Type, zero custom headers, and the preflight is avoided entirely.
+  const buffer = await file.arrayBuffer();
+
   return new Promise((resolve, reject) => {
     const xhr = new XMLHttpRequest();
     xhr.open("PUT", uploadUrl, true);
-    // No custom headers — avoids CORS preflight Access-Control-Request-Headers
-    // complications with R2. Content-Type is intentionally omitted; the object
-    // is confirmed server-side after upload so the stored MIME type is not critical.
+    // Zero setRequestHeader calls. ArrayBuffer body → no implicit Content-Type.
 
     xhr.upload.addEventListener("progress", (event) => {
       if (event.lengthComputable) {
@@ -305,7 +314,7 @@ export function uploadFileToR2(
         host: uploadHost,
       };
 
-      console.error("[room-preview] R2 PUT network error (likely CORS)", {
+      console.error("[room-preview] R2 PUT network error", {
         host: details.host,
         fileType: file.type,
         fileSize: file.size,
@@ -337,7 +346,7 @@ export function uploadFileToR2(
       });
     });
 
-    xhr.send(file);
+    xhr.send(buffer);
   });
 }
 

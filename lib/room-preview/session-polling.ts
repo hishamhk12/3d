@@ -73,7 +73,7 @@ export function pollForRenderResult(
 ): Promise<RoomPreviewSession> {
   return new Promise((resolve, reject) => {
     let active = true;
-    let timeoutId: ReturnType<typeof window.setTimeout> | undefined;
+    let timeoutId: number | undefined;
     let settled = false;
     const startedAt = Date.now();
 

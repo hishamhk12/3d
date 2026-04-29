@@ -2,7 +2,10 @@
   "permissions": {
     "allow": [
       "Bash(grep -r \"You are\\\\|system\\\\|instruction\" /c/Users/hisha/Downloads/3d --include=\"*.md\" ! -path \"*node_modules*\")",
-      "Bash(ls -la /c/Users/hisha/Downloads/3d/*.md)"
+      "Bash(ls -la /c/Users/hisha/Downloads/3d/*.md)",
+      "Bash(find /c/Users/hisha/Downloads/3d/app/api/room-preview/sessions/[sessionId]/ -maxdepth 1 -type f -name \"*.ts\")",
+      "Bash(python -c \"import sys,json; p=json.load\\(sys.stdin\\); deps={**p.get\\('dependencies',{}\\), **p.get\\('devDependencies',{}\\)}; [print\\(k,v\\) for k,v in deps.items\\(\\) if 'aws' in k.lower\\(\\) or 's3' in k.lower\\(\\)]\")",
+      "Bash(node -e \"const p=require\\('./package.json'\\); const deps={...p.dependencies,...p.devDependencies}; Object.entries\\(deps\\).filter\\(\\([k]\\)=>k.includes\\('aws'\\)||k.includes\\('@aws-sdk'\\)\\).forEach\\(\\([k,v]\\)=>console.log\\(k,v\\)\\)\")"
     ]
   }
 }

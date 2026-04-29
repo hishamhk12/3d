@@ -1,6 +1,7 @@
 import type {
   ConnectRoomPreviewSessionResponse,
   CreateRoomPreviewSessionResponse,
+  DirectUploadUrlResponse,
   FloorQuad,
   ProductType,
   QuadPoint,
@@ -180,13 +181,13 @@ export function isConnectRoomPreviewSessionResponse(
 export function isSaveRoomPreviewSessionRoomResponse(
   value: unknown,
 ): value is SaveRoomPreviewSessionRoomResponse {
-  return isRecord(value) && value.success === true && isSelectedRoom(value.room);
+  return isRecord(value) && value.success === true && isSelectedRoom(value.room) && isRoomPreviewSession(value.session);
 }
 
 export function isSaveRoomPreviewSessionProductResponse(
   value: unknown,
 ): value is SaveRoomPreviewSessionProductResponse {
-  return isRecord(value) && value.success === true && isSelectedProduct(value.product);
+  return isRecord(value) && value.success === true && isSelectedProduct(value.product) && isRoomPreviewSession(value.session);
 }
 
 export function assertValidResponse<T>(
@@ -205,4 +206,15 @@ export function isRoomPreviewSessionResponse(
   value: unknown,
 ): value is RoomPreviewSessionResponse {
   return isRoomPreviewSession(value);
+}
+
+export function isDirectUploadUrlResponse(value: unknown): value is DirectUploadUrlResponse {
+  return (
+    isRecord(value) &&
+    typeof value.uploadUrl === "string" &&
+    typeof value.objectKey === "string" &&
+    typeof value.publicUrl === "string" &&
+    value.method === "PUT" &&
+    isRecord(value.headers)
+  );
 }

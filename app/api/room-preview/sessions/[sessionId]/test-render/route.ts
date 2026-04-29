@@ -19,6 +19,10 @@ export async function POST(
   request: Request,
   context: RouteContext<"/api/room-preview/sessions/[sessionId]/test-render">,
 ) {
+  if (process.env.NODE_ENV === "production") {
+    return NextResponse.json({ error: "Not found." }, { status: 404 });
+  }
+
   const { sessionId } = await context.params;
 
   const unauthorized = guardSession(request, sessionId);

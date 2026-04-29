@@ -58,6 +58,12 @@ export function createRoomPreviewSessionPoller(
   };
 }
 
+function getRenderPollIntervalMs(elapsedMs: number): number {
+  if (elapsedMs < 30_000) return 2_500;
+  if (elapsedMs < 90_000) return 5_000;
+  return 10_000;
+}
+
 export function pollForRenderResult(
   sessionId: string,
   timeoutMs = ROOM_PREVIEW_TIMEOUTS.RENDER_POLL_TIMEOUT_MS,
@@ -66,30 +72,39 @@ export function pollForRenderResult(
   },
 ): Promise<RoomPreviewSession> {
   return new Promise((resolve, reject) => {
-    let stop: (() => void) | null = null;
+    let active = true;
+    let timeoutId: ReturnType<typeof window.setTimeout> | undefined;
     let settled = false;
+    const startedAt = Date.now();
 
     const settle = (fn: () => void) => {
       if (settled) return;
       settled = true;
-      stop?.();
+      active = false;
+      if (timeoutId !== undefined) window.clearTimeout(timeoutId);
       window.clearTimeout(deadlineId);
       fn();
     };
 
-    stop = createRoomPreviewSessionPoller(sessionId, {
-      intervalMs: ROOM_PREVIEW_TIMEOUTS.RENDER_POLL_MS,
-      onUpdate(session) {
+    async function poll() {
+      try {
+        const session = await fetchRoomPreviewSession(sessionId);
+        if (!active) return;
         options?.onUpdate?.(session);
-
         if (session.status === "result_ready" || session.status === "failed") {
           settle(() => resolve(session));
+          return;
         }
-      },
-      onError() {
-        return true;
-      },
-    });
+      } catch {
+        // transient error — keep polling
+        if (!active) return;
+      }
+
+      if (active) {
+        const intervalMs = getRenderPollIntervalMs(Date.now() - startedAt);
+        timeoutId = window.setTimeout(poll, intervalMs);
+      }
+    }
 
     const deadlineId = window.setTimeout(() => {
       settle(() =>
@@ -98,5 +113,7 @@ export function pollForRenderResult(
         ),
       );
     }, timeoutMs);
+
+    void poll();
   });
 }

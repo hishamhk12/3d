@@ -2,6 +2,7 @@
 
 import { type MouseEvent, useState } from "react";
 import { submitGateForm } from "../actions";
+import { trackClientSessionEvent } from "@/lib/room-preview/session-diagnostics-client";
 import type { dictionaries } from "@/lib/i18n/dictionaries";
 
 type GateT = typeof dictionaries["en"]["gate"];
@@ -28,13 +29,6 @@ export function GateForm({ sessionId, locale, t, initialRole, initialName, error
   const [role, setRole] = useState<Role | null>(initialRole ?? null);
   const isRtl = locale === "ar";
 
-  const roleCardBase = [
-    "w-full flex items-center gap-4 p-4 rounded-2xl cursor-pointer transition-all text-start rtl:flex-row-reverse",
-    "border border-[var(--border)] bg-[var(--bg-surface)]",
-    "hover:border-[var(--border-accent)] hover:bg-[var(--bg-surface-2)]",
-    "active:scale-[0.99]",
-  ].join(" ");
-
   function selectRole(nextRole: Role, event: MouseEvent<HTMLAnchorElement>) {
     event.preventDefault();
     setRole(nextRole);
@@ -43,6 +37,31 @@ export function GateForm({ sessionId, locale, t, initialRole, initialName, error
   function clearRole(event: MouseEvent<HTMLAnchorElement>) {
     event.preventDefault();
     setRole(null);
+  }
+
+  function handleSubmit() {
+    console.info("[room-preview] gate_submit_prevent_default_confirmed", { sessionId, role });
+    trackClientSessionEvent(sessionId, {
+      source: "mobile",
+      eventType: "gate_submit_prevent_default_confirmed",
+      level: "info",
+      metadata: {
+        preventDefaultApplied: false,
+        reason: "native_next_server_action_submit",
+        role,
+      },
+    });
+    trackClientSessionEvent(sessionId, {
+      source: "mobile",
+      eventType: "gate_submit_navigation_blocked",
+      level: "info",
+      metadata: {
+        blocked: false,
+        reason: "server_action_connects_before_redirect",
+        role,
+        submitMode: "native_next_server_action",
+      },
+    });
   }
 
   return (
@@ -92,7 +111,7 @@ export function GateForm({ sessionId, locale, t, initialRole, initialName, error
           </div>
         </div>
       ) : (
-        <form action={submitGateForm} className="space-y-4">
+        <form action={submitGateForm} onSubmit={handleSubmit} className="space-y-4">
           <input type="hidden" name="sessionId" value={sessionId} />
           <input type="hidden" name="locale" value={locale} />
           <input type="hidden" name="role" value={role} />

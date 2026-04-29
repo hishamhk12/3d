@@ -10,13 +10,19 @@ const log = getLogger("mobile-page");
 
 type MobileSessionPageProps = {
   params: Promise<{ sessionId: string }>;
-  searchParams: Promise<{ devEntry?: string; lang?: string }>;
+  searchParams: Promise<{ devEntry?: string; lang?: string; t?: string }>;
 };
 
 export default async function MobileSessionPage({ params, searchParams }: MobileSessionPageProps) {
   const { sessionId } = await params;
-  const { devEntry, lang } = await searchParams;
+  const { devEntry, lang, t } = await searchParams;
   const langQuery = lang === "ar" || lang === "en" ? `?lang=${lang}` : "";
+
+  if (t) {
+    const params = new URLSearchParams({ t });
+    if (lang === "ar" || lang === "en") params.set("lang", lang);
+    redirect(`/api/room-preview/sessions/${sessionId}/activate?${params}`);
+  }
 
   const skipGateForDevEntry =
     process.env.NODE_ENV === "development" && devEntry === "1";

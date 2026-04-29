@@ -393,5 +393,6 @@ export async function POST(
   return NextResponse.json({
     success: true,
     room: session.selectedRoom,
+    session: verifiedSession,
   });
 }

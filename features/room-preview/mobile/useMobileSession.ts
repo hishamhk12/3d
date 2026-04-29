@@ -10,7 +10,12 @@ import {
   createRenderForSession,
 } from "@/lib/room-preview/session-client";
 import { saveRoomPreviewSessionProduct } from "@/lib/room-preview/product-service";
-import { saveRoomPreviewSessionRoom } from "@/lib/room-preview/room-service";
+import {
+  saveRoomPreviewSessionRoom,
+  requestDirectUploadUrl,
+  uploadFileToR2,
+  confirmDirectUpload,
+} from "@/lib/room-preview/room-service";
 import { compressRoomImage } from "@/lib/room-preview/image-compress";
 import { pollForRenderResult } from "@/lib/room-preview/session-polling";
 import { getCustomerRecoveryMessage, type CustomerRecoveryMessage } from "@/lib/room-preview/customer-recovery";
@@ -23,6 +28,11 @@ import type {
   RoomPreviewRoomSource,
   RoomPreviewSession,
 } from "@/lib/room-preview/types";
+
+const MOBILE_NETWORK_ERROR_MESSAGE =
+  "تعذر الاتصال بالسيرفر، تأكد أن الجوال والكمبيوتر على نفس الشبكة";
+const MOBILE_INITIAL_LOAD_MAX_ATTEMPTS = 3;
+const MOBILE_INITIAL_LOAD_RETRY_DELAY_MS = 1_500;
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -96,6 +106,19 @@ function createActionErrorMessage(error: unknown, fallbackMessage: string) {
   return error instanceof Error ? error.message : fallbackMessage;
 }
 
+function wait(durationMs: number) {
+  return new Promise((resolve) => {
+    setTimeout(resolve, durationMs);
+  });
+}
+
+function isNetworkInterrupted(error: unknown) {
+  return (
+    (isRoomPreviewRequestError(error) && error.code === "network") ||
+    (error instanceof TypeError && error.message === "Failed to fetch")
+  );
+}
+
 // ─── Hook ─────────────────────────────────────────────────────────────────────
 
 export function useMobileSession({
@@ -128,7 +151,14 @@ export function useMobileSession({
   // Keep the diagnostics status ref current for all async event listeners
   useEffect(() => {
     updateStatus(session?.status ?? null);
-  }, [session?.status, updateStatus]);
+    if (session?.status) {
+      console.info("[room-preview] mobile_session_status_changed", {
+        mobileConnected: session.mobileConnected,
+        sessionId,
+        status: session.status,
+      });
+    }
+  }, [session?.mobileConnected, session?.status, sessionId, updateStatus]);
 
   // ── Debounce cleanup ─────────────────────────────────────────────────────────
   useEffect(() => {
@@ -161,11 +191,20 @@ export function useMobileSession({
       setRecoveryMessage(null);
 
       const url = `/api/room-preview/sessions/${sessionId}`;
-      debugLog("network", `GET ${url}`, `attempt #${loadAttempt + 1}`);
-      trackFetch(); // timestamps this fetch; emits MOBILE_EXCESSIVE_POLLING if burst detected
+      for (let attempt = 1; attempt <= MOBILE_INITIAL_LOAD_MAX_ATTEMPTS; attempt += 1) {
+        const isLastAttempt = attempt === MOBILE_INITIAL_LOAD_MAX_ATTEMPTS;
 
-      try {
-        const nextSession = await fetchRoomPreviewSession(sessionId);
+        debugLog("network", `GET ${url}`, `attempt #${attempt}`);
+        trackFetch(); // timestamps this fetch; emits MOBILE_EXCESSIVE_POLLING if burst detected
+        trackClientSessionEvent(sessionId, {
+          source: "mobile",
+          eventType: "mobile_fetch_started",
+          level: "info",
+          metadata: { attempt, loadAttempt: loadAttempt + 1, url },
+        });
+
+        try {
+          const nextSession = await fetchRoomPreviewSession(sessionId);
 
         if (!active) return;
 
@@ -173,18 +212,65 @@ export function useMobileSession({
 
         // Auto-connect here to skip the manual "I am connected" button on mobile
         if (!isSessionConnected(nextSession)) {
+          const connectUrl = `/api/room-preview/sessions/${sessionId}/connect`;
           debugLog("network", `Auto-connecting session: ${sessionId}`);
+          console.info("[room-preview] mobile_connect_started", {
+            mode: "auto",
+            sessionId,
+            statusBefore: nextSession.status,
+            url: connectUrl,
+          });
+          trackClientSessionEvent(sessionId, {
+            source: "mobile",
+            eventType: "mobile_connect_started",
+            level: "info",
+            statusBefore: nextSession.status,
+            metadata: { attempt, mode: "auto", url: connectUrl },
+          });
           try {
             finalSession = await connectRoomPreviewSession(sessionId);
+            console.info("[room-preview] mobile_connect_success", {
+              mode: "auto",
+              sessionId,
+              statusAfter: finalSession.status,
+              url: connectUrl,
+            });
+            trackClientSessionEvent(sessionId, {
+              source: "mobile",
+              eventType: "mobile_connect_success",
+              level: "info",
+              statusAfter: finalSession.status,
+              metadata: { attempt, mode: "auto", url: connectUrl },
+            });
             debugLog("success", "Auto-connected successfully");
           } catch (autoConnectError) {
+            console.error("[room-preview] mobile_connect_failed", {
+              error: autoConnectError instanceof Error ? autoConnectError.message : String(autoConnectError),
+              mode: "auto",
+              sessionId,
+              url: connectUrl,
+            });
+            trackClientSessionEvent(sessionId, {
+              source: "mobile",
+              eventType: "mobile_connect_failed",
+              level: "error",
+              code: isRoomPreviewRequestError(autoConnectError)
+                ? autoConnectError.code
+                : isNetworkInterrupted(autoConnectError)
+                  ? "NETWORK_INTERRUPTED"
+                  : null,
+              message: autoConnectError instanceof Error ? autoConnectError.message : String(autoConnectError),
+              statusBefore: nextSession.status,
+              metadata: { attempt, mode: "auto", url: connectUrl },
+            });
             debugLog("error", `Failed to auto-connect session: ${autoConnectError instanceof Error ? autoConnectError.message : String(autoConnectError)}`);
             trackClientSessionEvent(sessionId, {
               source: "mobile",
               eventType: "mobile_auto_connect_failed",
               level: "error",
+              code: isNetworkInterrupted(autoConnectError) ? "NETWORK_INTERRUPTED" : null,
               message: autoConnectError instanceof Error ? autoConnectError.message : String(autoConnectError),
-              metadata: { attempt: loadAttempt + 1 },
+              metadata: { attempt, loadAttempt: loadAttempt + 1, url: connectUrl },
             });
             throw autoConnectError;
           }
@@ -194,11 +280,17 @@ export function useMobileSession({
         debugLog("state",   `viewState → ready`);
         setSession(finalSession);
         setViewState("ready");
+        return;
       } catch (loadError) {
         if (!active) return;
 
+        const networkInterrupted = isNetworkInterrupted(loadError);
+        const failedUrl =
+          isRoomPreviewRequestError(loadError) && loadError.status === 401
+            ? `/api/room-preview/sessions/${sessionId}/connect`
+            : url;
         const isTypeFailed =
-          loadError instanceof TypeError && loadError.message === "Failed to fetch";
+          networkInterrupted;
 
         debugLog(
           "error",
@@ -206,26 +298,66 @@ export function useMobileSession({
             ? "TypeError: Failed to fetch (firewall / wrong network?)"
             : `Fetch error: ${loadError instanceof Error ? loadError.message : String(loadError)}`,
           loadError instanceof Error
-            ? `code: ${isRoomPreviewRequestError(loadError) ? loadError.code : "n/a"}`
-            : undefined,
+            ? `code: ${isRoomPreviewRequestError(loadError) ? loadError.code : "n/a"} url: ${failedUrl}`
+            : `url: ${failedUrl}`,
         );
 
-        const failure = getViewStateFromError(loadError, t);
+        trackClientSessionEvent(sessionId, {
+          source: "mobile",
+          eventType: "mobile_fetch_failed_with_url",
+          level: "error",
+          code: networkInterrupted ? "NETWORK_INTERRUPTED" : null,
+          message: loadError instanceof Error ? loadError.message : String(loadError),
+          metadata: { attempt, loadAttempt: loadAttempt + 1, url: failedUrl },
+        });
+
+        if (networkInterrupted && !isLastAttempt) {
+          trackClientSessionEvent(sessionId, {
+            source: "mobile",
+            eventType: "mobile_retry_started",
+            level: "warning",
+            code: "NETWORK_INTERRUPTED",
+            message: "Retrying mobile session fetch without reloading the page.",
+            metadata: {
+              attempt,
+              nextAttempt: attempt + 1,
+              retryDelayMs: MOBILE_INITIAL_LOAD_RETRY_DELAY_MS,
+              url: failedUrl,
+            },
+          });
+          await wait(MOBILE_INITIAL_LOAD_RETRY_DELAY_MS);
+          continue;
+        }
+
+        if (networkInterrupted) {
+          trackClientSessionEvent(sessionId, {
+            source: "mobile",
+            eventType: "mobile_retry_exhausted",
+            level: "error",
+            code: "NETWORK_INTERRUPTED",
+            message: "Mobile session fetch failed after all in-page retry attempts.",
+            metadata: { attempts: MOBILE_INITIAL_LOAD_MAX_ATTEMPTS, url: failedUrl },
+          });
+        }
+
+        const failure = networkInterrupted
+          ? { state: "failed" as const, message: MOBILE_NETWORK_ERROR_MESSAGE }
+          : getViewStateFromError(loadError, t);
         trackClientSessionEvent(sessionId, {
           source: "mobile",
           eventType: "mobile_fetch_failed",
           level: "error",
-          code: isRoomPreviewRequestError(loadError) && loadError.code === "network"
-            ? "NETWORK_INTERRUPTED"
-            : null,
+          code: networkInterrupted ? "NETWORK_INTERRUPTED" : null,
           message: loadError instanceof Error ? loadError.message : String(loadError),
-          metadata: { attempt: loadAttempt + 1 },
+          metadata: { attempt, loadAttempt: loadAttempt + 1, url: failedUrl },
         });
         debugLog("state", `viewState → ${failure.state}`);
         setSession(null);
         setViewState(failure.state);
         setError(failure.message);
+        return;
       }
+    }
     }
 
     void loadSession();
@@ -301,9 +433,33 @@ export function useMobileSession({
     setRoomSaveStatusLabel(null);
 
     debugLog("network", `POST /connect  sessionId: ${sessionId}`);
+    console.info("[room-preview] mobile_connect_started", {
+      mode: "manual",
+      sessionId,
+      statusBefore: session.status,
+    });
+    trackClientSessionEvent(sessionId, {
+      source: "mobile",
+      eventType: "mobile_connect_started",
+      level: "info",
+      statusBefore: session.status,
+      metadata: { mode: "manual" },
+    });
 
     try {
-      await connectRoomPreviewSession(sessionId);
+      const connectedSession = await connectRoomPreviewSession(sessionId);
+      console.info("[room-preview] mobile_connect_success", {
+        mode: "manual",
+        sessionId,
+        statusAfter: connectedSession.status,
+      });
+      trackClientSessionEvent(sessionId, {
+        source: "mobile",
+        eventType: "mobile_connect_success",
+        level: "info",
+        statusAfter: connectedSession.status,
+        metadata: { mode: "manual" },
+      });
       setSession({
         ...session,
         mobileConnected: true,
@@ -318,6 +474,22 @@ export function useMobileSession({
       debugLog("success", "Session connected");
     } catch (connectError) {
       const failure = getViewStateFromError(connectError, t);
+      console.error("[room-preview] mobile_connect_failed", {
+        error: connectError instanceof Error ? connectError.message : String(connectError),
+        mode: "manual",
+        sessionId,
+      });
+      trackClientSessionEvent(sessionId, {
+        source: "mobile",
+        eventType: "mobile_connect_failed",
+        level: "error",
+        code: isRoomPreviewRequestError(connectError)
+          ? connectError.code
+          : null,
+        message: connectError instanceof Error ? connectError.message : String(connectError),
+        statusBefore: session.status,
+        metadata: { mode: "manual" },
+      });
       debugLog("error", `Connect failed: ${connectError instanceof Error ? connectError.message : String(connectError)}`);
 
       if (failure.state === "expired" || failure.state === "not_found") {
@@ -364,21 +536,81 @@ export function useMobileSession({
     setRecoveryMessage(null);
     setRoomSaveStatus("idle");
     setProductSaveStatus("idle");
-    setRoomSaveStatusLabel(t.roomPreview.mobile.room.uploadStatus);
+    setRoomSaveStatusLabel("جاري رفع صورة الغرفة...");
 
     const fileToUpload = await compressRoomImage(file);
 
     debugLog(
       "network",
-      `POST /room  source: ${source}`,
+      `uploading room  source: ${source}`,
       `file: ${file.name} (${file.size}b)  ${fileToUpload !== file ? `compressed → ${fileToUpload.name} (${fileToUpload.size}b, ${Math.round((1 - fileToUpload.size / file.size) * 100)}% smaller)` : "skipped compression (file already small)"}`,
     );
 
     try {
-      const response = await saveRoomPreviewSessionRoom(
-        sessionId,
-        { source, file: fileToUpload, previousRoomImageUrl: session.selectedRoom?.imageUrl },
-      );
+      // ── Step 1: request a signed upload URL from the server ───────────────
+      let uploadUrlResponse;
+      let usedDirectUpload = false;
+
+      try {
+        uploadUrlResponse = await requestDirectUploadUrl(sessionId, { source, file: fileToUpload });
+        usedDirectUpload = true;
+        trackClientSessionEvent(sessionId, {
+          source: "mobile",
+          eventType: "room_direct_upload_started",
+          level: "info",
+          metadata: { source, fileSize: fileToUpload.size, fileType: fileToUpload.type },
+        });
+        debugLog("network", `Got signed upload URL — PUT ${uploadUrlResponse.objectKey}`);
+      } catch (urlError) {
+        const isNotSupported =
+          isRoomPreviewRequestError(urlError) &&
+          urlError.status === 501;
+
+        if (isNotSupported) {
+          // Local / non-R2 dev environment — fall back to FormData upload
+          debugLog("info", "Direct upload not supported, falling back to FormData upload");
+        } else {
+          throw urlError;
+        }
+      }
+
+      let response;
+
+      if (usedDirectUpload && uploadUrlResponse) {
+        // ── Step 2: PUT file directly to R2 ────────────────────────────────
+        await uploadFileToR2(
+          uploadUrlResponse.uploadUrl,
+          fileToUpload,
+          uploadUrlResponse.headers["Content-Type"] ?? fileToUpload.type,
+          (percent) => {
+            setRoomSaveStatusLabel(`جاري رفع صورة الغرفة... ${percent}%`);
+          },
+        );
+
+        debugLog("success", `File uploaded to R2 (${fileToUpload.size}b)`);
+        setRoomSaveStatusLabel("جاري رفع صورة الغرفة...");
+
+        // ── Step 3: confirm the upload on the server ────────────────────────
+        response = await confirmDirectUpload(sessionId, {
+          objectKey: uploadUrlResponse.objectKey,
+          publicUrl: uploadUrlResponse.publicUrl,
+          source,
+          file: fileToUpload,
+        });
+
+        trackClientSessionEvent(sessionId, {
+          source: "mobile",
+          eventType: "room_direct_upload_confirmed",
+          level: "info",
+          metadata: { source, objectKey: uploadUrlResponse.objectKey },
+        });
+      } else {
+        // ── Fallback: old FormData upload (development / non-R2) ────────────
+        response = await saveRoomPreviewSessionRoom(
+          sessionId,
+          { source, file: fileToUpload, previousRoomImageUrl: session.selectedRoom?.imageUrl },
+        );
+      }
 
       setSession(response.session);
       setRoomSaveStatus("success");
@@ -388,7 +620,7 @@ export function useMobileSession({
         eventType: "room_upload_completed",
         level: "info",
         statusAfter: response.session.status,
-        metadata: { source },
+        metadata: { source, directUpload: usedDirectUpload },
       });
       debugLog("success", `Room saved  source: ${response.session.selectedRoom?.source ?? "?"}`);
     } catch (saveError) {
@@ -409,7 +641,12 @@ export function useMobileSession({
           ? getCustomerRecoveryMessage("retake_room_photo")
           : getCustomerRecoveryMessage("retry_upload");
         setRecoveryMessage(recovery);
-        setError(recovery?.text ?? createActionErrorMessage(saveError, t.roomPreview.mobile.room.saveFailed));
+        setError(
+          recovery?.text ??
+          (isRoomPreviewRequestError(saveError) && saveError.status === 403
+            ? "انتهت صلاحية رابط الرفع، حاول مرة أخرى"
+            : createActionErrorMessage(saveError, "تعذر رفع الصورة، تحقق من الاتصال وحاول مرة أخرى")),
+        );
         setRoomSaveStatus("error");
         setRoomSaveStatusLabel(null);
       }
@@ -491,6 +728,17 @@ export function useMobileSession({
 
   // Look up a product by scanned/entered value. Tries barcode → id → name substring.
   const handleCreateRender = useCallback(async () => {
+    if (productDebounceRef.current !== null) {
+      debugLog("warn", "Render blocked — product save debounce still pending");
+      trackClientSessionEvent(session?.id ?? sessionId, {
+        source: "mobile",
+        eventType: "mobile_tap_detected",
+        level: "warning",
+        metadata: { target: "render", blocked: "pending_product_debounce" },
+      });
+      return;
+    }
+
     if (
       renderRequestInFlightRef.current ||
       isSavingProduct ||

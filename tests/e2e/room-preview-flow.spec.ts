@@ -63,9 +63,6 @@ test.describe("Health endpoint", () => {
 // ─── Sessions API contract ────────────────────────────────────────────────────
 
 test.describe("Sessions API contract", () => {
-  let sessionId: string;
-  let token: string;
-
   test("POST /api/room-preview/sessions creates a session", async ({ request }) => {
     const response = await request.post("/api/room-preview/sessions");
 
@@ -76,9 +73,6 @@ test.describe("Sessions API contract", () => {
     expect(body.id.length).toBeGreaterThan(0);
     expect(typeof body.token).toBe("string");
     expect(body.status).toBe("waiting_for_mobile");
-
-    sessionId = body.id;
-    token = body.token;
   });
 
   test("GET /api/room-preview/sessions/:id returns the created session", async ({
@@ -135,7 +129,8 @@ test.describe("Sessions API contract", () => {
     expect(response.status()).toBe(200);
 
     const body = await response.json();
-    expect(body.success).toBe(true);
+    expect(body.status).toBe("mobile_connected");
+    expect(body.mobileConnected).toBe(true);
 
     // Verify the session reflects the connected state
     const sessionResp = await request.get(`/api/room-preview/sessions/${id}`);
@@ -148,7 +143,7 @@ test.describe("Sessions API contract", () => {
 // ─── Mobile page ─────────────────────────────────────────────────────────────
 
 test.describe("Mobile session page", () => {
-  test("renders without error when navigated to directly", async ({ page, request }) => {
+  test("redirects tokenized mobile links through activation", async ({ page, request }) => {
     // Create a session first
     const createResp = await request.post("/api/room-preview/sessions");
     const { id, token: sessionToken } = await createResp.json();
@@ -161,13 +156,14 @@ test.describe("Mobile session page", () => {
     // Should NOT show the root error boundary
     const errorHeading = page.getByRole("heading", { name: /unexpected error/i });
     await expect(errorHeading).not.toBeVisible();
+    await expect(page).toHaveURL(new RegExp(`/room-preview/(mobile|gate)/${id}`));
   });
 });
 
 // ─── Two-context flow: screen + mobile ───────────────────────────────────────
 
 test.describe("Full screen + mobile pairing flow", () => {
-  test("session status updates to mobile_connected after mobile connects", async ({
+  test("session status updates to mobile_connected after QR activation and gate submit", async ({
     browser,
     request,
   }) => {
@@ -179,20 +175,30 @@ test.describe("Full screen + mobile pairing flow", () => {
     // 2. Open the screen page in one browser context
     const screenCtx = await browser.newContext();
     const screenPage = await screenCtx.newPage();
-    await screenPage.goto(
-      `/room-preview/screen/${sessionId}?token=${encodeURIComponent(sessionToken)}`,
-    );
+    await screenPage.goto(`/room-preview/screen/${sessionId}`);
     await expect(screenPage.locator("main")).toBeVisible();
 
-    // 3. Open the mobile page in a separate browser context (different "device")
+    // 3. Open the mobile activation URL in a separate browser context (different "device")
     const mobileCtx = await browser.newContext();
     const mobilePage = await mobileCtx.newPage();
+
     await mobilePage.goto(
-      `/room-preview/mobile/${sessionId}?t=${encodeURIComponent(sessionToken)}`,
+      `/api/room-preview/sessions/${sessionId}/activate?t=${encodeURIComponent(sessionToken)}&lang=ar`,
     );
     await expect(mobilePage.locator("main")).toBeVisible();
 
-    // 4. After the mobile page loads it calls POST /connect — poll until done
+    // 4. Complete the customer gate. The gate action connects the mobile session
+    // before the final navigation, so the client is not dependent on a post-redirect
+    // auto-connect request.
+    await mobilePage.locator('a[href*="role=customer"]').click();
+    await mobilePage.locator('input[name="name"]').fill("Playwright Customer");
+    await mobilePage.locator('input[name="phone"]').fill("+966501234567");
+    await mobilePage.locator('button[type="submit"]').click();
+    await mobilePage.waitForURL(new RegExp(`/room-preview/mobile/${sessionId}`), {
+      timeout: 15_000,
+    });
+
+    // 5. Verify the DB-backed session reflects the connected state.
     await expect
       .poll(
         async () => {

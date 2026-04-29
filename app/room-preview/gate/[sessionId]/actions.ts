@@ -10,6 +10,13 @@ import { verifySessionToken, generateSessionToken } from "@/lib/room-preview/ses
 import { trackEvent } from "@/lib/analytics/event-tracker";
 import { ROOM_PREVIEW_ROUTES } from "@/lib/room-preview/constants";
 import { MOBILE_TOKEN_COOKIE } from "@/lib/room-preview/cookies";
+import { trackSessionEvent } from "@/lib/room-preview/session-diagnostics";
+import {
+  connectMobileToSession,
+  isRoomPreviewSessionExpiredError,
+  isRoomPreviewSessionNotFoundError,
+  RoomPreviewSessionTransitionError,
+} from "@/lib/room-preview/session-service";
 
 function getClientIp(reqHeaders: Awaited<ReturnType<typeof headers>>): string | null {
   return (
@@ -19,10 +26,132 @@ function getClientIp(reqHeaders: Awaited<ReturnType<typeof headers>>): string | 
   );
 }
 
+async function connectAfterGateSuccess(sessionId: string, metadata?: Record<string, unknown>) {
+  await trackSessionEvent({
+    sessionId,
+    source: "mobile",
+    eventType: "gate_success_before_connect",
+    level: "info",
+    metadata,
+  });
+
+  console.info("[room-preview] mobile_connect_started", {
+    mode: "gate_action_after_customer_info",
+    sessionId,
+  });
+  await trackSessionEvent({
+    sessionId,
+    source: "mobile",
+    eventType: "mobile_connect_started",
+    level: "info",
+    metadata: {
+      ...metadata,
+      mode: "gate_action_after_customer_info",
+    },
+  });
+
+  try {
+    const connectedSession = await connectMobileToSession(sessionId);
+    console.info("[room-preview] mobile_connect_success", {
+      mode: "gate_action_after_customer_info",
+      sessionId,
+      statusAfter: connectedSession.status,
+    });
+    await trackSessionEvent({
+      sessionId,
+      source: "mobile",
+      eventType: "mobile_connect_success",
+      level: "info",
+      statusAfter: connectedSession.status,
+      metadata: {
+        ...metadata,
+        mode: "gate_action_after_customer_info",
+      },
+    });
+  } catch (error) {
+    if (error instanceof RoomPreviewSessionTransitionError) {
+      console.warn("[room-preview] mobile_connect_skipped_reason", {
+        currentStatus: error.currentStatus,
+        message: error.message,
+        mode: "gate_action_after_customer_info",
+        sessionId,
+      });
+      await trackSessionEvent({
+        sessionId,
+        source: "mobile",
+        eventType: "mobile_connect_skipped_reason",
+        level: "warning",
+        code: error.code,
+        message: error.message,
+        statusBefore: error.currentStatus,
+        metadata: {
+          ...metadata,
+          currentStatus: error.currentStatus,
+          mode: "gate_action_after_customer_info",
+          reason: "session_not_waiting_for_mobile",
+        },
+      });
+      return;
+    }
+
+    if (
+      isRoomPreviewSessionExpiredError(error) ||
+      isRoomPreviewSessionNotFoundError(error)
+    ) {
+      console.warn("[room-preview] mobile_connect_failed", {
+        code: error.code,
+        message: error.message,
+        mode: "gate_action_after_customer_info",
+        sessionId,
+      });
+      await trackSessionEvent({
+        sessionId,
+        source: "mobile",
+        eventType: "mobile_connect_failed",
+        level: "warning",
+        code: error.code,
+        message: error.message,
+        metadata: {
+          ...metadata,
+          mode: "gate_action_after_customer_info",
+        },
+      });
+      return;
+    }
+
+    console.error("[room-preview] mobile_connect_failed", {
+      error: error instanceof Error ? error.message : String(error),
+      mode: "gate_action_after_customer_info",
+      sessionId,
+    });
+    await trackSessionEvent({
+      sessionId,
+      source: "mobile",
+      eventType: "mobile_connect_failed",
+      level: "error",
+      code: "MOBILE_CONNECT_AFTER_GATE_FAILED",
+      message: error instanceof Error ? error.message : String(error),
+      metadata: {
+        ...metadata,
+        mode: "gate_action_after_customer_info",
+      },
+    });
+    throw error;
+  }
+}
+
 export async function submitGateForm(formData: FormData) {
   const sessionId = String(formData.get("sessionId") ?? "");
   const locale = String(formData.get("locale") ?? "");
   const localeQuery = isSupportedLocale(locale) ? `&lang=${locale}` : "";
+
+  console.info("[room-preview] customer_info_submit_started", { sessionId });
+  await trackSessionEvent({
+    sessionId,
+    source: "mobile",
+    eventType: "customer_info_submit_started",
+    level: "info",
+  });
 
   // ── Validate token (read from cookie, not form data) ────────────────────────
   // The token was stored as an HttpOnly cookie by the /activate endpoint when
@@ -48,12 +177,36 @@ export async function submitGateForm(formData: FormData) {
       : verifySessionToken(token, sessionId);
 
   if (!sessionId || !tokenOk) {
+    console.warn("[room-preview] customer_info_submit_failed", {
+      reason: "invalid_session_token",
+      sessionId,
+    });
+    await trackSessionEvent({
+      sessionId,
+      source: "mobile",
+      eventType: "customer_info_submit_failed",
+      level: "error",
+      code: "INVALID_SESSION_TOKEN",
+      message: "Customer info submit rejected because the mobile token was missing or invalid.",
+    });
     redirect(`/room-preview/gate/${sessionId}?error=invalid_session${localeQuery}`);
   }
 
   // ── Prevent double-submission ───────────────────────────────────────────────
   const alreadyDone = await sessionHasCompletedGate(sessionId);
   if (alreadyDone) {
+    console.info("[room-preview] customer_info_submit_success", {
+      alreadyCompleted: true,
+      sessionId,
+    });
+    await trackSessionEvent({
+      sessionId,
+      source: "mobile",
+      eventType: "customer_info_submit_success",
+      level: "info",
+      metadata: { alreadyCompleted: true },
+    });
+    await connectAfterGateSuccess(sessionId, { alreadyCompleted: true });
     redirect(ROOM_PREVIEW_ROUTES.mobileSession(sessionId));
   }
 
@@ -69,6 +222,18 @@ export async function submitGateForm(formData: FormData) {
 
   if (!parsed.success) {
     const firstError = Object.values(parsed.error.flatten().fieldErrors)[0]?.[0] ?? "Invalid input";
+    console.warn("[room-preview] customer_info_submit_failed", {
+      reason: "validation_failed",
+      sessionId,
+    });
+    await trackSessionEvent({
+      sessionId,
+      source: "mobile",
+      eventType: "customer_info_submit_failed",
+      level: "warning",
+      code: "CUSTOMER_INFO_VALIDATION_FAILED",
+      message: firstError,
+    });
     const params = new URLSearchParams({
       error: firstError,
       role: String(raw.role ?? ""),
@@ -85,7 +250,37 @@ export async function submitGateForm(formData: FormData) {
   const ip = getClientIp(reqHeaders);
   const ua = reqHeaders.get("user-agent") ?? undefined;
 
-  const userSessionId = await createAndBindUserSession(sessionId, parsed.data, ip);
+  let userSessionId: string;
+  try {
+    userSessionId = await createAndBindUserSession(sessionId, parsed.data, ip);
+  } catch (error) {
+    console.error("[room-preview] customer_info_submit_failed", {
+      error: error instanceof Error ? error.message : String(error),
+      sessionId,
+    });
+    await trackSessionEvent({
+      sessionId,
+      source: "mobile",
+      eventType: "customer_info_submit_failed",
+      level: "error",
+      code: "CUSTOMER_INFO_SAVE_FAILED",
+      message: error instanceof Error ? error.message : String(error),
+    });
+    throw error;
+  }
+
+  console.info("[room-preview] customer_info_submit_success", {
+    role: parsed.data.role,
+    sessionId,
+    userSessionId,
+  });
+  await trackSessionEvent({
+    sessionId,
+    source: "mobile",
+    eventType: "customer_info_submit_success",
+    level: "info",
+    metadata: { role: parsed.data.role, userSessionId },
+  });
 
   // ── Track user_entered event ─────────────────────────────────────────────────
   after(() => trackEvent({
@@ -118,5 +313,10 @@ export async function submitGateForm(formData: FormData) {
   });
 
   // ── Redirect into the experience ────────────────────────────────────────────
+  await connectAfterGateSuccess(sessionId, {
+    role: parsed.data.role,
+    userSessionId,
+  });
+
   redirect(ROOM_PREVIEW_ROUTES.mobileSession(sessionId));
 }

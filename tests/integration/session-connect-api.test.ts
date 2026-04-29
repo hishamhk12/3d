@@ -6,8 +6,17 @@ const SESSION_ID = "connect-test-session";
 
 // ─── Mocks ────────────────────────────────────────────────────────────────────
 
+vi.mock("next/server", async (importOriginal) => {
+  const actual = await importOriginal<typeof import("next/server")>();
+  return {
+    ...actual,
+    after: vi.fn((fn: () => unknown) => { void fn(); }),
+  };
+});
+
 vi.mock("@/lib/room-preview/session-service", () => ({
   connectMobileToSession: vi.fn(),
+  isRoomPreviewSessionExpiredError: vi.fn((e) => e?.code === "SESSION_EXPIRED"),
   isRoomPreviewSessionNotFoundError: vi.fn((e) => e?.code === "SESSION_NOT_FOUND"),
   RoomPreviewSessionTransitionError,
 }));
@@ -44,15 +53,26 @@ function makeRequest(sessionId: string, withToken = true) {
 // ─── Tests ────────────────────────────────────────────────────────────────────
 
 describe("POST /api/room-preview/sessions/[sessionId]/connect", () => {
-  it("returns 200 with success:true when token is valid and session connects", async () => {
-    // connectMobileToSession return value is not used by the route handler
-    vi.mocked(connectMobileToSession).mockResolvedValueOnce(undefined as never);
+  it("returns 200 with the connected session when token is valid", async () => {
+    vi.mocked(connectMobileToSession).mockResolvedValueOnce({
+      id: SESSION_ID,
+      status: "mobile_connected",
+      createdAt: "2026-01-01T00:00:00.000Z",
+      updatedAt: "2026-01-01T00:00:01.000Z",
+      expiresAt: null,
+      mobileConnected: true,
+      selectedRoom: null,
+      selectedProduct: null,
+      renderResult: null,
+    } as never);
 
     const response = await POST(makeRequest(SESSION_ID), makeContext(SESSION_ID));
     const body = await response.json();
 
     expect(response.status).toBe(200);
-    expect(body.success).toBe(true);
+    expect(body.id).toBe(SESSION_ID);
+    expect(body.status).toBe("mobile_connected");
+    expect(body.mobileConnected).toBe(true);
   });
 
   it("returns 401 when x-session-token header is missing", async () => {
@@ -82,7 +102,6 @@ describe("POST /api/room-preview/sessions/[sessionId]/connect", () => {
       headers: { "x-session-token": generateSessionToken("other-session") },
     });
     const response = await POST(request, makeContext(SESSION_ID));
-    const body = await response.json();
 
     expect(response.status).toBe(401);
   });

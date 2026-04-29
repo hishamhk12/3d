@@ -40,7 +40,9 @@ export type RoomPreviewApiErrorCode =
   | "ROOM_UPLOAD_FILE_TOO_LARGE"
   | "ROOM_UPLOAD_SAVE_FAILED"
   | "ROOM_UPLOAD_VERIFY_FAILED"
-  | "ROOM_UPLOAD_ABORTED";
+  | "ROOM_UPLOAD_ABORTED"
+  | "DIRECT_UPLOAD_NOT_SUPPORTED"
+  | "DIRECT_UPLOAD_FAILED";
 
 export type SelectedRoom = {
   source: RoomPreviewRoomSource | null;
@@ -112,6 +114,7 @@ export type MockRoomPreviewProduct = RoomPreviewProduct;
 export type SaveRoomPreviewSessionRoomResponse = {
   success: true;
   room: SelectedRoom;
+  session: RoomPreviewSession;
 };
 
 export type SaveRoomPreviewSessionResult = {
@@ -122,6 +125,7 @@ export type SaveRoomPreviewSessionResult = {
 export type SaveRoomPreviewSessionProductResponse = {
   success: true;
   product: SelectedProduct;
+  session: RoomPreviewSession;
 };
 
 export type SaveRoomPreviewSessionProductResult = {
@@ -138,6 +142,14 @@ export type CreateRoomPreviewSessionResponse = {
 export type RoomPreviewApiErrorResponse = {
   code?: RoomPreviewApiErrorCode;
   error: string;
+};
+
+export type DirectUploadUrlResponse = {
+  uploadUrl: string;
+  objectKey: string;
+  publicUrl: string;
+  method: "PUT";
+  headers: Record<string, string>;
 };
 
 export type RoomPreviewSessionEventType = "session_updated";

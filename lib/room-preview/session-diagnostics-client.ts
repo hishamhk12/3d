@@ -47,6 +47,10 @@ const UNTHROTTLED_EVENTS = new Set([
   "room_upload_started",
   "room_upload_completed",
   "room_upload_failed",
+  "room_upload_url_requested",
+  "room_direct_upload_started",
+  "room_direct_upload_confirmed",
+  "room_direct_upload_failed",
   "product_selected",
   // Connection / session failure events
   "mobile_auto_connect_failed",
@@ -111,6 +115,7 @@ export function trackClientSessionEvent(
           console.warn("[room-preview] Diagnostics request failed", {
             sessionId,
             status: response.status,
+            url,
           });
         }
       })
@@ -119,6 +124,7 @@ export function trackClientSessionEvent(
           console.warn("[room-preview] Diagnostics request failed", {
             error: error instanceof Error ? error.message : String(error),
             sessionId,
+            url,
           });
         }
       });
@@ -127,6 +133,7 @@ export function trackClientSessionEvent(
       console.warn("[room-preview] Diagnostics request failed", {
         error: error instanceof Error ? error.message : String(error),
         sessionId,
+        url,
       });
     }
     // Diagnostics must never affect the customer flow.

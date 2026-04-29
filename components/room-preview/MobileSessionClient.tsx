@@ -4,6 +4,7 @@ import { useEffect, useMemo, useState } from "react";
 import { LoaderCircle } from "lucide-react";
 import SessionStatePanel from "@/components/room-preview/SessionStatePanel";
 import { ROOM_PREVIEW_ROUTES } from "@/lib/room-preview/constants";
+import { trackClientSessionEvent } from "@/lib/room-preview/session-diagnostics-client";
 import { useMobileSession } from "@/features/room-preview/mobile/useMobileSession";
 import RoomStep    from "@/features/room-preview/mobile/RoomStep";
 import ProductStep from "@/features/room-preview/mobile/ProductStep";
@@ -169,7 +170,18 @@ export default function MobileSessionClient({ sessionId, products }: MobileSessi
             <button
               type="button"
               onClick={() => {
-                if (recoveryMessage.ctaIntent === "reload_page") { window.location.reload(); return; }
+                if (recoveryMessage.ctaIntent === "reload_page") {
+                  trackClientSessionEvent(sessionId, {
+                    source: "mobile",
+                    eventType: "mobile_reload_blocked",
+                    level: "warning",
+                    message: "Blocked mobile hard reload and retried inside the current page.",
+                    metadata: { status: session.status },
+                  });
+                  clearRecoveryMessage();
+                  retry();
+                  return;
+                }
                 if (recoveryMessage.ctaIntent === "retry_render") { void handleCreateRender(); return; }
                 if (recoveryMessage.ctaIntent === "reconnect_mobile") { retry(); return; }
                 clearRecoveryMessage();

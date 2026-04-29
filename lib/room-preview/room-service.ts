@@ -6,12 +6,14 @@ import {
   RoomPreviewRequestError,
 } from "@/lib/room-preview/session-client";
 import type {
+  DirectUploadUrlResponse,
   RoomPreviewRoomSource,
   SaveRoomPreviewSessionResult,
   SaveRoomPreviewSessionRoomResponse,
 } from "@/lib/room-preview/types";
 import {
   assertValidResponse,
+  isDirectUploadUrlResponse,
   isSaveRoomPreviewSessionRoomResponse,
 } from "@/lib/room-preview/validators";
 
@@ -143,7 +145,7 @@ export async function saveRoomPreviewSessionRoom(
   }
 
   const saveResponse = assertRoomSaveResponse(data);
-  const session = await fetchRoomPreviewSession(sessionId);
+  const session = saveResponse.session;
   const selectedRoom = session.selectedRoom;
 
   if (!selectedRoom?.imageUrl || selectedRoom.source !== saveResponse.room.source) {
@@ -172,4 +174,154 @@ export async function saveRoomPreviewSessionRoom(
     room: saveResponse.room,
     session,
   } satisfies SaveRoomPreviewSessionResult;
+}
+
+// ─── Direct upload (R2 presigned PUT) ─────────────────────────────────────────
+
+export type DirectUploadFileOptions = {
+  source: "camera" | "gallery";
+  file: File;
+};
+
+export async function requestDirectUploadUrl(
+  sessionId: string,
+  options: DirectUploadFileOptions,
+): Promise<DirectUploadUrlResponse> {
+  const { source, file } = options;
+
+  const data = await requestRoomPreviewJson(
+    ROOM_PREVIEW_ROUTES.uploadUrlApi(sessionId),
+    {
+      method: "POST",
+      body: JSON.stringify({
+        fileName: file.name,
+        fileType: file.type,
+        fileSize: file.size,
+        source,
+      }),
+      headers: { "Content-Type": "application/json" },
+      cache: "no-store",
+    },
+    "Could not get an upload URL.",
+    ROOM_PREVIEW_TIMEOUTS.REQUEST_MS,
+  );
+
+  try {
+    return assertValidResponse<DirectUploadUrlResponse>(
+      data,
+      isDirectUploadUrlResponse,
+      "The server returned an invalid upload URL response.",
+    );
+  } catch {
+    throw new RoomPreviewRequestError(
+      "invalid_response",
+      "The server returned an invalid upload URL response.",
+    );
+  }
+}
+
+export function uploadFileToR2(
+  uploadUrl: string,
+  file: File,
+  contentType: string,
+  onProgress?: (percent: number) => void,
+): Promise<void> {
+  return new Promise((resolve, reject) => {
+    const xhr = new XMLHttpRequest();
+    xhr.open("PUT", uploadUrl, true);
+    xhr.setRequestHeader("Content-Type", contentType);
+
+    if (onProgress) {
+      xhr.upload.addEventListener("progress", (event) => {
+        if (event.lengthComputable) {
+          onProgress(Math.round((event.loaded / event.total) * 100));
+        }
+      });
+    }
+
+    xhr.addEventListener("load", () => {
+      if (xhr.status >= 200 && xhr.status < 300) {
+        resolve();
+      } else if (xhr.status === 403) {
+        reject(
+          new RoomPreviewRequestError(
+            "server",
+            "انتهت صلاحية رابط الرفع، حاول مرة أخرى",
+            { status: 403 },
+          ),
+        );
+      } else {
+        reject(
+          new RoomPreviewRequestError(
+            "server",
+            "تعذر رفع الصورة، تحقق من الاتصال وحاول مرة أخرى",
+            { status: xhr.status },
+          ),
+        );
+      }
+    });
+
+    xhr.addEventListener("error", () => {
+      reject(
+        new RoomPreviewRequestError("network", "تعذر رفع الصورة، تحقق من الاتصال وحاول مرة أخرى"),
+      );
+    });
+
+    xhr.addEventListener("abort", () => {
+      reject(new RoomPreviewRequestError("network", "تم إلغاء رفع الصورة"));
+    });
+
+    xhr.addEventListener("timeout", () => {
+      reject(
+        new RoomPreviewRequestError("timeout", "تعذر رفع الصورة، تحقق من الاتصال وحاول مرة أخرى"),
+      );
+    });
+
+    xhr.send(file);
+  });
+}
+
+export async function confirmDirectUpload(
+  sessionId: string,
+  options: {
+    objectKey: string;
+    publicUrl: string;
+    source: "camera" | "gallery";
+    file: File;
+  },
+): Promise<SaveRoomPreviewSessionResult> {
+  const { objectKey, publicUrl, source, file } = options;
+
+  const data = await requestRoomPreviewJson(
+    ROOM_PREVIEW_ROUTES.confirmUploadApi(sessionId),
+    {
+      method: "POST",
+      body: JSON.stringify({
+        objectKey,
+        publicUrl,
+        fileName: file.name,
+        fileType: file.type,
+        fileSize: file.size,
+        source,
+      }),
+      headers: { "Content-Type": "application/json" },
+      cache: "no-store",
+    },
+    "Could not confirm the upload.",
+    ROOM_PREVIEW_TIMEOUTS.REQUEST_MS,
+  );
+
+  try {
+    const saveResponse = assertValidResponse<SaveRoomPreviewSessionRoomResponse>(
+      data,
+      isSaveRoomPreviewSessionRoomResponse,
+      "The server returned an invalid confirmation response.",
+    );
+    return { room: saveResponse.room, session: saveResponse.session };
+  } catch {
+    throw new RoomPreviewRequestError(
+      "invalid_response",
+      "The server returned an invalid confirmation response.",
+    );
+  }
 }

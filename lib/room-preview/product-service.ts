@@ -1,6 +1,5 @@
 import { ROOM_PREVIEW_ROUTES } from "@/lib/room-preview/constants";
 import {
-  fetchRoomPreviewSession,
   requestRoomPreviewJson,
   RoomPreviewRequestError,
 } from "@/lib/room-preview/session-client";
@@ -52,7 +51,7 @@ export async function saveRoomPreviewSessionProduct(
   );
 
   const saveResponse = assertProductSaveResponse(data);
-  const session = await fetchRoomPreviewSession(sessionId);
+  const session = saveResponse.session;
   const selectedProduct = session.selectedProduct;
 
   if (!selectedProduct?.id || !selectedProduct.imageUrl) {

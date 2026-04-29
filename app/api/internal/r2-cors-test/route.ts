@@ -56,6 +56,7 @@ export async function GET(request: Request) {
     endpoint,
     forcePathStyle: true,
     credentials: { accessKeyId, secretAccessKey },
+    requestChecksumCalculation: "WHEN_REQUIRED",
   });
 
   // No ContentType, ContentLength, ACL, or metadata — only host is signed.

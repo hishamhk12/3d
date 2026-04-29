@@ -754,33 +754,70 @@ export function useMobileSession({
       sessionId,
     });
 
+    // ── Flush pending product debounce ─────────────────────────────────────────
+    //
+    // productDebounceRef.current holds the timer ID even after the timer fires
+    // (it is never cleared to null in handleProductSelect's callback). Clearing
+    // and checking whether the product is already persisted handles both cases:
+    //   • timer already fired  → product saved, just clear the stale ref and go
+    //   • timer still pending  → cancel it and save the product immediately
     if (productDebounceRef.current !== null) {
-      console.log("[render] blocked — product debounce pending", { timer: productDebounceRef.current });
-      debugLog("warn", "Render blocked — product save debounce still pending");
+      clearTimeout(productDebounceRef.current);
+      const pendingProductId = localProductId ?? session?.selectedProduct?.id ?? null;
+      const productAlreadySaved =
+        Boolean(session?.selectedProduct?.imageUrl) &&
+        session?.selectedProduct?.id === pendingProductId;
+      productDebounceRef.current = null;
+
+      console.log("[render] product debounce flushed", { pendingProductId, productAlreadySaved });
       trackClientSessionEvent(session?.id ?? sessionId, {
         source: "mobile",
-        eventType: "render_request_failed",
-        level: "warning",
-        code: "BLOCKED_PENDING_PRODUCT_DEBOUNCE",
-        message: "Render blocked — product save debounce still pending",
+        eventType: "render_product_debounce_flushed",
+        level: "info",
         metadata: {
+          pendingProductId,
+          productAlreadySaved,
           sessionId: session?.id ?? sessionId,
           currentStatus: session?.status ?? null,
-          hasRoomImage: Boolean(session?.selectedRoom?.imageUrl),
-          hasProduct: Boolean(session?.selectedProduct?.id && session?.selectedProduct?.imageUrl),
-          productId: session?.selectedProduct?.id ?? null,
-          endpoint: `/api/room-preview/sessions/${session?.id ?? sessionId}/render`,
-          blockedBy: "product_debounce",
-          debounceTimer: String(productDebounceRef.current),
         },
       });
-      trackClientSessionEvent(session?.id ?? sessionId, {
-        source: "mobile",
-        eventType: "mobile_tap_detected",
-        level: "warning",
-        metadata: { target: "render", blocked: "pending_product_debounce" },
-      });
-      return;
+
+      if (!productAlreadySaved && pendingProductId && session) {
+        debugLog("network", `Flushing product save before render  productId: ${pendingProductId}`);
+        try {
+          const saveResponse = await saveRoomPreviewSessionProduct(sessionId, { productId: pendingProductId });
+          setSession(saveResponse.session);
+          setProductSaveStatus("success");
+          debugLog("success", `Product flushed and saved  id: ${saveResponse.session.selectedProduct?.id ?? "?"}`);
+        } catch (saveError) {
+          const failure = getViewStateFromError(saveError, t);
+          debugLog("error", `Product flush-save failed: ${saveError instanceof Error ? saveError.message : String(saveError)}`);
+          if (failure.state === "expired" || failure.state === "not_found") {
+            setSession(null);
+            setViewState(failure.state);
+            setError(failure.message);
+            debugLog("state", `viewState → ${failure.state}`);
+          } else {
+            setError(createActionErrorMessage(saveError, t.roomPreview.mobile.product.saveFailed));
+            setProductSaveStatus("error");
+          }
+          trackClientSessionEvent(session.id, {
+            source: "mobile",
+            eventType: "render_request_failed",
+            level: "error",
+            code: "PRODUCT_SAVE_FAILED_BEFORE_RENDER",
+            message: saveError instanceof Error ? saveError.message : String(saveError),
+            metadata: {
+              sessionId: session.id,
+              currentStatus: session.status,
+              pendingProductId,
+              errorMessage: saveError instanceof Error ? saveError.message : String(saveError),
+              endpoint: `/api/room-preview/sessions/${session.id}/render`,
+            },
+          });
+          return;
+        }
+      }
     }
 
     if (
@@ -903,7 +940,7 @@ export function useMobileSession({
       renderRequestInFlightRef.current = false;
       setIsSavingProduct(false);
     }
-  }, [isSavingProduct, session, t, debugLog]);
+  }, [isSavingProduct, localProductId, session, t, debugLog]);
 
   // ── Derived state ────────────────────────────────────────────────────────────
 

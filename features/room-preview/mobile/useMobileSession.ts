@@ -746,8 +746,34 @@ export function useMobileSession({
 
   // Look up a product by scanned/entered value. Tries barcode → id → name substring.
   const handleCreateRender = useCallback(async () => {
+    console.log("[render] handler called", {
+      productDebounce: productDebounceRef.current,
+      inFlight: renderRequestInFlightRef.current,
+      isSavingProduct,
+      sessionStatus: session?.status ?? null,
+      sessionId,
+    });
+
     if (productDebounceRef.current !== null) {
+      console.log("[render] blocked — product debounce pending", { timer: productDebounceRef.current });
       debugLog("warn", "Render blocked — product save debounce still pending");
+      trackClientSessionEvent(session?.id ?? sessionId, {
+        source: "mobile",
+        eventType: "render_request_failed",
+        level: "warning",
+        code: "BLOCKED_PENDING_PRODUCT_DEBOUNCE",
+        message: "Render blocked — product save debounce still pending",
+        metadata: {
+          sessionId: session?.id ?? sessionId,
+          currentStatus: session?.status ?? null,
+          hasRoomImage: Boolean(session?.selectedRoom?.imageUrl),
+          hasProduct: Boolean(session?.selectedProduct?.id && session?.selectedProduct?.imageUrl),
+          productId: session?.selectedProduct?.id ?? null,
+          endpoint: `/api/room-preview/sessions/${session?.id ?? sessionId}/render`,
+          blockedBy: "product_debounce",
+          debounceTimer: String(productDebounceRef.current),
+        },
+      });
       trackClientSessionEvent(session?.id ?? sessionId, {
         source: "mobile",
         eventType: "mobile_tap_detected",
@@ -764,7 +790,15 @@ export function useMobileSession({
       session.status === "ready_to_render" ||
       session.status === "rendering"
     ) {
-      debugLog("warn", "Ignored duplicate render request");
+      const blockedBy = renderRequestInFlightRef.current
+        ? "in_flight"
+        : isSavingProduct
+          ? "is_saving_product"
+          : !session
+            ? "no_session"
+            : "already_rendering";
+      console.log("[render] early return", { blockedBy, status: session?.status });
+      debugLog("warn", `Ignored duplicate render request (blockedBy: ${blockedBy})`);
       return;
     }
 
@@ -782,11 +816,35 @@ export function useMobileSession({
     setRecoveryMessage(null);
     debugLog("network", `POST /render  sessionId: ${session.id}`);
 
+    const renderMetadataBase = {
+      sessionId: session.id,
+      currentStatus: session.status,
+      hasRoomImage: Boolean(session.selectedRoom?.imageUrl),
+      hasProduct: Boolean(session.selectedProduct?.id && session.selectedProduct?.imageUrl),
+      productId: session.selectedProduct?.id ?? null,
+      endpoint: `/api/room-preview/sessions/${session.id}/render`,
+    };
+
+    console.log("[render] request started", renderMetadataBase);
+    trackClientSessionEvent(session.id, {
+      source: "mobile",
+      eventType: "render_request_started",
+      level: "info",
+      metadata: renderMetadataBase,
+    });
+
     try {
       // Returns immediately (202) with session in ready_to_render state.
       const renderingSession = await createRenderForSession(session.id);
       setSession(renderingSession);
       debugLog("success", "Render started — polling for result");
+
+      trackClientSessionEvent(session.id, {
+        source: "mobile",
+        eventType: "render_request_success",
+        level: "info",
+        metadata: { ...renderMetadataBase, statusAfter: renderingSession.status },
+      });
 
       // Poll until the server pushes result_ready or failed via DB.
       const finalSession = await pollForRenderResult(session.id, undefined, {
@@ -809,6 +867,20 @@ export function useMobileSession({
     } catch (renderError) {
       const failure = getViewStateFromError(renderError, t);
       debugLog("error", `Render error: ${renderError instanceof Error ? renderError.message : String(renderError)}`);
+
+      trackClientSessionEvent(session.id, {
+        source: "mobile",
+        eventType: "render_request_failed",
+        level: "error",
+        code: isRoomPreviewRequestError(renderError) ? String(renderError.code) : "UNKNOWN",
+        message: renderError instanceof Error ? renderError.message : String(renderError),
+        metadata: {
+          ...renderMetadataBase,
+          status: isRoomPreviewRequestError(renderError) ? renderError.status : null,
+          errorMessage: renderError instanceof Error ? renderError.message : String(renderError),
+        },
+      });
+
       const recovery = getCustomerRecoveryMessage(
         isRoomPreviewRequestError(renderError) && renderError.code === "timeout"
           ? "retry_render"

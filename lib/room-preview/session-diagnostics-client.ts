@@ -57,6 +57,10 @@ const UNTHROTTLED_EVENTS = new Set([
   "mobile_auto_connect_failed",
   "mobile_fetch_failed",
   // Render lifecycle (server-side, but also emitted from client)
+  "render_start_clicked",
+  "render_request_started",
+  "render_request_success",
+  "render_request_failed",
   "render_started",
   "render_failed",
   "render_timeout",

@@ -7,6 +7,7 @@ import { Download, RotateCcw, Share2, ZoomIn, X } from "lucide-react";
 import { AnimatedButton } from "@/components/ui/AnimatedButton";
 import { useI18n } from "@/lib/i18n/provider";
 import { getProductTypeLabel } from "@/features/room-preview/shared/helpers";
+import { trackClientSessionEvent } from "@/lib/room-preview/session-diagnostics-client";
 import type { RoomPreviewSession } from "@/lib/room-preview/types";
 
 // Brand-palette confetti
@@ -170,6 +171,27 @@ export default function ResultStep({
                 padding: currentBtnState === "loading" ? 0 : undefined,
               }}
               onClick={() => {
+                console.log("[render] clicked", {
+                  locked: renderClickLockedRef.current,
+                  btnState: currentBtnState,
+                  isSavingProduct,
+                  sessionId: session.id,
+                  sessionStatus: session.status,
+                });
+                trackClientSessionEvent(session.id, {
+                  source: "mobile",
+                  eventType: "render_start_clicked",
+                  level: "info",
+                  metadata: {
+                    locked: renderClickLockedRef.current,
+                    currentBtnState,
+                    isSavingProduct,
+                    currentStatus: session.status,
+                    hasRoomImage: Boolean(session.selectedRoom?.imageUrl),
+                    hasProduct: Boolean(session.selectedProduct?.id && session.selectedProduct?.imageUrl),
+                    productId: session.selectedProduct?.id ?? null,
+                  },
+                });
                 if (renderClickLockedRef.current) return;
                 renderClickLockedRef.current = true;
                 setBtnState("loading");

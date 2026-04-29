@@ -582,8 +582,27 @@ export function useMobileSession({
           uploadUrlResponse.uploadUrl,
           fileToUpload,
           uploadUrlResponse.headers["Content-Type"] ?? fileToUpload.type,
-          (percent) => {
-            setRoomSaveStatusLabel(`جاري رفع صورة الغرفة... ${percent}%`);
+          {
+            onProgress: (percent) => {
+              setRoomSaveStatusLabel(`جاري رفع صورة الغرفة... ${percent}%`);
+            },
+            onR2Failure: ({ status, statusText, responseText, host }) => {
+              trackClientSessionEvent(sessionId, {
+                source: "mobile",
+                eventType: "room_direct_upload_r2_failed",
+                level: "error",
+                code: status === 403 ? "R2_SIGNATURE_INVALID" : status === 0 ? "R2_CORS_OR_NETWORK" : "R2_PUT_FAILED",
+                metadata: {
+                  status,
+                  statusText,
+                  responseText: responseText.slice(0, 500),
+                  host,
+                  source,
+                  fileType: fileToUpload.type,
+                  fileSize: fileToUpload.size,
+                },
+              });
+            },
           },
         );
 

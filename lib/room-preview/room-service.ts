@@ -220,29 +220,64 @@ export async function requestDirectUploadUrl(
   }
 }
 
+export type R2FailureDetails = {
+  status: number;
+  statusText: string;
+  responseText: string;
+  host: string;
+};
+
+export type UploadFileToR2Options = {
+  onProgress?: (percent: number) => void;
+  onR2Failure?: (details: R2FailureDetails) => void;
+};
+
 export function uploadFileToR2(
   uploadUrl: string,
   file: File,
   contentType: string,
-  onProgress?: (percent: number) => void,
+  options?: UploadFileToR2Options,
 ): Promise<void> {
+  // Extract hostname only — never log the full signed URL (contains secret query params).
+  let uploadHost = "unknown";
+  try { uploadHost = new URL(uploadUrl).hostname; } catch { /* ignore */ }
+
   return new Promise((resolve, reject) => {
     const xhr = new XMLHttpRequest();
     xhr.open("PUT", uploadUrl, true);
     xhr.setRequestHeader("Content-Type", contentType);
 
-    if (onProgress) {
-      xhr.upload.addEventListener("progress", (event) => {
-        if (event.lengthComputable) {
-          onProgress(Math.round((event.loaded / event.total) * 100));
-        }
-      });
-    }
+    xhr.upload.addEventListener("progress", (event) => {
+      if (event.lengthComputable) {
+        options?.onProgress?.(Math.round((event.loaded / event.total) * 100));
+      }
+    });
 
     xhr.addEventListener("load", () => {
       if (xhr.status >= 200 && xhr.status < 300) {
         resolve();
-      } else if (xhr.status === 403) {
+        return;
+      }
+
+      const details: R2FailureDetails = {
+        status: xhr.status,
+        statusText: xhr.statusText,
+        responseText: xhr.responseText.slice(0, 1000),
+        host: uploadHost,
+      };
+
+      console.error("[room-preview] R2 PUT failed", {
+        host: details.host,
+        status: details.status,
+        statusText: details.statusText,
+        responseText: details.responseText,
+        fileType: file.type,
+        fileSize: file.size,
+      });
+
+      options?.onR2Failure?.(details);
+
+      if (xhr.status === 403) {
         reject(
           new RoomPreviewRequestError(
             "server",
@@ -262,6 +297,21 @@ export function uploadFileToR2(
     });
 
     xhr.addEventListener("error", () => {
+      const details: R2FailureDetails = {
+        status: 0,
+        statusText: "",
+        responseText: "",
+        host: uploadHost,
+      };
+
+      console.error("[room-preview] R2 PUT network error (likely CORS)", {
+        host: details.host,
+        fileType: file.type,
+        fileSize: file.size,
+      });
+
+      options?.onR2Failure?.(details);
+
       reject(
         new RoomPreviewRequestError("network", "تعذر رفع الصورة، تحقق من الاتصال وحاول مرة أخرى"),
       );

@@ -51,6 +51,7 @@ const UNTHROTTLED_EVENTS = new Set([
   "room_direct_upload_started",
   "room_direct_upload_confirmed",
   "room_direct_upload_failed",
+  "room_direct_upload_r2_failed",
   "product_selected",
   // Connection / session failure events
   "mobile_auto_connect_failed",

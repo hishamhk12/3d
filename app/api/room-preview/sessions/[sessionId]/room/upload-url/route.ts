@@ -107,11 +107,22 @@ export async function POST(
   let uploadUrl: string;
   try {
     const s3 = getS3Client();
+    // Do NOT include ContentType or ContentLength in the signed command.
+    //
+    // When either field is present the SDK adds it to x-amz-signedheaders, which
+    // means the browser PUT must send that header with the exact same value.
+    // Two problems arise in browser environments:
+    //   1. content-length is a forbidden header — browsers manage it themselves
+    //      and never include it in the CORS preflight Access-Control-Request-Headers.
+    //      R2 rejects the preflight → XHR fires "error" (status 0, network failure).
+    //   2. iOS Safari appends "; charset=utf-8" to image/* content-types, making
+    //      the actual value differ from the signed one → R2 returns 403.
+    //
+    // Omitting both means only "host" is signed. MIME type and size have already
+    // been validated above before this URL is issued, so security is maintained.
     const command = new PutObjectCommand({
       Bucket: bucket,
       Key: objectKey,
-      ContentType: fileType,
-      ContentLength: typeof fileSize === "number" ? fileSize : undefined,
     });
     uploadUrl = await getSignedUrl(s3, command, { expiresIn: SIGNED_URL_EXPIRY_SECONDS });
   } catch (err) {

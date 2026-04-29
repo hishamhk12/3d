@@ -581,7 +581,6 @@ export function useMobileSession({
         await uploadFileToR2(
           uploadUrlResponse.uploadUrl,
           fileToUpload,
-          uploadUrlResponse.headers["Content-Type"] ?? fileToUpload.type,
           {
             onProgress: (percent) => {
               setRoomSaveStatusLabel(`جاري رفع صورة الغرفة... ${percent}%`);

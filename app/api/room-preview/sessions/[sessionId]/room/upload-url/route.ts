@@ -152,6 +152,6 @@ export async function POST(
     objectKey,
     publicUrl,
     method: "PUT",
-    headers: { "Content-Type": fileType },
+    headers: {},
   });
 }

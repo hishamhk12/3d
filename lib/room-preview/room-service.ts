@@ -235,7 +235,6 @@ export type UploadFileToR2Options = {
 export function uploadFileToR2(
   uploadUrl: string,
   file: File,
-  contentType: string,
   options?: UploadFileToR2Options,
 ): Promise<void> {
   // Extract hostname only — never log the full signed URL (contains secret query params).
@@ -245,7 +244,9 @@ export function uploadFileToR2(
   return new Promise((resolve, reject) => {
     const xhr = new XMLHttpRequest();
     xhr.open("PUT", uploadUrl, true);
-    xhr.setRequestHeader("Content-Type", contentType);
+    // No custom headers — avoids CORS preflight Access-Control-Request-Headers
+    // complications with R2. Content-Type is intentionally omitted; the object
+    // is confirmed server-side after upload so the stored MIME type is not critical.
 
     xhr.upload.addEventListener("progress", (event) => {
       if (event.lengthComputable) {
@@ -325,6 +326,15 @@ export function uploadFileToR2(
       reject(
         new RoomPreviewRequestError("timeout", "تعذر رفع الصورة، تحقق من الاتصال وحاول مرة أخرى"),
       );
+    });
+
+    xhr.addEventListener("loadend", () => {
+      console.debug("[room-preview] R2 PUT loadend", {
+        host: uploadHost,
+        status: xhr.status,
+        statusText: xhr.statusText,
+        fileSize: file.size,
+      });
     });
 
     xhr.send(file);

@@ -7,12 +7,17 @@ import { trackEvent, getUserSessionIdForSession } from "@/lib/analytics/event-tr
 import {
   isRoomPreviewSessionExpiredError,
   isRoomPreviewSessionNotFoundError,
+  RoomPreviewSessionExpiredError,
+  RoomPreviewSessionNotFoundError,
   RoomPreviewSessionTransitionError,
-  startRenderSession,
 } from "@/lib/room-preview/session-service";
+import { markReadyToRenderTransition } from "@/lib/room-preview/session-machine";
+import { isEffectivelyExpired } from "@/lib/room-preview/session-status";
+import { publishRoomPreviewSessionEvent } from "@/lib/room-preview/session-events";
 import {
   acquireRenderLock,
   checkDeviceCooldown,
+  type DeviceCooldownResult,
   releaseRenderLock,
   setDeviceCooldown,
   DEVICE_COOLDOWN_SECONDS,
@@ -21,6 +26,7 @@ import {
   decrementRenderCount,
   getSessionById,
   getSessionScreenFields,
+  saveSessionState,
   tryIncrementRenderCount,
 } from "@/lib/room-preview/session-repository";
 import { executeRenderPipeline } from "@/lib/room-preview/render-service";
@@ -88,17 +94,13 @@ export async function POST(
   if (unauthorized) return unauthorized;
 
   const rateLimitDisabled = isRoomPreviewRateLimitDisabled();
-
-  await trackSessionEvent({
-    sessionId,
-    source: "server",
-    eventType: "render_requested",
-    level: "info",
-  });
-
   const deviceId = getDeviceFingerprint(request);
 
   // ── 2. Idempotency lock ────────────────────────────────────────────────────
+  //
+  // Kept sequential (not merged into the parallel block below) so we never
+  // acquire the lock and then fail to track renderLockAcquired if a parallel
+  // DB read throws first.
   let renderLockAcquired = false;
   if (!rateLimitDisabled) {
     const lock = await acquireRenderLock(sessionId);
@@ -106,7 +108,6 @@ export async function POST(
       log.warn({ sessionId }, "Render blocked — already in flight");
       return tooManyRequests({ error: "Render already in progress. Please wait." }, 30);
     }
-
     renderLockAcquired = true;
   }
 
@@ -115,55 +116,60 @@ export async function POST(
   let screenId: string | null = null;
 
   try {
-    // ── 3. Fetch session early (needed for dedupe + screen checks) ──────────
-    const [session, screenFields] = await Promise.all([
+    // ── 3. Parallel reads ──────────────────────────────────────────────────
+    //
+    // Previously: getSessionById → getSessionScreenFields (parallel) → checkDeviceCooldown
+    //             = 3 sequential async steps.
+    // Now:        getSessionById + getSessionScreenFields + checkDeviceCooldown
+    //             = 1 parallel step. Saves one full Redis/DB round-trip (~5–30ms).
+    const [session, screenFields, cooldownResult] = await Promise.all([
       getSessionById(sessionId),
       getSessionScreenFields(sessionId),
+      rateLimitDisabled
+        ? Promise.resolve<DeviceCooldownResult>({ limited: false })
+        : checkDeviceCooldown(deviceId),
     ]);
 
     screenId = screenFields?.screenId ?? null;
 
-    // ── 4. Dedupe — return cached result if inputs haven't changed ──────────
-    const roomImageUrl = session?.selectedRoom?.imageUrl;
-    const productId = session?.selectedProduct?.id;
+    // ── 4. Session validation ──────────────────────────────────────────────
+    //
+    // Checked here — before the render-count increment — so an invalid session
+    // doesn't trigger a wasted increment + decrement cycle.
+    if (!session) throw new RoomPreviewSessionNotFoundError();
+    if (isEffectivelyExpired(session)) throw new RoomPreviewSessionExpiredError();
+
+    // ── 5. Dedupe — return cached result if inputs haven't changed ──────────
+    const roomImageUrl = session.selectedRoom?.imageUrl;
+    const productId    = session.selectedProduct?.id;
 
     if (roomImageUrl && productId) {
       const renderHash = buildRenderHash(roomImageUrl, productId);
-
-      if (
-        screenFields?.lastRenderHash === renderHash &&
-        session?.renderResult !== null
-      ) {
+      if (screenFields?.lastRenderHash === renderHash && session.renderResult !== null) {
         log.info({ sessionId }, "Render dedupe hit — returning cached result");
         return NextResponse.json(session, { status: 200 });
       }
     }
 
-    // ── 5. Device cooldown ─────────────────────────────────────────────────
-    if (!rateLimitDisabled) {
-      const cooldown = await checkDeviceCooldown(deviceId);
-      if (cooldown.limited) {
-        log.warn({ sessionId, deviceId, ttl: cooldown.ttl }, "Render blocked — device cooldown active");
-        return tooManyRequests({ error: "Try again after 5 minutes" }, cooldown.ttl);
-      }
+    // ── 6. Device cooldown (already fetched in step 3) ─────────────────────
+    if (!rateLimitDisabled && cooldownResult.limited) {
+      log.warn({ sessionId, deviceId, ttl: cooldownResult.ttl }, "Render blocked — device cooldown active");
+      return tooManyRequests({ error: "Try again after 5 minutes" }, cooldownResult.ttl);
     }
 
-    // ── 6. Session render count ────────────────────────────────────────────
+    // ── 7. Session render count ────────────────────────────────────────────
     if (!rateLimitDisabled) {
       const countResult = await tryIncrementRenderCount(sessionId, MAX_RENDERS_PER_SESSION);
-
       if (!countResult.incremented) {
         log.warn({ sessionId, currentCount: countResult.currentCount }, "Render blocked — session limit reached");
         return tooManyRequests({ error: "Session limit reached" }, DEVICE_COOLDOWN_SECONDS);
       }
-
       renderCountIncremented = true;
     }
 
-    // ── 7. Screen checks (cooldown + budget) ───────────────────────────────
+    // ── 8. Screen checks (cooldown + budget) ───────────────────────────────
     if (!rateLimitDisabled && screenId) {
       const screen = await getActiveScreenById(screenId);
-
       if (screen) {
         const screenCooldown = checkScreenCooldown(screen.lastRenderAt);
         if (screenCooldown.limited) {
@@ -187,40 +193,83 @@ export async function POST(
       }
     }
 
-    // ── 8. Transition session to ready_to_render and respond immediately ───
-    const updatedSession = await startRenderSession(sessionId);
+    // ── 9. Transition session to ready_to_render ────────────────────────────
+    //
+    // Previously called startRenderSession(sessionId), which internally called
+    // getSessionById again — a redundant third SELECT on the same row within
+    // this request. We already hold a fresh copy from step 3, so apply the
+    // transition directly and persist it — one DB write instead of read + write.
+    const readySession  = markReadyToRenderTransition(session);
+    const updatedSession = await saveSessionState({
+      id:              readySession.id,
+      status:          readySession.status,
+      mobileConnected: readySession.mobileConnected,
+      selectedRoom:    readySession.selectedRoom,
+      selectedProduct: readySession.selectedProduct,
+      renderResult:    readySession.renderResult,
+    });
 
-    // Arm device cooldown now so rapid re-submissions are blocked regardless of
-    // render outcome.
-    if (!rateLimitDisabled) {
-      await setDeviceCooldown(deviceId);
+    publishRoomPreviewSessionEvent(updatedSession.id, {
+      type: "session_updated",
+      session: updatedSession,
+    });
+
+    if (session.status !== updatedSession.status) {
+      void trackSessionEvent({
+        sessionId: updatedSession.id,
+        source: "server",
+        eventType: "session_status_changed",
+        level: "info",
+        statusBefore: session.status,
+        statusAfter:  updatedSession.status,
+      });
     }
 
-    // Update screen's lastRenderAt and save the render hash for future deduplication.
-    const afterPromises: Promise<void>[] = [];
+    // ── 10. Post-response work (non-blocking) ──────────────────────────────
+    //
+    // setDeviceCooldown, screen timestamp, render hash, and the render_requested
+    // diagnostic are all rate-limiting metadata or audit records. None of them
+    // affect the 202 body or the render pipeline. Running them in after() removes
+    // ~40–60ms from the critical path.
+    after(async () => {
+      const writes: Promise<unknown>[] = [];
 
-    if (screenId) {
-      afterPromises.push(
-        touchScreenLastRenderAt(screenId).catch((err) => {
-          log.error({ err, screenId }, "Failed to touch screen lastRenderAt");
-        }),
-      );
-    }
+      if (!rateLimitDisabled) {
+        writes.push(
+          setDeviceCooldown(deviceId).catch((err) => {
+            log.error({ err, sessionId }, "Failed to set device cooldown");
+          }),
+        );
+      }
 
-    if (roomImageUrl && productId) {
-      const renderHash = buildRenderHash(roomImageUrl, productId);
-      afterPromises.push(
-        saveSessionRenderHash(sessionId, renderHash).catch((err) => {
-          log.error({ err, sessionId }, "Failed to save session render hash");
-        }),
-      );
-    }
+      if (screenId) {
+        writes.push(
+          touchScreenLastRenderAt(screenId).catch((err) => {
+            log.error({ err, screenId }, "Failed to touch screen lastRenderAt");
+          }),
+        );
+      }
 
-    if (afterPromises.length > 0) {
-      await Promise.all(afterPromises);
-    }
+      if (roomImageUrl && productId) {
+        writes.push(
+          saveSessionRenderHash(sessionId, buildRenderHash(roomImageUrl, productId)).catch((err) => {
+            log.error({ err, sessionId }, "Failed to save session render hash");
+          }),
+        );
+      }
 
-    // ── 9. Schedule pipeline and analytics in after() ─────────────────────
+      if (writes.length > 0) await Promise.all(writes);
+    });
+
+    after(async () => {
+      void trackSessionEvent({
+        sessionId,
+        source: "server",
+        eventType: "render_requested",
+        level: "info",
+      });
+    });
+
     after(async () => {
       const userSessionId = await getUserSessionIdForSession(sessionId);
       if (userSessionId) {

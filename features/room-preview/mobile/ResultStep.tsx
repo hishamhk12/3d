@@ -91,7 +91,21 @@ function RenderLoadingScreen({
 
   const roomBg = session.selectedRoom?.imageUrl;
 
-  return (
+  // Lock scroll while overlay is mounted
+  useEffect(() => {
+    const prevBody = document.body.style.overflow;
+    const prevHtml = document.documentElement.style.overflow;
+    document.body.style.overflow = "hidden";
+    document.documentElement.style.overflow = "hidden";
+    return () => {
+      document.body.style.overflow = prevBody;
+      document.documentElement.style.overflow = prevHtml;
+    };
+  }, []);
+
+  if (typeof document === "undefined") return null;
+
+  const overlay = (
     <>
       <style>{`
         @keyframes render-msg-in {
@@ -102,8 +116,9 @@ function RenderLoadingScreen({
       `}</style>
 
       <div
-        className="fixed inset-0 z-50 flex h-[100svh] min-h-[100svh] w-full flex-col items-center justify-center overflow-hidden"
+        className="fixed inset-0 z-[9999] flex w-full flex-col items-center justify-center overflow-hidden"
         style={{
+          height: "100dvh",
           transition: "opacity 750ms ease",
           opacity: fadeOut ? 0 : 1,
           pointerEvents: fadeOut ? "none" : "auto",
@@ -193,6 +208,8 @@ function RenderLoadingScreen({
       </div>
     </>
   );
+
+  return createPortal(overlay, document.body);
 }
 
 // ── Main component ─────────────────────────────────────────────────────────────
@@ -231,7 +248,7 @@ export default function ResultStep({
   }, [showResult]);
 
   useEffect(() => {
-    if (!isFullscreen) return;
+    if (!localShowResult && !isFullscreen) return;
     const prevBody = document.body.style.overflow;
     const prevHtml = document.documentElement.style.overflow;
     document.body.style.overflow = "hidden";
@@ -240,7 +257,7 @@ export default function ResultStep({
       document.body.style.overflow = prevBody;
       document.documentElement.style.overflow = prevHtml;
     };
-  }, [isFullscreen]);
+  }, [localShowResult, isFullscreen]);
 
   const selectedProduct = session.selectedProduct;
   const localizedProductType = getProductTypeLabel(selectedProduct?.productType ?? null, locale);
@@ -250,7 +267,7 @@ export default function ResultStep({
 
   const fullscreenLightbox = isFullscreen ? (
     <div
-      className="fullscreen-fade-in fixed inset-0 z-[1000] flex items-center justify-center overflow-hidden bg-black/90 p-3"
+      className="fullscreen-fade-in fixed inset-0 z-[10000] flex items-center justify-center overflow-hidden bg-black/90 p-3"
       onClick={() => setIsFullscreen(false)}
     >
       <button
@@ -277,194 +294,93 @@ export default function ResultStep({
     </div>
   ) : null;
 
-  return (
-    <div
-      className={
-        localShowResult
-          ? "-mx-8 -mb-8 mt-0 flex w-[calc(100%+4rem)] flex-col items-center overflow-hidden rounded-b-[32px]"
-          : "mt-12 flex flex-col items-center"
-      }
-    >
-      {/* Full-screen render loading overlay */}
-      {showLoadingScreen && (
-        <RenderLoadingScreen session={session} showResult={showResult} />
-      )}
-
-      {!localShowResult ? (
-        <>
-          {/* ── CTA Button (idle only) ── */}
-          {showIdleButton && (
-            <div className="relative flex items-center justify-center h-20 w-full mt-4">
-              <button
-                type="button"
-                className={`btn-cta relative flex items-center justify-center overflow-hidden transition-[width,transform,opacity] duration-500 ease-out disabled:opacity-50 ${
-                  btnState === "loading" ? "rounded-full" : ""
-                }`}
-                style={{
-                  height: 68,
-                  width: btnState === "loading" ? 68 : 220,
-                  padding: btnState === "loading" ? 0 : undefined,
-                }}
-                onClick={() => {
-                  console.log("[render] clicked", {
-                    locked: renderClickLockedRef.current,
-                    btnState,
-                    isSavingProduct,
-                    sessionId: session.id,
-                    sessionStatus: session.status,
-                  });
-                  trackClientSessionEvent(session.id, {
-                    source: "mobile",
-                    eventType: "render_start_clicked",
-                    level: "info",
-                    metadata: {
-                      locked: renderClickLockedRef.current,
-                      currentBtnState: btnState,
-                      isSavingProduct,
-                      currentStatus: session.status,
-                      hasRoomImage: Boolean(session.selectedRoom?.imageUrl),
-                      hasProduct: Boolean(session.selectedProduct?.id && session.selectedProduct?.imageUrl),
-                      productId: session.selectedProduct?.id ?? null,
-                    },
-                  });
-                  if (renderClickLockedRef.current) return;
-                  renderClickLockedRef.current = true;
-                  setBtnState("loading");
-                  void onCreateRender().finally(() => {
-                    renderClickLockedRef.current = false;
-                  });
-                }}
-                disabled={btnState === "loading"}
-              >
-                {btnState === "idle" && (
-                  <div className="button-state-in flex items-center gap-2">
-                    <span className="text-xl font-bold text-[var(--text-on-gold)]">{t.common.actions.create}</span>
-                  </div>
-                )}
-                {btnState === "loading" && (
-                  <div className="button-state-in flex items-center justify-center gap-1.5">
-                    {[0, 1, 2].map((i) => (
-                      <span
-                        key={i}
-                        className="loading-dot size-2 rounded-full bg-[var(--text-on-gold)]/60"
-                        style={{ animationDelay: `${i * 0.12}s` }}
-                      />
-                    ))}
-                  </div>
-                )}
-              </button>
-
-              {/* Confetti burst on success (shown when btnState was success — kept for potential future use) */}
-              {false && CONFETTI_PARTICLES.map((particle) => (
-                <span
-                  key={particle.id}
-                  className="success-confetti-piece absolute left-1/2 top-1/2 rounded-sm pointer-events-none"
-                  style={{
-                    width: particle.size,
-                    height: particle.size,
-                    backgroundColor: particle.color,
-                    "--confetti-x": `${particle.x}px`,
-                    "--confetti-y": `${particle.y}px`,
-                    "--confetti-start-rotation": `${particle.startRotation}deg`,
-                    "--confetti-end-rotation": `${particle.endRotation}deg`,
-                    animationDuration: `${particle.duration}s`,
-                  } as CSSProperties}
-                />
-              ))}
+  // ── Result fullscreen overlay (portal — outside any stacking context) ─────────
+  const resultOverlay = localShowResult && typeof document !== "undefined"
+    ? createPortal(
+        <div
+          className="fixed inset-0 z-[9998] flex flex-col animate-in fade-in duration-700"
+          style={{ height: "100dvh" }}
+        >
+          {/* Image — fills all space above action bar */}
+          <div
+            className="group relative min-h-0 flex-1 cursor-pointer overflow-hidden bg-black"
+            onClick={() => setIsFullscreen(true)}
+          >
+            <div className="absolute top-4 right-4 z-20 rounded-full bg-black/50 p-2.5 text-white/80 opacity-70 backdrop-blur-md transition-opacity">
+              <ZoomIn size={20} />
             </div>
-          )}
-        </>
-      ) : (
-        /* ── Result reveal ── */
-        <div className="w-full animate-in fade-in duration-700">
 
-          {/* Eyebrow */}
-          <p className="mb-5 text-center text-[11px] font-bold tracking-[0.22em] uppercase text-[var(--brand-cyan)]">
-            {t.roomPreview.shared.resultReady}
-          </p>
+            <Image
+              src={session.renderResult?.imageUrl ?? "/rs/rs.png"}
+              alt={t.roomPreview.shared.renderedPreview}
+              fill
+              unoptimized
+              className="object-cover object-center"
+              priority
+              sizes="100vw"
+            />
 
-          {/* Hero image */}
-          <div className="relative w-full overflow-hidden bg-black shadow-[0_24px_64px_rgba(0,0,0,0.60)] sm:rounded-[32px]">
-            <div
-              className="group relative h-[72svh] min-h-[460px] w-full cursor-pointer transition-all active:scale-[0.98] sm:h-[70vh] sm:max-h-[760px] sm:min-h-[560px]"
-              onClick={() => setIsFullscreen(true)}
-            >
-              <div className="absolute top-4 right-4 z-20 bg-black/50 backdrop-blur-md text-white/80 p-2.5 rounded-full opacity-70 sm:opacity-0 sm:group-hover:opacity-100 transition-opacity">
-                <ZoomIn size={20} />
-              </div>
+            <div className="pointer-events-none absolute inset-x-0 bottom-0 h-1/2 bg-gradient-to-t from-black/85 via-black/35 to-transparent" />
 
-              <Image
-                src={session.renderResult?.imageUrl ?? "/rs/rs.png"}
-                alt={t.roomPreview.shared.renderedPreview}
-                fill
-                unoptimized
-                className="object-cover object-center transition-transform duration-700 ease-out group-hover:scale-105"
-                priority
-                sizes="100vw"
-              />
-
-              <div className="absolute inset-x-0 bottom-0 h-1/2 bg-gradient-to-t from-black/85 via-black/35 to-transparent pointer-events-none" />
-
-              {/* Floating product spec card */}
-              {selectedProduct ? (
-                <div
-                  className="absolute inset-x-3 bottom-3 animate-in slide-in-from-bottom-3 fade-in duration-700"
-                  style={{ animationDelay: "350ms", animationFillMode: "backwards" }}
-                >
-                  <div className="rounded-[22px] border border-white/12 bg-black/60 p-3 shadow-[0_8px_32px_rgba(0,0,0,0.50)] backdrop-blur-2xl">
-                    <div className={`flex items-center gap-3 ${dir === "rtl" ? "flex-row-reverse" : ""}`}>
-                      <div className="relative h-14 w-14 shrink-0 overflow-hidden rounded-[14px] border-2 border-white/20 shadow-md">
-                        <Image
-                          src={selectedProduct.imageUrl ?? ""}
-                          alt={selectedProduct.name ?? ""}
-                          fill
-                          unoptimized
-                          className="object-cover"
-                        />
-                      </div>
-                      <div className={`min-w-0 flex-1 ${dir === "rtl" ? "text-right" : "text-left"}`}>
-                        <p className="truncate text-sm font-semibold leading-tight text-white">
-                          {selectedProduct.name}
-                        </p>
-                        {localizedProductType ? (
-                          <p className="mt-0.5 text-xs text-white/55">{localizedProductType}</p>
-                        ) : null}
-                        {selectedProduct.barcode ? (
-                          <p className="mt-1 font-mono text-[10px] text-white/35">{selectedProduct.barcode}</p>
-                        ) : null}
-                      </div>
-                      <div className="shrink-0 flex items-center gap-1.5 rounded-full border border-[#F1B434]/35 bg-[#F1B434]/15 px-2.5 py-1.5">
-                        <span className="block h-1.5 w-1.5 animate-pulse rounded-full bg-[#F1B434]" />
-                        <span className="whitespace-nowrap text-[11px] font-semibold text-[#F1B434]">
-                          {locale === "ar" ? "جاهز" : "Ready"}
-                        </span>
-                      </div>
+            {/* Floating product card */}
+            {selectedProduct ? (
+              <div
+                className="absolute inset-x-3 bottom-3 animate-in slide-in-from-bottom-3 fade-in duration-700"
+                style={{ animationDelay: "350ms", animationFillMode: "backwards" }}
+              >
+                <div className="rounded-[22px] border border-white/12 bg-black/60 p-3 shadow-[0_8px_32px_rgba(0,0,0,0.50)] backdrop-blur-2xl">
+                  <div className={`flex items-center gap-3 ${dir === "rtl" ? "flex-row-reverse" : ""}`}>
+                    <div className="relative h-14 w-14 shrink-0 overflow-hidden rounded-[14px] border-2 border-white/20 shadow-md">
+                      <Image
+                        src={selectedProduct.imageUrl ?? ""}
+                        alt={selectedProduct.name ?? ""}
+                        fill
+                        unoptimized
+                        className="object-cover"
+                      />
+                    </div>
+                    <div className={`min-w-0 flex-1 ${dir === "rtl" ? "text-right" : "text-left"}`}>
+                      <p className="truncate text-sm font-semibold leading-tight text-white">
+                        {selectedProduct.name}
+                      </p>
+                      {localizedProductType ? (
+                        <p className="mt-0.5 text-xs text-white/55">{localizedProductType}</p>
+                      ) : null}
+                      {selectedProduct.barcode ? (
+                        <p className="mt-1 font-mono text-[10px] text-white/35">{selectedProduct.barcode}</p>
+                      ) : null}
+                    </div>
+                    <div className="shrink-0 flex items-center gap-1.5 rounded-full border border-[#F1B434]/35 bg-[#F1B434]/15 px-2.5 py-1.5">
+                      <span className="block h-1.5 w-1.5 animate-pulse rounded-full bg-[#F1B434]" />
+                      <span className="whitespace-nowrap text-[11px] font-semibold text-[#F1B434]">
+                        {locale === "ar" ? "جاهز" : "Ready"}
+                      </span>
                     </div>
                   </div>
                 </div>
-              ) : null}
-            </div>
+              </div>
+            ) : null}
           </div>
 
-          {/* Action bar */}
+          {/* Action bar — pinned at bottom */}
           <div
-            className="mt-4 grid grid-cols-3 gap-3 animate-in slide-in-from-bottom-2 fade-in duration-700"
+            className="grid grid-cols-3 gap-3 border-t border-white/10 bg-black/85 px-4 py-4 backdrop-blur-xl animate-in slide-in-from-bottom-2 fade-in duration-700"
             style={{ animationDelay: "500ms", animationFillMode: "backwards" }}
           >
             <a
               href={session.renderResult?.imageUrl ?? "/rs/rs.png"}
               download="bayt-alebaa-render.jpg"
-              className="flex flex-col items-center gap-2 rounded-[20px] border border-[var(--border)] bg-[var(--bg-surface)] py-4 transition hover:bg-[var(--bg-surface-2)] hover:border-[var(--border-strong)] active:scale-95"
+              className="flex flex-col items-center gap-2 rounded-[20px] border border-white/12 bg-white/08 py-4 transition active:scale-95 hover:bg-white/14"
             >
-              <Download className="size-5 text-[var(--brand-cyan)]" />
-              <span className="text-[11px] font-semibold text-[var(--text-secondary)]">
+              <Download className="size-5 text-[#00AFD7]" />
+              <span className="text-[11px] font-semibold text-white/70">
                 {locale === "ar" ? "تحميل" : "Download"}
               </span>
             </a>
 
             <AnimatedButton
               type="button"
-              className="flex flex-col items-center gap-2 rounded-[20px] border border-[var(--border)] bg-[var(--bg-surface)] py-4 transition hover:bg-[var(--bg-surface-2)] hover:border-[var(--border-strong)]"
+              className="flex flex-col items-center gap-2 rounded-[20px] border border-white/12 bg-white/08 py-4 transition hover:bg-white/14"
               onClick={() => {
                 if (typeof navigator !== "undefined" && navigator.share) {
                   void navigator.share({
@@ -474,28 +390,103 @@ export default function ResultStep({
                 }
               }}
             >
-              <Share2 className="size-5 text-[var(--brand-cyan)]" />
-              <span className="text-[11px] font-semibold text-[var(--text-secondary)]">
+              <Share2 className="size-5 text-[#00AFD7]" />
+              <span className="text-[11px] font-semibold text-white/70">
                 {locale === "ar" ? "مشاركة" : "Share"}
               </span>
             </AnimatedButton>
 
             <AnimatedButton
               type="button"
-              className="flex flex-col items-center gap-2 rounded-[20px] border border-[var(--border)] bg-[var(--bg-surface)] py-4 transition hover:bg-[var(--bg-surface-2)] hover:border-[var(--border-strong)]"
+              className="flex flex-col items-center gap-2 rounded-[20px] border border-white/12 bg-white/08 py-4 transition hover:bg-white/14"
               onClick={onModify}
             >
-              <RotateCcw className="size-5 text-[var(--brand-cyan)]" />
-              <span className="text-[11px] font-semibold text-[var(--text-secondary)]">
+              <RotateCcw className="size-5 text-[#00AFD7]" />
+              <span className="text-[11px] font-semibold text-white/70">
                 {locale === "ar" ? "تعديل" : "Modify"}
               </span>
             </AnimatedButton>
           </div>
+        </div>,
+        document.body,
+      )
+    : null;
 
+  return (
+    <div className="mt-12 flex flex-col items-center">
+      {/* Loading overlay */}
+      {showLoadingScreen && (
+        <RenderLoadingScreen session={session} showResult={showResult} />
+      )}
+
+      {/* CTA button (idle only) */}
+      {showIdleButton && (
+        <div className="relative flex items-center justify-center h-20 w-full mt-4">
+          <button
+            type="button"
+            className={`btn-cta relative flex items-center justify-center overflow-hidden transition-[width,transform,opacity] duration-500 ease-out disabled:opacity-50 ${
+              btnState === "loading" ? "rounded-full" : ""
+            }`}
+            style={{
+              height: 68,
+              width: btnState === "loading" ? 68 : 220,
+              padding: btnState === "loading" ? 0 : undefined,
+            }}
+            onClick={() => {
+              console.log("[render] clicked", {
+                locked: renderClickLockedRef.current,
+                btnState,
+                isSavingProduct,
+                sessionId: session.id,
+                sessionStatus: session.status,
+              });
+              trackClientSessionEvent(session.id, {
+                source: "mobile",
+                eventType: "render_start_clicked",
+                level: "info",
+                metadata: {
+                  locked: renderClickLockedRef.current,
+                  currentBtnState: btnState,
+                  isSavingProduct,
+                  currentStatus: session.status,
+                  hasRoomImage: Boolean(session.selectedRoom?.imageUrl),
+                  hasProduct: Boolean(session.selectedProduct?.id && session.selectedProduct?.imageUrl),
+                  productId: session.selectedProduct?.id ?? null,
+                },
+              });
+              if (renderClickLockedRef.current) return;
+              renderClickLockedRef.current = true;
+              setBtnState("loading");
+              void onCreateRender().finally(() => {
+                renderClickLockedRef.current = false;
+              });
+            }}
+            disabled={btnState === "loading"}
+          >
+            {btnState === "idle" && (
+              <div className="button-state-in flex items-center gap-2">
+                <span className="text-xl font-bold text-[var(--text-on-gold)]">{t.common.actions.create}</span>
+              </div>
+            )}
+            {btnState === "loading" && (
+              <div className="button-state-in flex items-center justify-center gap-1.5">
+                {[0, 1, 2].map((i) => (
+                  <span
+                    key={i}
+                    className="loading-dot size-2 rounded-full bg-[var(--text-on-gold)]/60"
+                    style={{ animationDelay: `${i * 0.12}s` }}
+                  />
+                ))}
+              </div>
+            )}
+          </button>
         </div>
       )}
 
-      {/* Fullscreen lightbox rendered at document body level */}
+      {/* Result overlay portal */}
+      {resultOverlay}
+
+      {/* Lightbox portal */}
       {fullscreenLightbox && typeof document !== "undefined"
         ? createPortal(fullscreenLightbox, document.body)
         : null}

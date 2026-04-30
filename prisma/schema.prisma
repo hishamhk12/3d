@@ -58,6 +58,10 @@ model RoomPreviewSession {
   userSessionId String?      @unique
   userSession   UserSession? @relation(fields: [userSessionId], references: [id])
 
+  /// Linked after customer gate completes. Null for employee sessions.
+  customerId String?
+  customer   Customer? @relation(fields: [customerId], references: [id])
+
   renderJobs    RenderJob[]
   sessionEvents SessionEvent[]
   sessionIssues SessionIssue[]
@@ -66,6 +70,7 @@ model RoomPreviewSession {
   @@index([expiresAt])
   @@index([userSessionId])
   @@index([screenId])
+  @@index([customerId])
 }
 
 model RenderJob {
@@ -144,8 +149,12 @@ model UserSession {
   name         String
   /// "customer" | "employee"
   role         String
-  /// Set when role = "customer"
+  /// Normalized E.164 phone — set when role = "customer"
   phone        String?
+  /// ISO 3166-1 alpha-2 country code, e.g. "SA"
+  countryCode  String?
+  /// E.164 dial prefix, e.g. "+966"
+  dialCode     String?
   /// Set when role = "employee"
   employeeCode String?
   /// Best-effort client IP, captured at gate submission time.
@@ -157,6 +166,57 @@ model UserSession {
 
   @@index([role])
   @@index([createdAt])
+}
+
+// ─── Customer Memory ──────────────────────────────────────────────────────────
+
+/// A returning customer identified by their E.164 phone number.
+/// Created/refreshed on every successful customer gate completion.
+/// Expires after 60 days of inactivity (expiresAt = lastSeenAt + 60d).
+model Customer {
+  id          String   @id @default(cuid())
+  name        String
+  /// Primary identifier — normalized E.164, e.g. "+966501234567"
+  phoneE164   String   @unique
+  /// ISO 3166-1 alpha-2 country code, e.g. "SA"
+  countryCode String
+  /// E.164 dial prefix stored for convenience, e.g. "+966"
+  dialCode    String
+  lastSeenAt  DateTime @default(now())
+  /// Refreshed to now+60d on every successful login.
+  expiresAt   DateTime
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  sessions    RoomPreviewSession[]
+  experiences CustomerExperience[]
+
+  @@index([phoneE164])
+  @@index([expiresAt])
+}
+
+/// One render result saved per customer per completed session.
+/// Persists independently of session lifetime (no FK cascade from session).
+model CustomerExperience {
+  id             String  @id @default(cuid())
+  customerId     String
+  /// Reference only — not a FK so cleanup of sessions doesn't cascade here.
+  sessionId      String
+  roomImageUrl   String?
+  roomImageKey   String?
+  productId      String?
+  productName    String?
+  resultImageUrl String?
+  resultImageKey String?
+  createdAt      DateTime @default(now())
+  /// Mirrors Customer.expiresAt set at save time.
+  expiresAt      DateTime
+
+  customer Customer @relation(fields: [customerId], references: [id], onDelete: Cascade)
+
+  @@index([customerId])
+  @@index([createdAt])
+  @@index([expiresAt])
 }
 
 // ─── Event Tracking ───────────────────────────────────────────────────────────

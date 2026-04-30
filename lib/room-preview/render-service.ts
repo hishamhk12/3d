@@ -27,6 +27,7 @@ import type {
 import { isFloorMaterialProduct } from "@/lib/room-preview/validators";
 import { getLogger } from "@/lib/logger";
 import { trackEvent, getUserSessionIdForSession } from "@/lib/analytics/event-tracker";
+import { saveCustomerExperienceForSession } from "@/lib/room-preview/customer-service";
 import {
   diagnosticsErrorMetadata,
   openSessionIssue,
@@ -240,6 +241,18 @@ async function runRoomPreviewRenderPipeline(sessionId: string) {
         modelName: result.modelName,
       } satisfies RoomPreviewRenderResult),
     );
+
+    // Save experience for returning customer tracking (fire-and-forget).
+    after(async () => {
+      await saveCustomerExperienceForSession(sessionId, {
+        roomImageUrl: session.selectedRoom?.imageUrl,
+        productId: session.selectedProduct?.id,
+        productName: session.selectedProduct?.name,
+        resultImageUrl: result.imageUrl,
+      }).catch((err) => {
+        log.warn({ err, sessionId }, "Failed to save customer experience after render");
+      });
+    });
   } catch (err) {
     if (renderJobId) {
       await updateRenderJob(renderJobId, {

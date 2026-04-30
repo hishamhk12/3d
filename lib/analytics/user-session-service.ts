@@ -1,7 +1,6 @@
 import "server-only";
 
 import { prisma } from "@/lib/server/prisma";
-import type { GateFormInput } from "@/lib/analytics/validators";
 
 /**
  * Returns true if the given RoomPreviewSession has already been linked
@@ -12,27 +11,37 @@ export async function sessionHasCompletedGate(sessionId: string): Promise<boolea
     where: { id: sessionId },
     select: { userSessionId: true },
   });
-  // Row null = session does not exist, treat as gate not completed.
   return row?.userSessionId != null;
 }
 
+export type BindUserSessionData = {
+  name: string;
+  role: "customer" | "employee";
+  phone?: string | null;
+  countryCode?: string | null;
+  dialCode?: string | null;
+  employeeCode?: string | null;
+};
+
 /**
- * Create a UserSession from validated gate form data, then link it to the
- * given RoomPreviewSession.
- *
+ * Create a UserSession from gate data, then link it to the RoomPreviewSession.
+ * Optionally binds a Customer record via customerId.
  * Returns the new UserSession id.
  */
 export async function createAndBindUserSession(
   sessionId: string,
-  data: GateFormInput,
+  data: BindUserSessionData,
   ip: string | null,
+  customerId?: string | null,
 ): Promise<string> {
   const created = await prisma.userSession.create({
     data: {
       name: data.name,
       role: data.role,
-      phone: data.role === "customer" ? data.phone : null,
-      employeeCode: data.role === "employee" ? data.employeeCode : null,
+      phone: data.phone ?? null,
+      countryCode: data.countryCode ?? null,
+      dialCode: data.dialCode ?? null,
+      employeeCode: data.employeeCode ?? null,
       ip,
     },
   });
@@ -40,7 +49,10 @@ export async function createAndBindUserSession(
   try {
     await prisma.roomPreviewSession.update({
       where: { id: sessionId },
-      data: { userSessionId: created.id },
+      data: {
+        userSessionId: created.id,
+        ...(customerId ? { customerId } : {}),
+      },
     });
   } catch (error) {
     await prisma.userSession.delete({ where: { id: created.id } }).catch(() => undefined);

@@ -1,6 +1,5 @@
 import { redirect } from "next/navigation";
 import { cookies, headers } from "next/headers";
-import { House } from "lucide-react";
 import MobileSessionClient from "@/components/room-preview/MobileSessionClient";
 import { getRoomPreviewMockProducts } from "@/data/room-preview/mock-products";
 import { sessionHasCompletedGate } from "@/lib/analytics/user-session-service";
@@ -65,15 +64,6 @@ export default async function MobileSessionPage({ params, searchParams }: Mobile
         <MobileSessionClient sessionId={sessionId} products={products} />
       </div>
 
-      {/* Back to home — fixed bottom-left, below fullscreen overlays */}
-      <a
-        href="/"
-        className="fixed bottom-6 left-4 z-[100] flex items-center gap-2 rounded-full border border-[var(--border)] bg-[var(--bg-surface)]/90 px-4 py-2.5 text-sm font-medium text-[var(--text-secondary)] shadow-md backdrop-blur-md transition-all hover:bg-[var(--bg-surface-2)] hover:text-[var(--text-primary)] active:scale-95"
-        dir="rtl"
-      >
-        <House size={15} strokeWidth={2} />
-        <span>الرئيسية</span>
-      </a>
     </main>
   );
 }

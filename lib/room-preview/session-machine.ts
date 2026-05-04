@@ -160,7 +160,15 @@ export function selectProductTransition(
   session: RoomPreviewSession,
   product: SelectedProduct,
 ): RoomPreviewSession {
-  if (isLockedStatus(session.status)) {
+  // result_ready is intentionally allowed: customer tapped "تعديل" to retry with a different product.
+  // ready_to_render / rendering remain hard-locked because the pipeline is actively running.
+  const isHardLocked =
+    session.status === "ready_to_render" ||
+    session.status === "rendering" ||
+    session.status === "completed" ||
+    session.status === "expired";
+
+  if (isHardLocked) {
     throw new RoomPreviewSessionTransitionError(
       "This session can no longer accept a product selection.",
       session.status,
@@ -169,7 +177,7 @@ export function selectProductTransition(
 
   assertAllowedStatus(
     session,
-    ["room_selected", "product_selected", "failed"],
+    ["room_selected", "product_selected", "result_ready", "failed"],
     "Select a room before selecting a product.",
   );
 

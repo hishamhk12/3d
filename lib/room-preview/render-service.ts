@@ -168,6 +168,16 @@ async function runRoomPreviewRenderPipeline(sessionId: string) {
 
     const semaphore = await acquireGeminiSlot();
     if (!semaphore.acquired) {
+      await trackSessionEvent({
+        sessionId,
+        source: "renderer",
+        eventType: "render_capacity_exceeded",
+        level: "warning",
+        metadata: {
+          reason: "semaphore_capacity_exceeded",
+          renderJobId,
+        },
+      });
       throw new Error("Render capacity reached. Please try again in a moment.");
     }
 

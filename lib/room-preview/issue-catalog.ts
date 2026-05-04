@@ -26,6 +26,7 @@ export type CustomerMessageKey =
   | "retry_render"
   | "reload_page"
   | "retake_room_photo"
+  | "image_too_large"
   | "reconnect_mobile";
 
 export type SessionIssueDefinition = {
@@ -82,7 +83,7 @@ export const SESSION_ISSUE_CATALOG: Record<SessionIssueType, SessionIssueDefinit
   IMAGE_TOO_LARGE: {
     severity: "warning",
     userVisible: true,
-    customerMessageKey: "retake_room_photo",
+    customerMessageKey: "image_too_large",
     adminMessage: "Uploaded room image exceeded the configured size limit.",
     recommendedAction: "Use a smaller or compressed image.",
   },

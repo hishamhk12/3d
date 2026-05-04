@@ -3,7 +3,6 @@ import "server-only";
 import { isEffectivelyExpired } from "@/lib/room-preview/session-status";
 import { publishRoomPreviewSessionEvent } from "@/lib/room-preview/session-events";
 import {
-  connectMobileTransition,
   createRoomPreviewSessionState,
   markReadyToRenderTransition,
   RoomPreviewSessionTransitionError,
@@ -16,6 +15,7 @@ import {
   findActiveLiveSessions,
   getSessionById,
   saveSessionState,
+  tryClaimMobileConnection,
 } from "@/lib/room-preview/session-repository";
 import { findActiveScreenByToken } from "@/lib/room-preview/screen-repository";
 import { trackSessionEvent } from "@/lib/room-preview/session-diagnostics";
@@ -186,9 +186,50 @@ export async function getRoomPreviewSession(sessionId: string) {
 }
 
 export async function connectMobileToSession(sessionId: string) {
-  const session = await getRequiredRoomPreviewSession(sessionId);
-  const nextSession = connectMobileTransition(session);
-  return persistTransition(nextSession, session.status);
+  // Read first to surface NOT_FOUND and EXPIRED before touching the DB.
+  const session = await getSessionById(sessionId);
+
+  if (!session) {
+    throw new RoomPreviewSessionNotFoundError();
+  }
+
+  if (isTimeExpired(session)) {
+    throw new RoomPreviewSessionExpiredError();
+  }
+
+  // Atomic claim: only one phone can win; concurrent callers get count = 0.
+  const claimed = await tryClaimMobileConnection(sessionId);
+
+  if (!claimed) {
+    // Re-read to build an accurate error message (status may have changed).
+    const current = await getSessionById(sessionId);
+    throw new RoomPreviewSessionTransitionError(
+      "This session is not waiting for a mobile connection.",
+      current?.status ?? session.status,
+    );
+  }
+
+  // Fetch the committed state to broadcast and return.
+  const updatedSession = await getSessionById(sessionId);
+  if (!updatedSession) {
+    throw new RoomPreviewSessionNotFoundError();
+  }
+
+  publishRoomPreviewSessionEvent(updatedSession.id, {
+    type: "session_updated",
+    session: updatedSession,
+  });
+
+  void trackSessionEvent({
+    sessionId: updatedSession.id,
+    source: "server",
+    eventType: "session_status_changed",
+    level: "info",
+    statusBefore: session.status,
+    statusAfter: updatedSession.status,
+  });
+
+  return updatedSession;
 }
 
 export async function selectRoomForSession(sessionId: string, room: SelectedRoom) {

@@ -36,7 +36,60 @@ function RetryAfterDelay({ delayMs, onRetry }: { delayMs: number; onRetry: () =>
   );
 }
 
+function useMobileBrowserLifecycle(sessionId: string) {
+  useEffect(() => {
+    let lastVisibility = document.visibilityState;
+
+    function onVisibilityChange() {
+      const state = document.visibilityState;
+      // Deduplicate rapid duplicate fires
+      if (state === lastVisibility) return;
+      lastVisibility = state;
+
+      trackClientSessionEvent(sessionId, {
+        source: "mobile",
+        eventType: state === "hidden" ? "mobile_page_hidden" : "mobile_page_visible",
+        level: "info",
+      });
+    }
+
+    function onPageHide() {
+      const payload = JSON.stringify({
+        sessionId,
+        eventType: "mobile_pagehide",
+        source: "mobile",
+        level: "info",
+        timestamp: new Date().toISOString(),
+      });
+
+      const url = `/api/room-preview/sessions/${sessionId}/diagnostics`;
+
+      if (typeof navigator.sendBeacon === "function") {
+        navigator.sendBeacon(url, new Blob([payload], { type: "application/json" }));
+      } else {
+        // Best-effort fallback — fire-and-forget, do not block navigation
+        void fetch(url, {
+          method: "POST",
+          body: payload,
+          headers: { "Content-Type": "application/json" },
+          keepalive: true,
+        }).catch(() => undefined);
+      }
+    }
+
+    document.addEventListener("visibilitychange", onVisibilityChange);
+    window.addEventListener("pagehide", onPageHide);
+
+    return () => {
+      document.removeEventListener("visibilitychange", onVisibilityChange);
+      window.removeEventListener("pagehide", onPageHide);
+    };
+  }, [sessionId]);
+}
+
 export default function MobileSessionClient({ sessionId, products }: MobileSessionClientProps) {
+  useMobileBrowserLifecycle(sessionId);
+
   const {
     t,
     session,
@@ -60,6 +113,7 @@ export default function MobileSessionClient({ sessionId, products }: MobileSessi
     handleProductSelect,
     handleCreateRender,
     localProductId,
+    heartbeatConnected,
   } = useMobileSession({ sessionId });
 
   const localSelectedProduct = useMemo(() => {
@@ -145,6 +199,12 @@ export default function MobileSessionClient({ sessionId, products }: MobileSessi
         {t.roomPreview.shared.eyebrow}
       </p>
 
+      {!heartbeatConnected ? (
+        <div className="mb-4 rounded-[20px] border border-amber-400/40 bg-amber-50 px-5 py-3 text-sm text-amber-700 dark:bg-amber-500/10 dark:border-amber-500/25 dark:text-amber-300">
+          يبدو أن الاتصال ضعيف، نحاول إعادة الاتصال...
+        </div>
+      ) : null}
+
       {isConnected ? (
         <RoomStep
           isSavingRoom={isSavingRoom}
@@ -194,10 +254,8 @@ export default function MobileSessionClient({ sessionId, products }: MobileSessi
         </div>
       ) : null}
 
-      {roomSaveStatus === "error"      ? <p className="mt-4 text-sm font-semibold text-red-600 dark:text-red-400">{t.roomPreview.mobile.room.saveFailed}</p>       : null}
-      {roomSaveStatus === "success"    ? <p className="mt-4 text-sm font-semibold text-emerald-600 dark:text-emerald-400">{t.roomPreview.mobile.room.saveSuccess}</p>   : null}
-      {productSaveStatus === "error"   ? <p className="mt-4 text-sm font-semibold text-red-600 dark:text-red-400">{t.roomPreview.mobile.product.saveFailed}</p>     : null}
-      {productSaveStatus === "success" ? <p className="mt-4 text-sm font-semibold text-emerald-600 dark:text-emerald-400">{t.roomPreview.mobile.product.saveSuccess}</p> : null}
+      {roomSaveStatus === "error"    ? <p className="mt-4 text-sm font-semibold text-red-600 dark:text-red-400">{t.roomPreview.mobile.room.saveFailed}</p>    : null}
+      {productSaveStatus === "error" ? <p className="mt-4 text-sm font-semibold text-red-600 dark:text-red-400">{t.roomPreview.mobile.product.saveFailed}</p> : null}
       {successMessage ? <p className="mt-6 text-sm font-semibold text-emerald-600 dark:text-emerald-400">{successMessage}</p> : null}
 
       {hasSavedRoom && hasSavedProduct ? (

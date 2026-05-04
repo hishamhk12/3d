@@ -42,8 +42,17 @@ import {
 
 const log = getLogger("render-api");
 
-/** Maximum renders allowed per session. */
-const MAX_RENDERS_PER_SESSION = 2;
+/** Maximum renders allowed per session. Override with MAX_RENDERS_PER_SESSION env var. */
+const _envMax = parseInt(process.env.MAX_RENDERS_PER_SESSION ?? "", 10);
+const MAX_RENDERS_PER_SESSION = Number.isFinite(_envMax) && _envMax > 0 ? _envMax : 2;
+
+// ─── Rate-limit event dedup ────────────────────────────────────────────────────
+// Prevents repeated taps from flooding the timeline. One event per key per
+// 60 s is sufficient signal; subsequent rejections within the window are silent.
+const RATE_LIMIT_WARN_COOLDOWN_MS = 60_000;
+const renderLimitWarnCooldown = new Map<string, number>();
+const deviceCooldownWarnMap   = new Map<string, number>();
+const screenBudgetWarnMap     = new Map<string, number>();
 
 // Keep the function alive for up to 5 minutes so the after() render pipeline
 // can complete. Requires Vercel Pro.
@@ -68,7 +77,7 @@ function getDeviceFingerprint(request: Request): string {
     .slice(0, 32);
 }
 
-function tooManyRequests(body: { error: string }, retryAfter: number): NextResponse {
+function tooManyRequests(body: { error: string; code?: string }, retryAfter: number): NextResponse {
   return NextResponse.json(body, {
     status: 429,
     headers: { "Retry-After": String(retryAfter) },
@@ -154,7 +163,29 @@ export async function POST(
     // ── 6. Device cooldown (already fetched in step 3) ─────────────────────
     if (!rateLimitDisabled && cooldownResult.limited) {
       log.warn({ sessionId, deviceId, ttl: cooldownResult.ttl }, "Render blocked — device cooldown active");
-      return tooManyRequests({ error: "Try again after 5 minutes" }, cooldownResult.ttl);
+
+      after(async () => {
+        const now = Date.now();
+        const last = deviceCooldownWarnMap.get(deviceId);
+        if (last === undefined || now - last >= RATE_LIMIT_WARN_COOLDOWN_MS) {
+          deviceCooldownWarnMap.set(deviceId, now);
+          await trackSessionEvent({
+            sessionId,
+            source: "server",
+            eventType: "render_device_cooldown",
+            level: "warning",
+            metadata: {
+              ttl: cooldownResult.ttl,
+              status: session.status,
+            },
+          });
+        }
+      });
+
+      return tooManyRequests(
+        { error: "Device cooldown active. Try again after 5 minutes.", code: "RENDER_DEVICE_COOLDOWN" },
+        cooldownResult.ttl,
+      );
     }
 
     // ── 7. Session render count ────────────────────────────────────────────
@@ -162,7 +193,31 @@ export async function POST(
       const countResult = await tryIncrementRenderCount(sessionId, MAX_RENDERS_PER_SESSION);
       if (!countResult.incremented) {
         log.warn({ sessionId, currentCount: countResult.currentCount }, "Render blocked — session limit reached");
-        return tooManyRequests({ error: "Session limit reached" }, DEVICE_COOLDOWN_SECONDS);
+
+        // Fire render_limit_reached once per 60 s per session to avoid timeline spam.
+        after(async () => {
+          const now = Date.now();
+          const last = renderLimitWarnCooldown.get(sessionId);
+          if (last === undefined || now - last >= RATE_LIMIT_WARN_COOLDOWN_MS) {
+            renderLimitWarnCooldown.set(sessionId, now);
+            await trackSessionEvent({
+              sessionId,
+              source: "server",
+              eventType: "render_limit_reached",
+              level: "warning",
+              metadata: {
+                renderCount: countResult.currentCount,
+                maxRendersPerSession: MAX_RENDERS_PER_SESSION,
+                status: session.status,
+              },
+            });
+          }
+        });
+
+        return tooManyRequests(
+          { error: "Session render limit reached.", code: "RENDER_LIMIT_REACHED" },
+          DEVICE_COOLDOWN_SECONDS,
+        );
       }
       renderCountIncremented = true;
     }
@@ -183,8 +238,32 @@ export async function POST(
         const budget = await checkAndIncrementScreenBudget(screenId, screen.dailyBudget);
         if (!budget.allowed) {
           log.warn({ sessionId, screenId }, "Render blocked — screen daily budget exhausted");
+
+          // Capture non-null locals for use inside the after() closure.
+          const screenIdNonNull = screenId;
+          const dailyBudget = screen.dailyBudget;
+
+          after(async () => {
+            const now = Date.now();
+            const last = screenBudgetWarnMap.get(screenIdNonNull);
+            if (last === undefined || now - last >= RATE_LIMIT_WARN_COOLDOWN_MS) {
+              screenBudgetWarnMap.set(screenIdNonNull, now);
+              await trackSessionEvent({
+                sessionId,
+                source: "server",
+                eventType: "screen_budget_exhausted",
+                level: "warning",
+                metadata: {
+                  screenId: screenIdNonNull,
+                  dailyBudget,
+                  status: session.status,
+                },
+              });
+            }
+          });
+
           return tooManyRequests(
-            { error: "Daily render limit reached for this screen. Try again tomorrow." },
+            { error: "Screen daily render budget exhausted.", code: "SCREEN_BUDGET_EXHAUSTED" },
             3600,
           );
         }

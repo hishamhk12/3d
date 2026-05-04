@@ -43,6 +43,8 @@ const UNTHROTTLED_EVENTS = new Set([
   "screen_stale_detected",
   "duplicate_session_create_blocked",
   // User action events — tied to explicit user gestures
+  "back_pressed",
+  "redirected_to_correct_step",
   "mobile_tap_detected",
   "room_upload_started",
   "room_upload_completed",
@@ -67,6 +69,9 @@ const UNTHROTTLED_EVENTS = new Set([
   "render_timeout",
   // Explicit connect
   "mobile_connected",
+  // Result display — one per unique render result
+  "result_displayed_screen",
+  "result_seen_mobile",
 ]);
 
 // ─── Public API ───────────────────────────────────────────────────────────────

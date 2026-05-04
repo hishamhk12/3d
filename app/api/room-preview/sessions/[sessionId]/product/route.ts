@@ -12,6 +12,7 @@ import {
   RoomPreviewSessionTransitionError,
   selectProductForSession,
 } from "@/lib/room-preview/session-service";
+import { getSessionById } from "@/lib/room-preview/session-repository";
 import { trackSessionEvent } from "@/lib/room-preview/session-diagnostics";
 import type { SelectedProduct } from "@/lib/room-preview/types";
 
@@ -101,6 +102,10 @@ export async function POST(
     );
   }
 
+  // Snapshot previous product before the write so we can classify the event.
+  const previousSession = await getSessionById(sessionId);
+  const previousProduct = previousSession?.selectedProduct ?? null;
+
   let session = null;
 
   try {
@@ -156,18 +161,30 @@ export async function POST(
     "Product saved",
   );
 
-  await trackSessionEvent({
-    sessionId,
-    source: "server",
-    eventType: "product_selected",
-    level: "info",
-    statusAfter: session.status,
-    metadata: {
-      productId: session.selectedProduct.id,
-      barcode: session.selectedProduct.barcode,
-      productType: session.selectedProduct.productType,
-    },
-  });
+  const newProductId = session.selectedProduct.id;
+  const isSameProduct = previousProduct?.id === newProductId;
+
+  // Skip noisy duplicate events when the customer re-taps the same product.
+  if (!isSameProduct) {
+    const hasExistingProduct = previousProduct !== null;
+    const eventType = hasExistingProduct ? "product_changed" : "product_selected";
+
+    await trackSessionEvent({
+      sessionId,
+      source: "server",
+      eventType,
+      level: "info",
+      statusAfter: session.status,
+      metadata: {
+        newProductId,
+        newSku: session.selectedProduct.barcode ?? undefined,
+        ...(hasExistingProduct && {
+          previousProductId: previousProduct.id,
+          previousSku: previousProduct.barcode ?? undefined,
+        }),
+      },
+    });
+  }
 
   return NextResponse.json({
     success: true,

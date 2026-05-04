@@ -156,6 +156,22 @@ export async function saveSessionState(session: {
 }
 
 /**
+ * Atomically transitions a session from `created` or `waiting_for_mobile` →
+ * `mobile_connected`. Returns true if this process won the race, false if the
+ * session was already claimed by another device or is in the wrong state.
+ */
+export async function tryClaimMobileConnection(sessionId: string): Promise<boolean> {
+  const result = await prisma.roomPreviewSession.updateMany({
+    where: {
+      id: sessionId,
+      status: { in: ["created", "waiting_for_mobile"] },
+    },
+    data: { status: "mobile_connected", mobileConnected: true, updatedAt: new Date() },
+  });
+  return result.count > 0;
+}
+
+/**
  * Atomically transitions a session from `ready_to_render` → `rendering`.
  * Returns true if this process won the race, false if the session was already
  * claimed by another process or is in the wrong state.
@@ -232,4 +248,22 @@ export async function findActiveLiveSessions() {
 
 export async function expireSessionById(id: string) {
   return updateSession(id, { status: "expired" });
+}
+
+export async function updateSessionPresence(
+  sessionId: string,
+  source: "mobile" | "screen",
+): Promise<void> {
+  const data =
+    source === "mobile"
+      ? { lastMobileSeenAt: new Date() }
+      : { lastScreenSeenAt: new Date() };
+  await prisma.roomPreviewSession.update({ where: { id: sessionId }, data });
+}
+
+export async function getSessionPresence(sessionId: string) {
+  return prisma.roomPreviewSession.findUnique({
+    where: { id: sessionId },
+    select: { id: true, status: true, lastMobileSeenAt: true, lastScreenSeenAt: true },
+  });
 }

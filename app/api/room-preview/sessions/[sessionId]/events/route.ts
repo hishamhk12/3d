@@ -6,11 +6,17 @@ import { SCREEN_TOKEN_COOKIE } from "@/lib/room-preview/cookies";
 import { verifySessionToken } from "@/lib/room-preview/session-token";
 import { getRoomPreviewSession } from "@/lib/room-preview/session-service";
 import { subscribeToRoomPreviewSessionEvents } from "@/lib/room-preview/session-events";
+import { trackSessionEvent } from "@/lib/room-preview/session-diagnostics";
 
 const log = getLogger("events-api");
 
 export const dynamic = "force-dynamic";
 export const runtime = "nodejs";
+
+// Per-session cooldown: suppress screen_connected spam on rapid reconnects.
+// Only the first connect within a 5 s window is tracked.
+const screenConnectCooldown = new Map<string, number>();
+const SCREEN_CONNECT_COOLDOWN_MS = 5_000;
 
 const encoder = new TextEncoder();
 
@@ -59,6 +65,19 @@ export async function GET(
     );
   }
 
+  // Track screen_connected (with cooldown to suppress rapid-reconnect spam)
+  const now = Date.now();
+  const lastConnect = screenConnectCooldown.get(sessionId) ?? 0;
+  if (now - lastConnect > SCREEN_CONNECT_COOLDOWN_MS) {
+    screenConnectCooldown.set(sessionId, now);
+    void trackSessionEvent({
+      sessionId,
+      source: "server",
+      eventType: "screen_connected",
+      level: "info",
+    });
+  }
+
   // Shared reference so the ReadableStream cancel() hook can trigger cleanup
   // even when request.signal doesn't fire (which happens in some Next.js
   // disconnect paths).
@@ -93,6 +112,13 @@ export async function GET(
         request.signal.removeEventListener("abort", close);
 
         log.info({ sessionId }, "SSE stream closed — all listeners removed");
+
+        void trackSessionEvent({
+          sessionId,
+          source: "server",
+          eventType: "screen_disconnected",
+          level: "info",
+        });
 
         try {
           controller.close();

@@ -50,7 +50,8 @@ function ResetProgressBar({
 function getScreenStatusMessage(status: RoomPreviewSessionStatus, t: TranslationDictionary) {
   if (status === "result_ready")                                   return t.roomPreview.screen.statuses.ready;
   if (status === "rendering")                                      return t.roomPreview.screen.statuses.rendering;
-  if (status === "ready_to_render" || status === "product_selected") return t.roomPreview.screen.statuses.preparing;
+  if (status === "ready_to_render")                                  return t.roomPreview.screen.statuses.preparing;
+  if (status === "product_selected")                                 return t.roomPreview.screen.statuses.waitingRender;
   if (status === "failed")                                         return t.roomPreview.screen.statuses.failed;
   if (status === "room_selected")                                  return t.roomPreview.screen.statuses.waitingItem;
   if (status === "mobile_connected")                               return t.roomPreview.screen.statuses.waitingRoom;

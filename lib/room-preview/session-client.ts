@@ -17,6 +17,9 @@ export type RoomPreviewRequestErrorCode =
   | "timeout"
   | "not_found"
   | "expired"
+  | "render_limit_reached"
+  | "render_device_cooldown"
+  | "screen_budget_exhausted"
   | "invalid_response"
   | "network"
   | "server";
@@ -151,6 +154,24 @@ export async function requestRoomPreviewJson(
 
       if (data.code === "SESSION_EXPIRED") {
         throw new RoomPreviewRequestError("expired", data.error, {
+          status: response.status,
+        });
+      }
+
+      if (data.code === "RENDER_LIMIT_REACHED") {
+        throw new RoomPreviewRequestError("render_limit_reached", data.error, {
+          status: response.status,
+        });
+      }
+
+      if (data.code === "RENDER_DEVICE_COOLDOWN") {
+        throw new RoomPreviewRequestError("render_device_cooldown", data.error, {
+          status: response.status,
+        });
+      }
+
+      if (data.code === "SCREEN_BUDGET_EXHAUSTED") {
+        throw new RoomPreviewRequestError("screen_budget_exhausted", data.error, {
           status: response.status,
         });
       }

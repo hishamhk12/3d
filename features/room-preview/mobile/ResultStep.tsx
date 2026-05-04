@@ -362,9 +362,20 @@ export default function ResultStep({
             ) : null}
           </div>
 
+          {/* Completed state banner */}
+          {session.status === "completed" ? (
+            <div
+              className="bg-black/85 px-5 py-4 text-center backdrop-blur-xl animate-in slide-in-from-bottom-2 fade-in duration-700"
+              style={{ animationDelay: "400ms", animationFillMode: "backwards" }}
+            >
+              <p className="text-sm font-semibold text-white/90">{t.roomPreview.mobile.completed.title}</p>
+              <p className="mt-1.5 text-xs leading-5 text-white/55 px-2">{t.roomPreview.mobile.completed.message}</p>
+            </div>
+          ) : null}
+
           {/* Action bar — pinned at bottom */}
           <div
-            className="grid grid-cols-3 gap-3 border-t border-white/10 bg-black/85 px-4 py-4 backdrop-blur-xl animate-in slide-in-from-bottom-2 fade-in duration-700"
+            className={`grid gap-3 border-t border-white/10 bg-black/85 px-4 py-4 backdrop-blur-xl animate-in slide-in-from-bottom-2 fade-in duration-700 ${session.status === "completed" ? "grid-cols-2" : "grid-cols-3"}`}
             style={{ animationDelay: "500ms", animationFillMode: "backwards" }}
           >
             <a
@@ -396,16 +407,18 @@ export default function ResultStep({
               </span>
             </AnimatedButton>
 
-            <AnimatedButton
-              type="button"
-              className="flex flex-col items-center gap-2 rounded-[20px] border border-white/12 bg-white/08 py-4 transition hover:bg-white/14"
-              onClick={onModify}
-            >
-              <RotateCcw className="size-5 text-[#00AFD7]" />
-              <span className="text-[11px] font-semibold text-white/70">
-                {locale === "ar" ? "تعديل" : "Modify"}
-              </span>
-            </AnimatedButton>
+            {session.status !== "completed" ? (
+              <AnimatedButton
+                type="button"
+                className="flex flex-col items-center gap-2 rounded-[20px] border border-white/12 bg-white/08 py-4 transition hover:bg-white/14"
+                onClick={onModify}
+              >
+                <RotateCcw className="size-5 text-[#00AFD7]" />
+                <span className="text-[11px] font-semibold text-white/70">
+                  {locale === "ar" ? "تعديل" : "Modify"}
+                </span>
+              </AnimatedButton>
+            ) : null}
           </div>
         </div>,
         document.body,

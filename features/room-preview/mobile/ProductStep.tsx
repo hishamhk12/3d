@@ -81,6 +81,11 @@ export default function ProductStep({
             key={activeProduct?.id ?? "empty"}
             className="product-preview-in relative z-10 flex h-full w-full items-center justify-center"
           >
+            {products.length > 1 && (
+              <div className="absolute top-2 right-2 z-20 rounded-full bg-black/50 px-2.5 py-1 text-xs font-semibold text-white backdrop-blur-sm">
+                {activeIndex + 1}/{products.length}
+              </div>
+            )}
             {activeProduct?.imageUrl && (
               <Image
                 src={activeProduct.imageUrl}
@@ -122,6 +127,33 @@ export default function ProductStep({
           )}
         </div>
 
+        {/* ── Thumbnail strip ─────────────────────────────────────────── */}
+        {products.length > 1 && (
+          <div className="flex gap-2 overflow-x-auto pb-1 w-full justify-center">
+            {products.map((product) => (
+              <button
+                key={product.id}
+                type="button"
+                onClick={() => onProductSelect(product.id)}
+                disabled={isSavingProduct}
+                className={`relative h-14 w-14 shrink-0 overflow-hidden rounded-xl border-2 transition-all duration-200 ${
+                  product.id === activeProduct?.id
+                    ? "border-[var(--brand-cyan)] shadow-[0_0_10px_rgba(0,175,215,0.40)]"
+                    : "border-[var(--border)] opacity-50 hover:opacity-80"
+                }`}
+              >
+                <Image
+                  src={product.imageUrl}
+                  alt={product.name}
+                  fill
+                  unoptimized
+                  className="object-cover"
+                  sizes="56px"
+                />
+              </button>
+            ))}
+          </div>
+        )}
       </div>
     </section>
   );

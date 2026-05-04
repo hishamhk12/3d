@@ -4,6 +4,58 @@ import { openSessionIssue, trackSessionEvent } from "@/lib/room-preview/session-
 import { prisma } from "@/lib/server/prisma";
 
 /**
+ * Emits `mobile_stale_detected` for live sessions whose mobile client has
+ * stopped heartbeating for longer than `staleThresholdMs`.
+ *
+ * Spam prevention via transition-window detection: only sessions whose
+ * `lastMobileSeenAt` falls inside the half-open window
+ *   (now − staleThresholdMs − cleanupIntervalMs,  now − staleThresholdMs]
+ * are matched. This window advances with each cron tick, so a session is
+ * matched in exactly one cleanup run per stale episode — no dedup query
+ * needed and no schema changes required.
+ *
+ * Does NOT expire or modify sessions — observation only.
+ */
+export async function detectMobileStale(
+  staleThresholdMs = 75_000,
+  cleanupIntervalMs = 2 * 60_000,
+): Promise<number> {
+  const now = Date.now();
+  const windowEnd   = new Date(now - staleThresholdMs);
+  const windowStart = new Date(now - staleThresholdMs - cleanupIntervalMs);
+
+  const sessions = await prisma.roomPreviewSession.findMany({
+    where: {
+      status: { notIn: ["expired", "completed", "failed"] },
+      // NULL lastMobileSeenAt never satisfies gte, so null sessions are
+      // implicitly excluded — no explicit null check needed.
+      lastMobileSeenAt: { gte: windowStart, lte: windowEnd },
+    },
+    select: { id: true, status: true, lastMobileSeenAt: true },
+  });
+
+  if (sessions.length === 0) return 0;
+
+  await Promise.all(
+    sessions.map((session) =>
+      trackSessionEvent({
+        sessionId: session.id,
+        source: "server",
+        eventType: "mobile_stale_detected",
+        level: "warning",
+        metadata: {
+          lastMobileSeenAt: session.lastMobileSeenAt!.toISOString(),
+          gapMs: now - session.lastMobileSeenAt!.getTime(),
+          staleThresholdMs,
+        },
+      }),
+    ),
+  );
+
+  return sessions.length;
+}
+
+/**
  * Marks all non-terminal sessions past their expiresAt as `expired`.
  * Also catches legacy sessions with null expiresAt (created before the expiry
  * field was added) — they are permanent orphans and should be closed out.
@@ -147,12 +199,37 @@ export async function completeResultReadySessions(
   displayAfterMs = 90 * 1000,
 ): Promise<number> {
   const cutoff = new Date(Date.now() - displayAfterMs);
-  const result = await prisma.roomPreviewSession.updateMany({
+  const sessions = await prisma.roomPreviewSession.findMany({
     where: {
       status: "result_ready",
       updatedAt: { lte: cutoff },
     },
+    select: { id: true },
+  });
+  if (sessions.length === 0) return 0;
+  const result = await prisma.roomPreviewSession.updateMany({
+    where: {
+      id: { in: sessions.map((s) => s.id) },
+      status: "result_ready",
+    },
     data: { status: "completed" },
   });
+  await Promise.all(
+    sessions.map((session) =>
+      trackSessionEvent({
+        sessionId: session.id,
+        source: "server",
+        eventType: "session_completed",
+        level: "info",
+        statusBefore: "result_ready",
+        statusAfter: "completed",
+        metadata: {
+          previousStatus: "result_ready",
+          nextStatus: "completed",
+          reason: "result_display_window_elapsed",
+        },
+      }),
+    ),
+  );
   return result.count;
 }

@@ -42,7 +42,10 @@ export type RoomPreviewApiErrorCode =
   | "ROOM_UPLOAD_VERIFY_FAILED"
   | "ROOM_UPLOAD_ABORTED"
   | "DIRECT_UPLOAD_NOT_SUPPORTED"
-  | "DIRECT_UPLOAD_FAILED";
+  | "DIRECT_UPLOAD_FAILED"
+  | "RENDER_LIMIT_REACHED"
+  | "RENDER_DEVICE_COOLDOWN"
+  | "SCREEN_BUDGET_EXHAUSTED";
 
 export type SelectedRoom = {
   source: RoomPreviewRoomSource | null;

@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { useI18n } from "@/lib/i18n/provider";
 import {
@@ -18,6 +18,7 @@ import {
 import { createRoomPreviewSessionEventsClient } from "@/lib/room-preview/session-events-client";
 import { createRoomPreviewSessionPoller } from "@/lib/room-preview/session-polling";
 import { trackClientSessionEvent } from "@/lib/room-preview/session-diagnostics-client";
+import { useScreenHeartbeat } from "@/features/room-preview/screen/useScreenHeartbeat";
 import type { TranslationDictionary } from "@/lib/i18n/dictionaries";
 import type { RoomPreviewSession } from "@/lib/room-preview/types";
 
@@ -46,6 +47,11 @@ export interface UseScreenSessionReturn {
   hasSelectedProduct: boolean;
   hasSelectedRoom: boolean;
   hasRenderResult: boolean;
+
+  // Heartbeat
+  heartbeatConnected: boolean;
+  heartbeatFailedCount: number;
+  heartbeatLastSuccessAt: number | null;
 
   // Actions
   retry: () => void;
@@ -96,6 +102,12 @@ export function useScreenSession({ sessionId }: { sessionId: string }): UseScree
     session?.renderResult?.imageUrl && session?.status === "result_ready",
   );
 
+  const {
+    isConnected: heartbeatConnected,
+    failedCount: heartbeatFailedCount,
+    lastSuccessAt: heartbeatLastSuccessAt,
+  } = useScreenHeartbeat(sessionId, session?.status);
+
   useEffect(() => {
     trackClientSessionEvent(sessionId, {
       source: "screen",
@@ -103,6 +115,27 @@ export function useScreenSession({ sessionId }: { sessionId: string }): UseScree
       level: "info",
     });
   }, [sessionId]);
+
+  // ── result_displayed_screen ───────────────────────────────────────────────
+  // Fires once per unique render result (keyed by imageUrl). The ref prevents
+  // duplicate events from SSE reconnects, polling fallback, or re-renders.
+  const resultDisplayedRef = useRef<string | null>(null);
+  useEffect(() => {
+    const imageUrl = session?.renderResult?.imageUrl;
+    if (!imageUrl || session?.status !== "result_ready") return;
+    if (resultDisplayedRef.current === imageUrl) return;
+    resultDisplayedRef.current = imageUrl;
+    trackClientSessionEvent(sessionId, {
+      source: "screen",
+      eventType: "result_displayed_screen",
+      level: "info",
+      metadata: {
+        status: session.status,
+        hasResultImage: true,
+        timestamp: new Date().toISOString(),
+      },
+    });
+  }, [session, sessionId]);
 
   useEffect(() => {
     trackClientSessionEvent(sessionId, {
@@ -331,6 +364,9 @@ export function useScreenSession({ sessionId }: { sessionId: string }): UseScree
     hasSelectedProduct,
     hasSelectedRoom,
     hasRenderResult,
+    heartbeatConnected,
+    heartbeatFailedCount,
+    heartbeatLastSuccessAt,
     retry: () => setLoadAttempt((n) => n + 1),
   };
 }

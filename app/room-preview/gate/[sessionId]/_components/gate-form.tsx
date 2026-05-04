@@ -234,19 +234,15 @@ export function GateForm({
         <p className="text-center text-sm font-medium text-[var(--text-secondary)] mb-6">
           {t.whoAreYou}
         </p>
-        <div className="grid grid-cols-2 gap-3">
-          <SectionCard
-            onClick={() => setStep("customer_type")}
-            icon={PersonIcon}
-            label={t.customer}
-            desc={t.customerDesc}
-          />
-          <SectionCard
-            onClick={() => setStep("employee")}
-            icon={EmployeeIcon}
-            label={t.employee}
-            desc={t.employeeDesc}
-          />
+        <div className="flex justify-center">
+          <div className="w-40">
+            <SectionCard
+              onClick={() => setStep("customer_type")}
+              icon={PersonIcon}
+              label={t.customer}
+              desc={t.customerDesc}
+            />
+          </div>
         </div>
       </div>
     );

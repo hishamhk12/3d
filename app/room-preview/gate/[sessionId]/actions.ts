@@ -438,6 +438,19 @@ export async function submitGateForm(formData: FormData) {
     metadata: { flow: data.flow, userRole, userSessionId, customerId },
   });
 
+  await trackSessionEvent({
+    sessionId,
+    source: "mobile",
+    eventType: "gate_completed",
+    level: "info",
+    metadata: {
+      role: userRole,
+      hasName: true,
+      hasPhone: userRole === "customer",
+      isExistingCustomer: data.flow === "customer_confirm",
+    },
+  });
+
   after(() =>
     trackEvent({
       userSessionId,

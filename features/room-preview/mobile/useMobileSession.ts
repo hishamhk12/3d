@@ -23,6 +23,7 @@ import { trackClientSessionEvent } from "@/lib/room-preview/session-diagnostics-
 import { useDebugLog } from "@/features/room-preview/mobile/debug";
 import type { LogEntry } from "@/features/room-preview/mobile/debug";
 import { useMobileDiagnostics } from "@/features/room-preview/mobile/useMobileDiagnostics";
+import { useMobileHeartbeat } from "@/features/room-preview/mobile/useMobileHeartbeat";
 import type { TranslationDictionary } from "@/lib/i18n/dictionaries";
 import type {
   RoomPreviewRoomSource,
@@ -77,6 +78,11 @@ export interface UseMobileSessionReturn {
   handleFileSelection: (source: Extract<RoomPreviewRoomSource, "camera" | "gallery">, file: File | null) => Promise<void>;
   handleProductSelect: (productId: string) => void;
   handleCreateRender: () => Promise<void>;
+
+  // Heartbeat
+  heartbeatConnected: boolean;
+  heartbeatFailedCount: number;
+  heartbeatLastSuccessAt: number | null;
 
   // Debug
   debugEntries: LogEntry[];
@@ -144,9 +150,58 @@ export function useMobileSession({
   const [productSaveStatus,   setProductSaveStatus]  = useState<SaveStatus>("idle");
   const [recoveryMessage,     setRecoveryMessage]    = useState<CustomerRecoveryMessage | null>(null);
   const renderRequestInFlightRef = useRef(false);
+  // Always-current ref so the popstate handler reads fresh session state
+  // without being re-registered on every render.
+  const sessionRef = useRef<RoomPreviewSession | null>(null);
+  sessionRef.current = session;
 
   const { entries: debugEntries, add: debugLog, clear: clearDebugLog } = useDebugLog();
   const { trackFetch, updateStatus } = useMobileDiagnostics(sessionId);
+  const {
+    isConnected: heartbeatConnected,
+    failedCount: heartbeatFailedCount,
+    lastSuccessAt: heartbeatLastSuccessAt,
+  } = useMobileHeartbeat(sessionId, session?.status);
+
+  // Track the first moment the heartbeat becomes unreachable (true → false).
+  // Fire-once per disconnection event so we never spam the timeline.
+  const prevHeartbeatConnectedRef = useRef(true);
+  useEffect(() => {
+    const wasConnected = prevHeartbeatConnectedRef.current;
+    prevHeartbeatConnectedRef.current = heartbeatConnected;
+    if (!heartbeatConnected && wasConnected) {
+      trackClientSessionEvent(sessionId, {
+        source: "mobile",
+        eventType: "weak_connection_warning_shown",
+        level: "warning",
+        metadata: { failedCount: heartbeatFailedCount },
+      });
+    }
+  }, [heartbeatConnected, heartbeatFailedCount, sessionId]);
+
+  // ── result_seen_mobile ────────────────────────────────────────────────────
+  // Fires once per unique render result when the result UI first becomes
+  // visible. The ref (keyed by imageUrl) prevents duplicate events from
+  // polling re-renders, back-navigation recovery, or repeated setShowResult
+  // calls with the same result.
+  const resultSeenRef = useRef<string | null>(null);
+  useEffect(() => {
+    if (!showResult || !session) return;
+    const imageUrl = session.renderResult?.imageUrl;
+    if (!imageUrl) return;
+    if (resultSeenRef.current === imageUrl) return;
+    resultSeenRef.current = imageUrl;
+    trackClientSessionEvent(session.id, {
+      source: "mobile",
+      eventType: "result_seen_mobile",
+      level: "info",
+      metadata: {
+        status: session.status,
+        hasResultImage: true,
+        timestamp: new Date().toISOString(),
+      },
+    });
+  }, [showResult, session]);
 
   // Keep the diagnostics status ref current for all async event listeners
   useEffect(() => {
@@ -176,6 +231,87 @@ export function useMobileSession({
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
+
+  // ── Browser Back guard ───────────────────────────────────────────────────────
+  // Push a duplicate history entry on mount. When the user presses Back, the
+  // browser moves to the original (same URL) and fires popstate — we catch it,
+  // re-push to keep the guard alive, then re-fetch the authoritative session
+  // state and update the view accordingly.
+  useEffect(() => {
+    window.history.pushState(null, "");
+
+    function handlePopState() {
+      // Restore guard so every subsequent Back press is also caught.
+      window.history.pushState(null, "");
+
+      const currentPath = window.location.pathname;
+
+      trackClientSessionEvent(sessionId, {
+        source: "mobile",
+        eventType: "back_pressed",
+        level: "info",
+        metadata: {
+          currentPath,
+          currentStatus: sessionRef.current?.status ?? null,
+          timestamp: new Date().toISOString(),
+        },
+      });
+
+      void (async () => {
+        try {
+          const fresh = await fetchRoomPreviewSession(sessionId);
+          setSession(fresh);
+
+          const { status } = fresh;
+
+          if (status === "expired" || status === "completed") {
+            setViewState("expired");
+            setError(null);
+          } else if (status === "failed") {
+            setViewState("failed");
+          } else {
+            setViewState("ready");
+            if (status === "result_ready" && fresh.renderResult?.imageUrl) {
+              setShowResult(true);
+            }
+          }
+
+          // Confirm to the user that we kept them in flow.
+          const msg = "أعدناك إلى الخطوة الصحيحة للحفاظ على تجربتك";
+          setSuccessMessage(msg);
+          setTimeout(
+            () => setSuccessMessage((prev) => (prev === msg ? null : prev)),
+            4_000,
+          );
+
+          trackClientSessionEvent(sessionId, {
+            source: "mobile",
+            eventType: "redirected_to_correct_step",
+            level: "info",
+            metadata: {
+              fromPath: currentPath,
+              toPath: currentPath,
+              status,
+              reason: "browser_back_recovery",
+            },
+          });
+        } catch (err) {
+          if (isRoomPreviewRequestError(err)) {
+            if (err.code === "not_found") setViewState("not_found");
+            else if (err.code === "expired") setViewState("expired");
+            // Network error: silently stay on current view — Back guard must
+            // never crash or freeze the UI.
+          }
+        }
+      })();
+    }
+
+    window.addEventListener("popstate", handlePopState);
+    return () => {
+      window.removeEventListener("popstate", handlePopState);
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [sessionId]);
 
   // ── Initial session load ─────────────────────────────────────────────────────
   useEffect(() => {
@@ -656,7 +792,7 @@ export function useMobileSession({
           JSON.stringify({ error: JSON.parse(getRoomPreviewErrorLogDetails(saveError)), fileName: file.name, fileSize: file.size, fileType: file.type, sessionId, source }),
         );
         const recovery = isRoomPreviewRequestError(saveError) && saveError.status === 413
-          ? getCustomerRecoveryMessage("retake_room_photo")
+          ? getCustomerRecoveryMessage("image_too_large")
           : getCustomerRecoveryMessage("retry_upload");
         setRecoveryMessage(recovery);
         setError(
@@ -918,13 +1054,24 @@ export function useMobileSession({
         },
       });
 
-      const recovery = getCustomerRecoveryMessage(
-        isRoomPreviewRequestError(renderError) && renderError.code === "timeout"
-          ? "retry_render"
-          : "reload_page",
-      );
-      setRecoveryMessage(recovery);
-      setError(recovery?.text ?? failure.message);
+      if (isRoomPreviewRequestError(renderError) && renderError.code === "render_limit_reached") {
+        setError("وصلت إلى عدد المحاولات المتاحة لهذه التجربة.");
+        setRecoveryMessage(null);
+      } else if (isRoomPreviewRequestError(renderError) && renderError.code === "render_device_cooldown") {
+        setError("يمكنك طلب معاينة جديدة بعد ٥ دقائق.");
+        setRecoveryMessage(null);
+      } else if (isRoomPreviewRequestError(renderError) && renderError.code === "screen_budget_exhausted") {
+        setError("انتهى الحد اليومي لهذه الشاشة. يرجى التواصل مع الموظف المختص.");
+        setRecoveryMessage(null);
+      } else {
+        const recovery = getCustomerRecoveryMessage(
+          isRoomPreviewRequestError(renderError) && renderError.code === "timeout"
+            ? "retry_render"
+            : "reload_page",
+        );
+        setRecoveryMessage(recovery);
+        setError(recovery?.text ?? failure.message);
+      }
       trackClientSessionEvent(session.id, {
         source: "mobile",
         eventType: isRoomPreviewRequestError(renderError) && renderError.code === "timeout"
@@ -986,6 +1133,9 @@ export function useMobileSession({
     handleFileSelection,
     handleProductSelect,
     handleCreateRender,
+    heartbeatConnected,
+    heartbeatFailedCount,
+    heartbeatLastSuccessAt,
     debugEntries,
     clearDebugLog,
   };

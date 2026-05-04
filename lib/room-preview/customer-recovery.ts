@@ -34,6 +34,11 @@ export const CUSTOMER_RECOVERY_MESSAGES: Record<CustomerMessageKey, CustomerReco
     ctaText: "اختيار صورة أخرى",
     text: "الصورة غير مناسبة للمعاينة. يرجى رفع صورة تُظهر الأرضية بوضوح.",
   },
+  image_too_large: {
+    ctaIntent: "retake_room_photo",
+    ctaText: "اختيار صورة أخرى",
+    text: "حجم الصورة كبير. يرجى اختيار صورة أصغر أو التقاط صورة جديدة.",
+  },
   reconnect_mobile: {
     ctaIntent: "reconnect_mobile",
     ctaText: "إعادة الاتصال",

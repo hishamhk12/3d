@@ -190,7 +190,7 @@ const en = {
         "This session link is invalid. Start a new session from the QR test screen.",
       expiredTitle: "Session expired",
       expiredDescription:
-        "This in-memory session is no longer available. Start a new session and scan the new QR code.",
+        "Your session ended due to inactivity. Please scan a new QR code from the screen.",
       failedTitle: "Failed to load session",
       failedDescription: "The session could not be loaded right now. Please try again.",
       invalidLink:
@@ -247,6 +247,10 @@ const en = {
         saveSuccess: "Product saved successfully",
         saveFailed: "Failed to save product",
       },
+      completed: {
+        title: "Preview shown successfully",
+        message: "If you'd like a new experience, please return to the main screen and scan a new QR code. You may need to wait a moment before requesting another preview.",
+      },
     },
     screen: {
       sessionStatus: "Session Status",
@@ -270,6 +274,7 @@ const en = {
         waitingPhone: "Waiting for phone connection",
         waitingRoom: "Waiting for room selection",
         waitingItem: "Waiting for item selection",
+        waitingRender: "Product selected — waiting for preview to start",
         preparing: "Preparing preview...",
         rendering: "Rendering preview...",
         ready: "Preview ready",
@@ -608,7 +613,7 @@ const ar: TranslationDictionary = {
       notFoundDescription: "رابط هذه الجلسة غير صالح. ابدأ جلسة جديدة من شاشة اختبار QR.",
       expiredTitle: "انتهت الجلسة",
       expiredDescription:
-        "هذه الجلسة المؤقتة لم تعد متاحة. ابدأ جلسة جديدة وامسح رمز QR الجديد.",
+        "انتهت الجلسة بسبب عدم النشاط، يرجى مسح رمز QR جديد من الشاشة.",
       failedTitle: "تعذر تحميل الجلسة",
       failedDescription: "تعذر تحميل الجلسة حالياً. حاول مرة أخرى.",
       invalidLink: "رابط هذه الجلسة غير صالح. ابدأ جلسة جديدة من شاشة QR الرئيسية.",
@@ -664,6 +669,10 @@ const ar: TranslationDictionary = {
         saveSuccess: "تم حفظ المنتج بنجاح",
         saveFailed: "فشل حفظ المنتج",
       },
+      completed: {
+        title: "تم عرض المعاينة بنجاح",
+        message: "إذا رغبت بتجربة جديدة، يرجى العودة إلى الشاشة الرئيسية ومسح رمز QR جديد. قد تحتاج للانتظار قليلاً قبل طلب معاينة أخرى.",
+      },
     },
     screen: {
       sessionStatus: "حالة الجلسة",
@@ -688,6 +697,7 @@ const ar: TranslationDictionary = {
         waitingPhone: "بانتظار اتصال الهاتف",
         waitingRoom: "بانتظار اختيار الغرفة",
         waitingItem: "بانتظار اختيار العنصر",
+        waitingRender: "تم اختيار المنتج، بانتظار بدء المعاينة",
         preparing: "جارٍ تجهيز المعاينة...",
         rendering: "جارٍ إنشاء المعاينة...",
         ready: "المعاينة جاهزة",

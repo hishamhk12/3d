@@ -89,10 +89,10 @@ export default async function ScreenSessionPage({ params }: ScreenSessionPagePro
   }
 
   return (
-    <main className="dark relative min-h-screen overflow-hidden bg-[var(--bg-page)] text-[var(--text-primary)]">
+    <main className="screen-kiosk-page dark relative bg-[var(--bg-page)] text-[var(--text-primary)]">
       <GlassBackground />
-      <div className="mx-auto flex min-h-screen w-full max-w-[1400px] flex-col items-center justify-center gap-12 px-8 lg:flex-row lg:items-start lg:gap-20 lg:pt-32 pb-16">
-        <div className="w-full max-w-md shrink-0 lg:sticky lg:top-32">
+      <div className="screen-kiosk-shell mx-auto w-full max-w-[1400px] px-8">
+        <div className="w-full max-w-md shrink-0">
           {qrDataUrl ? (
             <SessionQRCode dataUrl={qrDataUrl} />
           ) : (
@@ -120,7 +120,7 @@ export default async function ScreenSessionPage({ params }: ScreenSessionPagePro
           )}
         </div>
 
-        <div className="w-full max-w-2xl lg:flex-1">
+        <div className="screen-kiosk-content w-full max-w-2xl lg:flex-1">
           <ScreenSessionClient sessionId={sessionId} />
         </div>
       </div>

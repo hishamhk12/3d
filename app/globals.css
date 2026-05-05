@@ -836,3 +836,74 @@ body {
 @media (prefers-reduced-motion: reduce) {
   .gate-bokeh > span { animation-play-state: paused; }
 }
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   KIOSK / TV SCREEN — 42-inch Android TV layout
+   ═══════════════════════════════════════════════════════════════════════════ */
+
+/* Suppress Google Translate toolbar (injected by Chrome on Android) */
+.skiptranslate { display: none !important; }
+body.translated-ltr,
+body.translated-rtl { top: 0 !important; }
+
+/* Page shell — hard-locked to small viewport height (stable across toolbar show/hide) */
+.screen-kiosk-page {
+  height: 100vh;
+  height: 100svh;
+  overflow: hidden;
+}
+
+/* Two-column flex shell that fills the page height */
+.screen-kiosk-shell {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 3rem;
+  height: 100%;
+  padding-top: clamp(1.5rem, 3vh, 4rem);
+  padding-bottom: clamp(3rem, 5vh, 5rem);
+  overflow: hidden;
+}
+
+@media (min-width: 1024px) {
+  .screen-kiosk-shell {
+    flex-direction: row;
+    align-items: center;
+    gap: 5rem;
+  }
+}
+
+/* Scrollable content column — clips at viewport edge */
+.screen-kiosk-content {
+  overflow-y: auto;
+  max-height: calc(100vh - 4rem);
+  max-height: calc(100svh - 4rem);
+  scrollbar-width: none;
+}
+.screen-kiosk-content::-webkit-scrollbar { display: none; }
+
+/* Short screens — 720p TV or browser with tall toolbar */
+@media (max-height: 720px) {
+  .screen-kiosk-shell {
+    padding-top: 1rem;
+    padding-bottom: 2.5rem;
+    gap: 1.5rem;
+  }
+  .screen-kiosk-content {
+    max-height: calc(100vh - 2.5rem);
+    max-height: calc(100svh - 2.5rem);
+  }
+  .qr-scan-guide-shell {
+    padding-bottom: 0 !important;
+  }
+}
+
+/* Very short screens — compact mode */
+@media (max-height: 650px) {
+  .screen-kiosk-shell {
+    padding-top: 0.5rem;
+    padding-bottom: 1.75rem;
+    gap: 1rem;
+  }
+}

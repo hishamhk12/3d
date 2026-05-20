@@ -1,42 +1,23 @@
 "use client";
 
+import Image from "next/image";
 import Link from "next/link";
 import { useCallback, useEffect, useState } from "react";
 import {
-  motion,
-  useReducedMotion,
-  useMotionValue,
-  useMotionTemplate,
   animate,
+  motion,
+  useMotionTemplate,
+  useMotionValue,
+  useReducedMotion,
 } from "framer-motion";
 
-/* ─── Image paths ────────────────────────────────────────────────────────── */
-
-function encodeAssetPath(p: string) {
-  return "/" + p.split("/").map(encodeURIComponent).join("/");
-}
-
-const IMAGES = [
-  // باركيه — 6 صور
-  "صور ارضيات/باركيه/279b-roble-eyre-gris-xl-4v-room (1).jpg",
-  "صور ارضيات/باركيه/283b-roble-selena-sable-su-4v-room (1).jpg",
-  "صور ارضيات/باركيه/322b-roble-magari-or-4v-room_V2.jpg",
-  "صور ارضيات/باركيه/343b-roble-fado-brisa-ev-4v-room.jpg",
-  "صور ارضيات/باركيه/353b-roble-sonata-or-4v-room.jpg",
-  "صور ارضيات/باركيه/369b-roble-vera-siglo-xl-4v-room-2.jpg",
-  // كاربيت — 5 صور
-  "صور ارضيات/كاربيت/10.jpg",
-  "صور ارضيات/كاربيت/FN9-3-1.jpg",
-  "صور ارضيات/كاربيت/FN9-3-fn9-4.png",
-  "صور ارضيات/كاربيت/Haze LP 850_1.jpg.webp",
-  "صور ارضيات/كاربيت/Interior_Etch 901_Etch Gradient 901_Core 901.jpg.webp",
-].map(encodeAssetPath);
-
-/* ─── Dominant-color extractor (canvas, same-origin) ────────────────────── */
+type Carousel3DProps = {
+  images: string[];
+};
 
 function extractColor(src: string): Promise<[number, number, number]> {
   return new Promise((resolve) => {
-    const img = new Image();
+    const img = new window.Image();
     img.onload = () => {
       try {
         const canvas = document.createElement("canvas");
@@ -45,18 +26,21 @@ function extractColor(src: string): Promise<[number, number, number]> {
         const ctx = canvas.getContext("2d");
         if (!ctx) return resolve([40, 28, 18]);
 
-        // Sample the lower-center region — where flooring is most prominent
-        const sx = img.naturalWidth  * 0.20;
+        const sx = img.naturalWidth * 0.2;
         const sy = img.naturalHeight * 0.45;
-        const sw = img.naturalWidth  * 0.60;
-        const sh = img.naturalHeight * 0.50;
+        const sw = img.naturalWidth * 0.6;
+        const sh = img.naturalHeight * 0.5;
         ctx.drawImage(img, sx, sy, sw, sh, 0, 0, 24, 24);
 
         const { data } = ctx.getImageData(0, 0, 24, 24);
-        let r = 0, g = 0, b = 0;
+        let r = 0;
+        let g = 0;
+        let b = 0;
         const n = data.length / 4;
         for (let i = 0; i < data.length; i += 4) {
-          r += data[i]; g += data[i + 1]; b += data[i + 2];
+          r += data[i];
+          g += data[i + 1];
+          b += data[i + 2];
         }
         resolve([Math.round(r / n), Math.round(g / n), Math.round(b / n)]);
       } catch {
@@ -68,32 +52,26 @@ function extractColor(src: string): Promise<[number, number, number]> {
   });
 }
 
-/* ─── Coverflow constants ────────────────────────────────────────────────── */
-
 const VISIBLE_RANGE = 2;
-const AUTOPLAY_MS   = 5000;
+const AUTOPLAY_MS = 5000;
 
-// Per-offset visual properties (index = |offset|)
 const CFG = [
-  { rotateY: 0,  scale: 1.00, opacity: 1.00, blur: 0,   brightness: 1.00 },
-  { rotateY: 42, scale: 0.80, opacity: 0.72, blur: 1.5, brightness: 0.72 },
-  { rotateY: 58, scale: 0.62, opacity: 0.35, blur: 3.0, brightness: 0.50 },
+  { rotateY: 0, scale: 1, opacity: 1, blur: 0, brightness: 1 },
+  { rotateY: 42, scale: 0.8, opacity: 0.72, blur: 1.5, brightness: 0.72 },
+  { rotateY: 58, scale: 0.62, opacity: 0.35, blur: 3, brightness: 0.5 },
 ] as const;
 
-/* ─── Component ─────────────────────────────────────────────────────────── */
-
-export function Carousel3D() {
-  const [active,   setActive]   = useState(0);
+export function Carousel3D({ images }: Carousel3DProps) {
+  const [active, setActive] = useState(0);
   const [isPaused, setIsPaused] = useState(false);
-  const [cardW,    setCardW]    = useState(820);   // responsive, see effect below
+  const [cardW, setCardW] = useState(820);
   const prefersReduced = useReducedMotion();
+  const hasImages = images.length > 0;
 
-  /* Ambient background: animated R, G, B channels */
   const ambR = useMotionValue(40);
   const ambG = useMotionValue(28);
   const ambB = useMotionValue(18);
 
-  /* Compose animated gradient string for the ambient glow */
   const ambientBg = useMotionTemplate`radial-gradient(
     ellipse 140% 75% at 50% 105%,
     rgba(${ambR},${ambG},${ambB},0.55) 0%,
@@ -101,93 +79,99 @@ export function Carousel3D() {
     transparent 68%
   )`;
 
-  /* ── Responsive card width: 62 vw, clamped 300 – 820 px ─────────────── */
   useEffect(() => {
-    const compute = () =>
+    const compute = () => {
       setCardW(Math.min(820, Math.max(300, window.innerWidth * 0.62)));
+    };
     compute();
     window.addEventListener("resize", compute);
     return () => window.removeEventListener("resize", compute);
   }, []);
 
-  const cardH  = Math.round(cardW * (2 / 3));
-  const xStep1 = Math.round(cardW * 0.62);   // spread for |offset| = 1
-  const xStep2 = Math.round(cardW * 1.08);   // spread for |offset| = 2
+  const cardH = Math.round(cardW * (2 / 3));
+  const xStep1 = Math.round(cardW * 0.62);
+  const xStep2 = Math.round(cardW * 1.08);
 
-  /* ── Extract dominant color whenever active slide changes ────────────── */
   useEffect(() => {
-    extractColor(IMAGES[active]).then(([r, g, b]) => {
+    setActive(0);
+  }, [images]);
+
+  useEffect(() => {
+    const activeImage = images[active];
+    if (!activeImage) return;
+
+    extractColor(activeImage).then(([r, g, b]) => {
       const dur = { duration: 1.4, ease: "easeOut" } as const;
       animate(ambR, r, dur);
       animate(ambG, g, dur);
       animate(ambB, b, dur);
     });
-  }, [active, ambR, ambG, ambB]);
+  }, [active, ambB, ambG, ambR, images]);
 
-  /* ── Autoplay ────────────────────────────────────────────────────────── */
-  const advance = useCallback(
-    () => setActive((i) => (i + 1) % IMAGES.length),
-    [],
-  );
+  const advance = useCallback(() => {
+    if (!hasImages) return;
+    setActive((i) => (i + 1) % images.length);
+  }, [hasImages, images.length]);
+
   useEffect(() => {
-    if (isPaused) return;
+    if (!hasImages || isPaused) return;
     const id = setInterval(advance, AUTOPLAY_MS);
     return () => clearInterval(id);
-  }, [advance, isPaused]);
+  }, [advance, hasImages, isPaused]);
 
-  /* ── Preload images ──────────────────────────────────────────────────── */
   useEffect(() => {
-    IMAGES.forEach((src) => {
+    if (!hasImages) return;
+
+    images.forEach((src) => {
       const img = new window.Image();
       img.src = src;
     });
-    // Extract color for the very first image
-    extractColor(IMAGES[0]).then(([r, g, b]) => {
-      ambR.set(r); ambG.set(g); ambB.set(b);
-    });
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
 
-  /* ── Circular offset (shortest path) ────────────────────────────────── */
+    extractColor(images[0]).then(([r, g, b]) => {
+      ambR.set(r);
+      ambG.set(g);
+      ambB.set(b);
+    });
+  }, [ambB, ambG, ambR, hasImages, images]);
+
   const resolveOffset = (i: number) => {
-    let off  = i - active;
-    const half = Math.floor(IMAGES.length / 2);
-    if (off >  half) off -= IMAGES.length;
-    if (off < -half) off += IMAGES.length;
+    let off = i - active;
+    const half = Math.floor(images.length / 2);
+    if (off > half) off -= images.length;
+    if (off < -half) off += images.length;
     return off;
   };
 
-  /* ── Per-card Framer Motion animate target ───────────────────────────── */
   const getAnimate = (offset: number) => {
-    const abs  = Math.abs(offset);
+    const abs = Math.abs(offset);
     const sign = Math.sign(offset) || 1;
-    const cfg  = CFG[abs];
+    const cfg = CFG[abs];
     const xArr = [0, xStep1, xStep2];
+
     return {
-      x:       sign * (xArr[abs] ?? 0),
+      x: sign * (xArr[abs] ?? 0),
       rotateY: sign * -cfg.rotateY,
-      scale:   cfg.scale,
+      scale: cfg.scale,
       opacity: cfg.opacity,
-      filter:  abs > 0
+      filter: abs > 0
         ? `blur(${cfg.blur}px) brightness(${cfg.brightness})`
         : "blur(0px) brightness(1)",
     };
   };
 
-  /* ── Render ──────────────────────────────────────────────────────────── */
   return (
     <section
       aria-label="معرض الأرضيات"
       style={{
-        position:       "relative",
-        width:          "100%",
-        height:         "100dvh",
-        minHeight:      "100vh",
-        overflow:       "hidden",
-        background:     "#0d1b35",
-        display:        "flex",
-        flexDirection:  "column",
-        alignItems:     "center",
+        position: "relative",
+        width: "100%",
+        height: "100dvh",
+        minHeight: "100vh",
+        overflow: "hidden",
+        background: "#0d1b35",
+        display: "flex",
+        flexDirection: "column",
+        alignItems: "center",
         justifyContent: "center",
       }}
     >
@@ -199,93 +183,87 @@ export function Carousel3D() {
         @media (prefers-reduced-motion:reduce) { .c3d-chevron { animation:none !important; } }
       `}</style>
 
-      {/* ── Ambient color glow ─────────────────────────────────────────── */}
       <motion.div
         aria-hidden="true"
         style={{
-          position:       "absolute",
-          inset:          0,
-          background:     ambientBg,
-          zIndex:         1,
-          pointerEvents:  "none",
+          position: "absolute",
+          inset: 0,
+          background: ambientBg,
+          zIndex: 1,
+          pointerEvents: "none",
         }}
       />
 
-      {/* ── Fog / mist layers ──────────────────────────────────────────── */}
-      {/* وسط الشاشة — ضباب رئيسي */}
       <div
         aria-hidden="true"
         style={{
-          position:      "absolute",
-          top:           "15%",
-          left:          "50%",
-          transform:     "translateX(-50%)",
-          width:         "80vw",
-          height:        "60vh",
-          borderRadius:  "50%",
-          background:    "radial-gradient(ellipse at center, rgba(180,200,240,0.07) 0%, transparent 70%)",
-          filter:        "blur(40px)",
+          position: "absolute",
+          top: "15%",
+          left: "50%",
+          transform: "translateX(-50%)",
+          width: "80vw",
+          height: "60vh",
+          borderRadius: "50%",
+          background: "radial-gradient(ellipse at center, rgba(180,200,240,0.07) 0%, transparent 70%)",
+          filter: "blur(40px)",
           pointerEvents: "none",
-          zIndex:        2,
+          zIndex: 2,
         }}
       />
-      {/* أسفل يسار — طبقة ثانية */}
       <div
         aria-hidden="true"
         style={{
-          position:      "absolute",
-          bottom:        "10%",
-          left:          "10%",
-          width:         "45vw",
-          height:        "35vh",
-          borderRadius:  "50%",
-          background:    "radial-gradient(ellipse at center, rgba(150,180,230,0.05) 0%, transparent 70%)",
-          filter:        "blur(50px)",
+          position: "absolute",
+          bottom: "10%",
+          left: "10%",
+          width: "45vw",
+          height: "35vh",
+          borderRadius: "50%",
+          background: "radial-gradient(ellipse at center, rgba(150,180,230,0.05) 0%, transparent 70%)",
+          filter: "blur(50px)",
           pointerEvents: "none",
-          zIndex:        2,
+          zIndex: 2,
         }}
       />
-      {/* أعلى يمين — طبقة ثالثة */}
       <div
         aria-hidden="true"
         style={{
-          position:      "absolute",
-          top:           "5%",
-          right:         "8%",
-          width:         "35vw",
-          height:        "30vh",
-          borderRadius:  "50%",
-          background:    "radial-gradient(ellipse at center, rgba(160,190,235,0.04) 0%, transparent 70%)",
-          filter:        "blur(45px)",
+          position: "absolute",
+          top: "5%",
+          right: "8%",
+          width: "35vw",
+          height: "30vh",
+          borderRadius: "50%",
+          background: "radial-gradient(ellipse at center, rgba(160,190,235,0.04) 0%, transparent 70%)",
+          filter: "blur(45px)",
           pointerEvents: "none",
-          zIndex:        2,
+          zIndex: 2,
         }}
       />
 
-      {/* ── 3D Carousel track ──────────────────────────────────────────── */}
       <div
         role="region"
         aria-roledescription="carousel"
         style={{
-          position:          "relative",
-          width:             "100%",
-          height:            cardH,
-          perspective:       "1400px",
+          position: "relative",
+          width: "100%",
+          height: cardH,
+          perspective: "1400px",
           perspectiveOrigin: "50% 50%",
-          flexShrink:        0,
-          zIndex:            10,
+          flexShrink: 0,
+          zIndex: 10,
         }}
         onMouseEnter={() => setIsPaused(true)}
         onMouseLeave={() => setIsPaused(false)}
       >
-        {IMAGES.map((src, i) => {
-          const offset   = resolveOffset(i);
+        {hasImages ? images.map((src, i) => {
+          const offset = resolveOffset(i);
           if (Math.abs(offset) > VISIBLE_RANGE) return null;
           const isActive = offset === 0;
 
           return (
             <motion.div
-              key={i}
+              key={src}
               animate={getAnimate(offset)}
               transition={
                 prefersReduced
@@ -293,71 +271,85 @@ export function Carousel3D() {
                   : { duration: 0.85, ease: [0.25, 0.46, 0.45, 0.94] }
               }
               onClick={() => !isActive && setActive(i)}
-              aria-label={isActive ? `الصورة ${i + 1} — نشطة` : `انتقل إلى الصورة ${i + 1}`}
+              aria-label={isActive ? `الصورة ${i + 1} نشطة` : `انتقل إلى الصورة ${i + 1}`}
               aria-current={isActive ? "true" : undefined}
               style={{
-                position:     "absolute",
-                width:        cardW,
-                height:       cardH,
-                left:         `calc(50% - ${cardW / 2}px)`,
-                top:          0,
+                position: "absolute",
+                width: cardW,
+                height: cardH,
+                left: `calc(50% - ${cardW / 2}px)`,
+                top: 0,
                 borderRadius: 24,
-                overflow:     "hidden",
-                cursor:       isActive ? "default" : "pointer",
-                zIndex:       VISIBLE_RANGE - Math.abs(offset) + 1,
-                boxShadow:    isActive
+                overflow: "hidden",
+                cursor: isActive ? "default" : "pointer",
+                zIndex: VISIBLE_RANGE - Math.abs(offset) + 1,
+                boxShadow: isActive
                   ? "0 50px 120px rgba(0,0,0,0.9), 0 0 0 1px rgba(255,255,255,0.10)"
                   : "0 24px 60px rgba(0,0,0,0.65)",
-                willChange:   "transform, opacity",
+                willChange: "transform, opacity",
               }}
             >
-              <img
+              <Image
                 src={src}
                 alt={`أرضية ${i + 1}`}
+                fill
+                unoptimized
+                sizes="(max-width: 768px) 90vw, 820px"
                 style={{
-                  width:         "100%",
-                  height:        "100%",
-                  objectFit:     "cover",
-                  objectPosition:"center",
-                  display:       "block",
+                  objectFit: "cover",
+                  objectPosition: "center",
                   pointerEvents: "none",
-                  userSelect:    "none",
+                  userSelect: "none",
                 }}
                 draggable={false}
+                priority={isActive}
               />
 
-              {/* Inner glow ring on active card */}
-              {isActive && (
+              {isActive ? (
                 <div
                   aria-hidden="true"
                   style={{
-                    position:     "absolute",
-                    inset:        0,
+                    position: "absolute",
+                    inset: 0,
                     borderRadius: 24,
-                    border:       "1px solid rgba(255,255,255,0.14)",
-                    background:   "linear-gradient(to bottom, rgba(255,255,255,0.05) 0%, transparent 35%)",
-                    pointerEvents:"none",
+                    border: "1px solid rgba(255,255,255,0.14)",
+                    background: "linear-gradient(to bottom, rgba(255,255,255,0.05) 0%, transparent 35%)",
+                    pointerEvents: "none",
                   }}
                 />
-              )}
+              ) : null}
             </motion.div>
           );
-        })}
+        }) : null}
       </div>
 
-      {/* ── Dot indicators ─────────────────────────────────────────────── */}
+      {!hasImages ? (
+        <p
+          dir="rtl"
+          style={{
+            position: "relative",
+            zIndex: 20,
+            color: "rgba(255,255,255,0.78)",
+            fontFamily: "var(--font-tajawal), sans-serif",
+            fontSize: "1rem",
+          }}
+        >
+          لا توجد صور غرف للعرض حالياً
+        </p>
+      ) : null}
+
       <div
         role="tablist"
         aria-label="اختر صورة"
         style={{
-          display:    "flex",
-          gap:        "8px",
-          marginTop:  "clamp(1.5rem,3vh,2.5rem)",
-          zIndex:     20,
-          position:   "relative",
+          display: "flex",
+          gap: "8px",
+          marginTop: "clamp(1.5rem,3vh,2.5rem)",
+          zIndex: 20,
+          position: "relative",
         }}
       >
-        {IMAGES.map((_, i) => (
+        {images.map((_, i) => (
           <button
             key={i}
             role="tab"
@@ -365,47 +357,46 @@ export function Carousel3D() {
             aria-label={`الصورة ${i + 1}`}
             onClick={() => setActive(i)}
             style={{
-              width:      i === active ? "22px" : "7px",
-              height:     "7px",
-              borderRadius:"3.5px",
+              width: i === active ? "22px" : "7px",
+              height: "7px",
+              borderRadius: "3.5px",
               background: i === active ? "#fff" : "rgba(255,255,255,0.28)",
-              border:     "none",
-              cursor:     "pointer",
-              padding:    0,
+              border: "none",
+              cursor: "pointer",
+              padding: 0,
               transition: "width 0.35s ease, background 0.35s ease",
             }}
           />
         ))}
       </div>
 
-      {/* ── CTA + Down chevron ─────────────────────────────────────────── */}
       <Link
         href="/room-preview/screen?source=hero_try_button"
         aria-label="ابدأ التجربة"
         className="c3d-chevron"
         style={{
-          position:       "absolute",
-          bottom:         "clamp(1.25rem,2.5vh,2rem)",
-          left:           "50%",
-          transform:      "translateX(-50%)",
-          zIndex:         20,
-          color:          "rgba(255,255,255,0.55)",
-          display:        "flex",
-          flexDirection:  "column",
-          alignItems:     "center",
-          gap:            "0.35rem",
+          position: "absolute",
+          bottom: "clamp(1.25rem,2.5vh,2rem)",
+          left: "50%",
+          transform: "translateX(-50%)",
+          zIndex: 20,
+          color: "rgba(255,255,255,0.55)",
+          display: "flex",
+          flexDirection: "column",
+          alignItems: "center",
+          gap: "0.35rem",
           textDecoration: "none",
-          animation:      "c3dChevron 2.8s ease-in-out infinite",
+          animation: "c3dChevron 2.8s ease-in-out infinite",
         }}
       >
         <span
           dir="rtl"
           style={{
-            fontFamily:    "var(--font-tajawal), sans-serif",
-            fontWeight:    400,
-            fontSize:      "clamp(0.9rem,1.6vw,1.15rem)",
+            fontFamily: "var(--font-tajawal), sans-serif",
+            fontWeight: 400,
+            fontSize: "clamp(0.9rem,1.6vw,1.15rem)",
             letterSpacing: "0.04em",
-            whiteSpace:    "nowrap",
+            whiteSpace: "nowrap",
           }}
         >
           جربها في غرفتك الآن

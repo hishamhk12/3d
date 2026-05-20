@@ -154,7 +154,13 @@ export async function POST(
 
     if (roomImageUrl && productId) {
       const renderHash = buildRenderHash(roomImageUrl, productId);
-      if (screenFields?.lastRenderHash === renderHash && session.renderResult !== null) {
+      // Skip dedup when session is already at result_ready: the customer explicitly
+      // pressed "تعديل" to request a fresh render with the same inputs.
+      if (
+        screenFields?.lastRenderHash === renderHash &&
+        session.renderResult !== null &&
+        session.status !== "result_ready"
+      ) {
         log.info({ sessionId }, "Render dedupe hit — returning cached result");
         return NextResponse.json(session, { status: 200 });
       }

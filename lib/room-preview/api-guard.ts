@@ -18,6 +18,24 @@ function getMobileTokenFromCookies(request: Request): string | null {
   return null;
 }
 
+export function getBearerSessionToken(request: Request): string | null {
+  const authorization = request.headers.get("authorization");
+  if (!authorization) return null;
+
+  const [scheme, token] = authorization.split(/\s+/, 2);
+  if (scheme?.toLowerCase() !== "bearer" || !token) return null;
+
+  return token.trim() || null;
+}
+
+export function getRequestSessionToken(request: Request): string | null {
+  return (
+    getBearerSessionToken(request) ??
+    request.headers.get("x-session-token") ??
+    getMobileTokenFromCookies(request)
+  );
+}
+
 /**
  * Verify the session token on a mutation request.
  *
@@ -32,9 +50,7 @@ export function guardSession(
   request: Request,
   sessionId: string,
 ): NextResponse | null {
-  const token =
-    request.headers.get("x-session-token") ??
-    getMobileTokenFromCookies(request);
+  const token = getRequestSessionToken(request);
 
   if (!token) {
     return NextResponse.json(

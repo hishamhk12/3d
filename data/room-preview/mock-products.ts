@@ -1,22 +1,78 @@
 import "server-only";
 
+import { existsSync, readdirSync } from "node:fs";
+import path from "node:path";
 import type { MockRoomPreviewProduct } from "@/lib/room-preview/types";
 
-const PQC201_PRODUCTS: MockRoomPreviewProduct[] = [
-  { id: "PQC201-001", barcode: "PQC201001", name: "باركيه رمادي كلاسيك",  productType: "floor_material", imageUrl: "/PQC201-1220X180X6/PQC201.001-1.png" },
-  { id: "PQC201-002", barcode: "PQC201002", name: "باركيه بني طبيعي",      productType: "floor_material", imageUrl: "/PQC201-1220X180X6/PQC201.002-1.png" },
-  { id: "PQC201-004", barcode: "PQC201004", name: "باركيه أبيض ناصع",      productType: "floor_material", imageUrl: "/PQC201-1220X180X6/PQC201.004-1.png" },
-  { id: "PQC201-006", barcode: "PQC201006", name: "باركيه رمادي فضي",      productType: "floor_material", imageUrl: "/PQC201-1220X180X6/PQC201.006-1.png" },
-];
+const PRODUCT_CODE_PATTERN = /([A-Z]{2,}\d{3}\.\d{3})/i;
+const PRODUCT_IMAGE_PATTERN = /^p\.(?:jpe?g|png|webp)$/i;
+
+function getProductRoot() {
+  return path.join(process.cwd(), "public", "product");
+}
+
+function getProductCode(folderName: string) {
+  return folderName.match(PRODUCT_CODE_PATTERN)?.[1]?.toUpperCase() ?? null;
+}
+
+function getProductName(folderName: string, code: string | null) {
+  if (!code) return folderName.trim();
+
+  const codeIndex = folderName.toUpperCase().indexOf(code);
+  const name = codeIndex >= 0
+    ? folderName.slice(codeIndex + code.length).replace(/\s+/gu, " ").trim()
+    : "";
+
+  return name || folderName.trim();
+}
+
+function getProductBarcode(code: string | null) {
+  return code ? code.replace(/[^A-Z0-9]/gi, "").toUpperCase() : null;
+}
+
+function toPublicProductUrl(folderName: string, fileName: string) {
+  return `/product/${encodeURIComponent(folderName)}/${encodeURIComponent(fileName)}`;
+}
+
+function readProductsFromPublicFolder(): MockRoomPreviewProduct[] {
+  const productRoot = getProductRoot();
+  if (!existsSync(productRoot)) return [];
+
+  return readdirSync(productRoot, { withFileTypes: true })
+    .filter((entry) => entry.isDirectory())
+    .map((entry, index) => {
+      const folderName = entry.name;
+      const folderPath = path.join(productRoot, folderName);
+      const productImage = readdirSync(folderPath, { withFileTypes: true })
+        .filter((file) => file.isFile())
+        .map((file) => file.name)
+        .find((fileName) => PRODUCT_IMAGE_PATTERN.test(fileName));
+
+      if (!productImage) return null;
+
+      const code = getProductCode(folderName);
+
+      return {
+        id: code ?? `product-${index + 1}`,
+        barcode: getProductBarcode(code),
+        name: getProductName(folderName, code),
+        productType: "floor_material",
+        imageUrl: toPublicProductUrl(folderName, productImage),
+      } satisfies MockRoomPreviewProduct;
+    })
+    .filter((product): product is MockRoomPreviewProduct => product !== null)
+    .sort((a, b) => a.id.localeCompare(b.id));
+}
 
 export function getRoomPreviewMockProducts(): MockRoomPreviewProduct[] {
-  return PQC201_PRODUCTS;
+  return readProductsFromPublicFolder();
 }
 
 export function getRoomPreviewMockProductById(productId: string) {
-  return PQC201_PRODUCTS.find((p) => p.id === productId) ?? null;
+  return getRoomPreviewMockProducts().find((p) => p.id === productId) ?? null;
 }
 
 export function getRoomPreviewMockProductByBarcode(barcode: string) {
-  return PQC201_PRODUCTS.find((p) => p.barcode === barcode) ?? null;
+  const normalizedBarcode = barcode.replace(/[^A-Z0-9]/gi, "").toUpperCase();
+  return getRoomPreviewMockProducts().find((p) => p.barcode === normalizedBarcode) ?? null;
 }

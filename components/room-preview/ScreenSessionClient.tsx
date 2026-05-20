@@ -133,7 +133,9 @@ export default function ScreenSessionClient({ sessionId }: { sessionId: string }
 
   if (hasRenderResult) {
     return (
-      <div className="fixed inset-0 z-50 overflow-hidden bg-black animate-in fade-in duration-700">
+      // key forces a full remount when a new render result arrives, so the
+      // fade-in animation replays and Next.js Image loads fresh (no stale cache).
+      <div key={session.renderResult!.imageUrl!} className="fixed inset-0 z-50 overflow-hidden bg-black animate-in fade-in duration-700">
         <div className="absolute inset-0 z-0 bg-gradient-to-br from-[#1d1d1f] to-black" />
         <div className="absolute inset-0 z-10 flex items-center justify-center">
           <Image

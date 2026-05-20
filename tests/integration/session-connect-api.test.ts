@@ -84,6 +84,28 @@ describe("POST /api/room-preview/sessions/[sessionId]/connect", () => {
     expect(body.code).toBe("UNAUTHORIZED");
   });
 
+  it("accepts Authorization Bearer token for native clients", async () => {
+    vi.mocked(connectMobileToSession).mockResolvedValueOnce({
+      id: SESSION_ID,
+      status: "mobile_connected",
+      createdAt: "2026-01-01T00:00:00.000Z",
+      updatedAt: "2026-01-01T00:00:01.000Z",
+      expiresAt: null,
+      mobileConnected: true,
+      selectedRoom: null,
+      selectedProduct: null,
+      renderResult: null,
+    } as never);
+
+    const request = new Request("http://localhost/connect", {
+      method: "POST",
+      headers: { authorization: `Bearer ${generateSessionToken(SESSION_ID)}` },
+    });
+    const response = await POST(request, makeContext(SESSION_ID));
+
+    expect(response.status).toBe(200);
+  });
+
   it("returns 401 when x-session-token is invalid", async () => {
     const request = new Request("http://localhost/connect", {
       method: "POST",

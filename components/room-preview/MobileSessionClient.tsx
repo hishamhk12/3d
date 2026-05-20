@@ -205,7 +205,7 @@ export default function MobileSessionClient({ sessionId, products }: MobileSessi
         </div>
       ) : null}
 
-      {isConnected ? (
+      {isConnected && !hasSavedRoom ? (
         <RoomStep
           isSavingRoom={isSavingRoom}
           roomSaveStatusLabel={roomSaveStatusLabel}
@@ -264,7 +264,25 @@ export default function MobileSessionClient({ sessionId, products }: MobileSessi
           isSavingProduct={isRenderingSession}
           showResult={showResult}
           onCreateRender={handleCreateRender}
-          onModify={() => setShowResult(false)}
+          onModify={() => {
+            void trackClientSessionEvent(sessionId, {
+              source: "mobile",
+              eventType: "edit_requested",
+              level: "info",
+              metadata: {
+                currentStatus: session.status,
+                productId: localProductId ?? null,
+              },
+            });
+            setShowResult(false);
+            // Re-save current product immediately so the server exits result_ready.
+            // This publishes an SSE that cancels the screen's 60-second auto-reset
+            // timer and hides the result overlay, giving the customer unlimited
+            // time to choose a new product before pressing Render again.
+            if (localProductId) {
+              handleProductSelect(localProductId);
+            }
+          }}
         />
       ) : null}
     </div>

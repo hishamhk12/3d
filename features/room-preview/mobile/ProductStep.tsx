@@ -136,7 +136,7 @@ export default function ProductStep({
                 type="button"
                 onClick={() => onProductSelect(product.id)}
                 disabled={isSavingProduct}
-                className={`relative h-14 w-14 shrink-0 overflow-hidden rounded-xl border-2 transition-all duration-200 ${
+                className={`relative h-14 w-14 shrink-0 overflow-hidden rounded-xl border-2 bg-white transition-all duration-200 ${
                   product.id === activeProduct?.id
                     ? "border-[var(--brand-cyan)] shadow-[0_0_10px_rgba(0,175,215,0.40)]"
                     : "border-[var(--border)] opacity-50 hover:opacity-80"
@@ -147,7 +147,7 @@ export default function ProductStep({
                   alt={product.name}
                   fill
                   unoptimized
-                  className="object-cover"
+                  className="object-contain p-1.5"
                   sizes="56px"
                 />
               </button>

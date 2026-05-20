@@ -205,9 +205,11 @@ export function selectProductTransition(
 }
 
 export function markReadyToRenderTransition(session: RoomPreviewSession): RoomPreviewSession {
+  // result_ready is allowed so the customer can re-render after pressing "تعديل"
+  // without being forced to re-select the product first.
   assertAllowedStatus(
     session,
-    ["product_selected", "failed"],
+    ["product_selected", "result_ready", "failed"],
     "الرجاء اختيار منتج قبل البدء بالتصميم.",
   );
 
@@ -220,6 +222,9 @@ export function markReadyToRenderTransition(session: RoomPreviewSession): RoomPr
 
   return touchSession(session, {
     status: "ready_to_render",
+    // Clear previous result so the screen exits the result overlay immediately
+    // and its 60-second auto-reset timer is cancelled via SSE.
+    renderResult: null,
   });
 }
 

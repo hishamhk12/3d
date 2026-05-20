@@ -1,5 +1,6 @@
 import { type NextRequest, NextResponse } from "next/server";
 import { MOBILE_TOKEN_COOKIE, SCREEN_TOKEN_COOKIE } from "@/lib/room-preview/cookies";
+import { getBearerSessionToken } from "@/lib/room-preview/api-guard";
 import { verifySessionToken } from "@/lib/room-preview/session-token";
 import {
   getSessionPresence,
@@ -20,12 +21,13 @@ function resolveSource(
   request: NextRequest,
   sessionId: string,
 ): "mobile" | "screen" | null {
+  const bearerToken = getBearerSessionToken(request);
   const xToken = request.headers.get("x-session-token");
   const mobileToken = getCookieValue(request, MOBILE_TOKEN_COOKIE);
   const screenToken = getCookieValue(request, SCREEN_TOKEN_COOKIE);
 
-  // x-session-token is used by mobile (legacy non-cookie path)
-  const mobileCandidates = [xToken, mobileToken].filter(Boolean) as string[];
+  // Bearer and x-session-token are used by mobile non-cookie clients.
+  const mobileCandidates = [bearerToken, xToken, mobileToken].filter(Boolean) as string[];
   for (const token of mobileCandidates) {
     if (verifySessionToken(token, sessionId)) return "mobile";
   }

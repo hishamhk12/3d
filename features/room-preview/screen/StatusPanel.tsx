@@ -132,9 +132,6 @@ export default function StatusPanel({
   }, [session.status]);
 
   const localizedProductType = getProductTypeLabel(selectedProduct?.productType ?? null, locale);
-  const localizedBarcode = selectedProduct?.barcode
-    ? formatMessage(t.roomPreview.mobile.product.barcode, { barcode: selectedProduct.barcode })
-    : null;
   const localizedCompletedAt = renderResult?.generatedAt
     ? formatMessage(t.roomPreview.screen.completedAt, {
         datetime: new Date(renderResult.generatedAt).toLocaleString(locale),
@@ -142,27 +139,27 @@ export default function StatusPanel({
     : null;
 
   const statusColors: Record<string, string> = {
-    waiting_mobile: "border-blue-500/30 bg-blue-500/5",
-    mobile_connected: "border-cyan-500/30 bg-cyan-500/5",
-    room_selected: "border-cyan-500/30 bg-cyan-500/5",
-    product_selected: "border-cyan-500/30 bg-cyan-500/5",
-    ready_to_render: "border-cyan-500/30 bg-cyan-500/5",
-    rendering: "border-purple-500/40 bg-gradient-to-br from-purple-500/10 via-white/5 to-white/10",
-    result_ready: "border-green-500/30 bg-green-500/5",
-    failed: "border-rose-500/30 bg-rose-500/5",
-    expired: "border-gray-500/30 bg-gray-500/5",
+    waiting_mobile: "border-blue-400/25",
+    mobile_connected: "border-cyan-400/30",
+    room_selected: "border-cyan-400/30",
+    product_selected: "border-cyan-400/30",
+    ready_to_render: "border-cyan-400/30",
+    rendering: "border-cyan-300/35",
+    result_ready: "border-emerald-400/30",
+    failed: "border-rose-400/35",
+    expired: "border-gray-400/25",
   };
   const statusBorderClass = statusColors[session.status] || statusColors.waiting_mobile;
 
   return (
-    <div className={`mt-0 w-full rounded-3xl border border-[var(--border)] bg-[var(--bg-surface)] backdrop-blur-xl p-8 md:p-12 ${sectionAlignClass} shadow-[var(--shadow-xl)] animate-in fade-in duration-700 ${statusBorderClass}`}>
-      <p className="text-sm text-[var(--text-muted)] uppercase tracking-widest">
+    <div className={`mt-0 w-full max-w-[44rem] overflow-hidden rounded-[2rem] border border-cyan-200/15 bg-[#071729]/90 p-5 text-white shadow-[0_30px_80px_rgba(0,0,0,0.50),0_0_42px_rgba(0,175,215,0.10)] backdrop-blur-xl animate-in fade-in duration-700 sm:p-6 md:p-7 ${sectionAlignClass} ${statusBorderClass}`}>
+      <p className="text-xs font-semibold uppercase tracking-[0.22em] text-cyan-100/50">
         {t.roomPreview.screen.sessionStatus}
       </p>
-      <p className="mt-4 text-3xl md:text-4xl font-bold text-[var(--text-primary)] tracking-tight">{statusMessage}</p>
+      <p className="mt-2 text-2xl font-bold tracking-tight text-white md:text-3xl">{statusMessage}</p>
 
       {helperMessage ? (
-        <p className="mt-2 text-base text-[var(--text-secondary)]">{helperMessage}</p>
+        <p className="mt-1 text-sm leading-6 text-white/58">{helperMessage}</p>
       ) : null}
 
       {session.status === "rendering" ? (
@@ -211,53 +208,58 @@ export default function StatusPanel({
         </div>
       ) : null}
 
-      <div className="mt-10 grid grid-cols-1 gap-8 sm:grid-cols-2 lg:gap-10">
-        {(session.selectedRoom?.imageUrl || hasSelectedProduct) ? (
-          <>
-            {session.selectedRoom?.imageUrl ? (
-              <div className="w-full rounded-2xl border border-[var(--border)] bg-[var(--bg-surface-2)] p-6 shadow-lg transition-transform hover:scale-[1.02] duration-300">
-                <p className="text-sm text-[var(--text-muted)] uppercase tracking-wider mb-3">صورة الغرفة</p>
-                <div className="relative aspect-[4/3] w-full overflow-hidden rounded-xl border border-[var(--border)] shadow-inner">
-                  <Image
-                    src={session.selectedRoom.imageUrl}
-                    alt={t.roomPreview.shared.selectedRoomThumbnail}
-                    fill
-                    sizes="(max-width: 640px) 100vw, 50vw"
-                    className="object-cover"
-                  />
-                </div>
-              </div>
-            ) : <div />}
+      <section className="mt-6">
+        <div
+          className="flex items-center gap-4 border-b border-white/10 pb-5"
+          dir={dir}
+        >
+          <div className="relative size-16 shrink-0 overflow-hidden rounded-2xl border border-white/15 bg-white/[0.06] shadow-[inset_0_1px_0_rgba(255,255,255,0.10)] sm:size-20">
+            {selectedProduct?.imageUrl ? (
+              <Image
+                src={selectedProduct.imageUrl}
+                alt={selectedProduct.name ?? t.roomPreview.shared.selectedProductThumbnail}
+                fill
+                sizes="80px"
+                className="object-cover"
+              />
+            ) : (
+              <div className="h-full w-full bg-[linear-gradient(135deg,rgba(0,175,215,0.18),rgba(255,255,255,0.06))]" />
+            )}
+          </div>
+          <div className="min-w-0 flex-1">
+            <p className="text-[11px] font-semibold uppercase tracking-[0.2em] text-cyan-100/45">
+              {t.roomPreview.shared.selectedItem}
+            </p>
+            <h2 className="mt-1 line-clamp-2 break-words text-xl font-bold leading-tight text-white sm:text-2xl">
+              {selectedProduct?.name ?? t.roomPreview.screen.statuses.waitingItem}
+            </h2>
+            <p className="mt-1 truncate text-sm text-cyan-100/62">
+              {localizedProductType ?? t.roomPreview.mobile.product.selectedHint}
+            </p>
+          </div>
+        </div>
 
-            {hasSelectedProduct ? (
-              <div className="w-full rounded-2xl border border-[var(--border)] bg-[var(--bg-surface-2)] p-6 shadow-lg transition-transform hover:scale-[1.02] duration-300 relative overflow-hidden">
-                <div className="absolute inset-0 bg-gradient-to-br from-[var(--brand-cyan)]/[0.04] to-transparent z-0 pointer-events-none" />
-                <div className="relative z-10 flex flex-col h-full">
-                  <p className="text-sm text-[var(--text-muted)] uppercase tracking-wider mb-2">العنصر المختار</p>
-                  <p className="text-2xl font-bold text-[var(--text-primary)]">{selectedProduct?.name}</p>
-                  {localizedProductType ? (
-                    <p className="mt-1 text-base text-[var(--text-secondary)]">{localizedProductType}</p>
-                  ) : null}
-                  {localizedBarcode ? (
-                    <p className="mt-1 text-sm text-[var(--text-muted)]">{localizedBarcode}</p>
-                  ) : null}
-                  <div className="relative mt-5 aspect-[4/3] w-full overflow-hidden rounded-xl border border-[var(--border)] shadow-inner mt-auto">
-                    <Image
-                      src={selectedProduct?.imageUrl ?? ""}
-                      alt={selectedProduct?.name ?? t.roomPreview.shared.selectedProductThumbnail}
-                      fill
-                      sizes="(max-width: 640px) 100vw, 50vw"
-                      className="object-cover"
-                    />
-                  </div>
-                </div>
-              </div>
-            ) : <div />}
-          </>
-        ) : null}
+        <div className="relative mt-5 aspect-[4/3] min-h-[18rem] w-full overflow-hidden rounded-[1.5rem] border border-white/12 bg-[#0d2339] shadow-[inset_0_1px_0_rgba(255,255,255,0.08)] sm:min-h-[22rem] lg:min-h-[24rem]">
+          {session.selectedRoom?.imageUrl ? (
+            <Image
+              src={session.selectedRoom.imageUrl}
+              alt={t.roomPreview.shared.selectedRoomThumbnail}
+              fill
+              sizes="(max-width: 1024px) 90vw, 44rem"
+              className="object-cover"
+            />
+          ) : (
+            <div className="flex h-full w-full items-center justify-center bg-[radial-gradient(circle_at_top,rgba(0,175,215,0.18),rgba(7,23,41,0.92)_55%)] px-8 text-center">
+              <p className="text-base font-medium text-white/55">
+                {t.roomPreview.screen.statuses.waitingRoom}
+              </p>
+            </div>
+          )}
+          <div className="pointer-events-none absolute inset-x-0 bottom-0 h-24 bg-gradient-to-t from-[#071729]/70 to-transparent" />
+        </div>
 
         {hasRenderResult ? (
-          <div className="col-span-1 sm:col-span-2 mt-4 w-full rounded-2xl border border-emerald-500/20 bg-emerald-500/10 p-8 shadow-lg">
+          <div className="mt-6 w-full rounded-2xl border border-emerald-500/20 bg-emerald-500/10 p-8 shadow-lg">
             <p className="text-lg font-bold text-[var(--text-primary)]">{t.roomPreview.shared.renderedPreview}</p>
             {localizedCompletedAt ? (
               <p className="mt-2 text-base text-emerald-300/80">{localizedCompletedAt}</p>
@@ -286,7 +288,7 @@ export default function StatusPanel({
             ) : null}
           </div>
         ) : null}
-      </div>
+      </section>
 
       {pollError ? (
         <div className="mt-6 rounded-2xl border border-orange-500/30 bg-orange-500/10 px-5 py-4 text-base text-orange-200">

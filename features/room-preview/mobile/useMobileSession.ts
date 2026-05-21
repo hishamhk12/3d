@@ -77,7 +77,8 @@ export interface UseMobileSessionReturn {
   handleConnect: () => Promise<void>;
   handleFileSelection: (source: Extract<RoomPreviewRoomSource, "camera" | "gallery">, file: File | null) => Promise<void>;
   handleProductSelect: (productId: string) => void;
-  handleCreateRender: () => Promise<void>;
+  handleProductCodeSelect: (productCode: string) => Promise<RoomPreviewSession | null>;
+  handleCreateRender: (sessionOverride?: RoomPreviewSession) => Promise<void>;
 
   // Heartbeat
   heartbeatConnected: boolean;
@@ -881,12 +882,73 @@ export function useMobileSession({
   }, [session, sessionId, t, debugLog]);
 
   // Look up a product by scanned/entered value. Tries barcode → id → name substring.
-  const handleCreateRender = useCallback(async () => {
+  const handleProductCodeSelect = useCallback(async (productCode: string) => {
+    if (!session) return null;
+
+    if (productDebounceRef.current) {
+      clearTimeout(productDebounceRef.current);
+      productDebounceRef.current = null;
+    }
+
+    setIsSavingProduct(true);
+    setProductSaveStatus("idle");
+    setLocalProductId(productCode);
+    setError(null);
+    setSuccessMessage(null);
+    setRecoveryMessage(null);
+
+    trackClientSessionEvent(sessionId, {
+      source: "mobile",
+      eventType: "product_qr_confirmed",
+      level: "info",
+      metadata: { productCode },
+    });
+    debugLog("network", `POST /product  productCode: ${productCode}`);
+
+    try {
+      const response = await saveRoomPreviewSessionProduct(sessionId, { productCode });
+      setSession(response.session);
+      setProductSaveStatus("success");
+      trackClientSessionEvent(sessionId, {
+        source: "mobile",
+        eventType: "product_selected",
+        level: "info",
+        statusAfter: response.session.status,
+        metadata: {
+          productCode,
+          productId: response.session.selectedProduct?.id ?? productCode,
+          source: "printed_product_qr",
+        },
+      });
+      debugLog("success", `QR product saved  id: ${response.session.selectedProduct?.id ?? "?"}`);
+      return response.session;
+    } catch (saveError) {
+      const failure = getViewStateFromError(saveError, t);
+      debugLog("error", `QR product save failed: ${saveError instanceof Error ? saveError.message : String(saveError)}`);
+      if (failure.state === "expired" || failure.state === "not_found") {
+        setSession(null);
+        setViewState(failure.state);
+        setError(failure.message);
+        debugLog("state", `viewState -> ${failure.state}`);
+      } else {
+        console.error("[room-preview] Failed to save QR product", { sessionId, productCode, error: saveError });
+        setError(createActionErrorMessage(saveError, t.roomPreview.mobile.product.saveFailed));
+        setProductSaveStatus("error");
+      }
+      return null;
+    } finally {
+      setIsSavingProduct(false);
+    }
+  }, [session, sessionId, t, debugLog]);
+
+  const handleCreateRender = useCallback(async (sessionOverride?: RoomPreviewSession) => {
+    let activeSession = sessionOverride ?? session;
+
     console.log("[render] handler called", {
       productDebounce: productDebounceRef.current,
       inFlight: renderRequestInFlightRef.current,
       isSavingProduct,
-      sessionStatus: session?.status ?? null,
+      sessionStatus: activeSession?.status ?? null,
       sessionId,
     });
 
@@ -899,29 +961,30 @@ export function useMobileSession({
     //   • timer still pending  → cancel it and save the product immediately
     if (productDebounceRef.current !== null) {
       clearTimeout(productDebounceRef.current);
-      const pendingProductId = localProductId ?? session?.selectedProduct?.id ?? null;
+      const pendingProductId = localProductId ?? activeSession?.selectedProduct?.id ?? null;
       const productAlreadySaved =
-        Boolean(session?.selectedProduct?.imageUrl) &&
-        session?.selectedProduct?.id === pendingProductId;
+        Boolean(activeSession?.selectedProduct?.imageUrl) &&
+        activeSession?.selectedProduct?.id === pendingProductId;
       productDebounceRef.current = null;
 
       console.log("[render] product debounce flushed", { pendingProductId, productAlreadySaved });
-      trackClientSessionEvent(session?.id ?? sessionId, {
+      trackClientSessionEvent(activeSession?.id ?? sessionId, {
         source: "mobile",
         eventType: "render_product_debounce_flushed",
         level: "info",
         metadata: {
           pendingProductId,
           productAlreadySaved,
-          sessionId: session?.id ?? sessionId,
-          currentStatus: session?.status ?? null,
+          sessionId: activeSession?.id ?? sessionId,
+          currentStatus: activeSession?.status ?? null,
         },
       });
 
-      if (!productAlreadySaved && pendingProductId && session) {
+      if (!productAlreadySaved && pendingProductId && activeSession) {
         debugLog("network", `Flushing product save before render  productId: ${pendingProductId}`);
         try {
           const saveResponse = await saveRoomPreviewSessionProduct(sessionId, { productId: pendingProductId });
+          activeSession = saveResponse.session;
           setSession(saveResponse.session);
           setProductSaveStatus("success");
           debugLog("success", `Product flushed and saved  id: ${saveResponse.session.selectedProduct?.id ?? "?"}`);
@@ -937,18 +1000,18 @@ export function useMobileSession({
             setError(createActionErrorMessage(saveError, t.roomPreview.mobile.product.saveFailed));
             setProductSaveStatus("error");
           }
-          trackClientSessionEvent(session.id, {
+          trackClientSessionEvent(activeSession.id, {
             source: "mobile",
             eventType: "render_request_failed",
             level: "error",
             code: "PRODUCT_SAVE_FAILED_BEFORE_RENDER",
             message: saveError instanceof Error ? saveError.message : String(saveError),
             metadata: {
-              sessionId: session.id,
-              currentStatus: session.status,
+              sessionId: activeSession.id,
+              currentStatus: activeSession.status,
               pendingProductId,
               errorMessage: saveError instanceof Error ? saveError.message : String(saveError),
-              endpoint: `/api/room-preview/sessions/${session.id}/render`,
+              endpoint: `/api/room-preview/sessions/${activeSession.id}/render`,
             },
           });
           return;
@@ -959,25 +1022,26 @@ export function useMobileSession({
     if (
       renderRequestInFlightRef.current ||
       isSavingProduct ||
-      !session ||
-      session.status === "ready_to_render" ||
-      session.status === "rendering"
+      !activeSession ||
+      activeSession.status === "ready_to_render" ||
+      activeSession.status === "rendering"
     ) {
       const blockedBy = renderRequestInFlightRef.current
         ? "in_flight"
         : isSavingProduct
           ? "is_saving_product"
-          : !session
+          : !activeSession
             ? "no_session"
             : "already_rendering";
-      console.log("[render] early return", { blockedBy, status: session?.status });
+      console.log("[render] early return", { blockedBy, status: activeSession?.status });
       debugLog("warn", `Ignored duplicate render request (blockedBy: ${blockedBy})`);
       return;
     }
 
     renderRequestInFlightRef.current = true;
+    const renderSession = activeSession;
 
-    trackClientSessionEvent(session.id, {
+    trackClientSessionEvent(renderSession.id, {
       source: "mobile",
       eventType: "mobile_tap_detected",
       level: "info",
@@ -987,19 +1051,19 @@ export function useMobileSession({
     setError(null);
     setSuccessMessage(null);
     setRecoveryMessage(null);
-    debugLog("network", `POST /render  sessionId: ${session.id}`);
+    debugLog("network", `POST /render  sessionId: ${renderSession.id}`);
 
     const renderMetadataBase = {
-      sessionId: session.id,
-      currentStatus: session.status,
-      hasRoomImage: Boolean(session.selectedRoom?.imageUrl),
-      hasProduct: Boolean(session.selectedProduct?.id && session.selectedProduct?.imageUrl),
-      productId: session.selectedProduct?.id ?? null,
-      endpoint: `/api/room-preview/sessions/${session.id}/render`,
+      sessionId: renderSession.id,
+      currentStatus: renderSession.status,
+      hasRoomImage: Boolean(renderSession.selectedRoom?.imageUrl),
+      hasProduct: Boolean(renderSession.selectedProduct?.id && renderSession.selectedProduct?.imageUrl),
+      productId: renderSession.selectedProduct?.id ?? null,
+      endpoint: `/api/room-preview/sessions/${renderSession.id}/render`,
     };
 
     console.log("[render] request started", renderMetadataBase);
-    trackClientSessionEvent(session.id, {
+    trackClientSessionEvent(renderSession.id, {
       source: "mobile",
       eventType: "render_request_started",
       level: "info",
@@ -1008,11 +1072,11 @@ export function useMobileSession({
 
     try {
       // Returns immediately (202) with session in ready_to_render state.
-      const renderingSession = await createRenderForSession(session.id);
+      const renderingSession = await createRenderForSession(renderSession.id);
       setSession(renderingSession);
       debugLog("success", "Render started — polling for result");
 
-      trackClientSessionEvent(session.id, {
+      trackClientSessionEvent(renderSession.id, {
         source: "mobile",
         eventType: "render_request_success",
         level: "info",
@@ -1020,7 +1084,7 @@ export function useMobileSession({
       });
 
       // Poll until the server pushes result_ready or failed via DB.
-      const finalSession = await pollForRenderResult(session.id, undefined, {
+      const finalSession = await pollForRenderResult(renderSession.id, undefined, {
         onUpdate(nextSession) {
           setSession(nextSession);
         },
@@ -1041,7 +1105,7 @@ export function useMobileSession({
       const failure = getViewStateFromError(renderError, t);
       debugLog("error", `Render error: ${renderError instanceof Error ? renderError.message : String(renderError)}`);
 
-      trackClientSessionEvent(session.id, {
+      trackClientSessionEvent(renderSession.id, {
         source: "mobile",
         eventType: "render_request_failed",
         level: "error",
@@ -1072,7 +1136,7 @@ export function useMobileSession({
         setRecoveryMessage(recovery);
         setError(recovery?.text ?? failure.message);
       }
-      trackClientSessionEvent(session.id, {
+      trackClientSessionEvent(renderSession.id, {
         source: "mobile",
         eventType: isRoomPreviewRequestError(renderError) && renderError.code === "timeout"
           ? "render_timeout"
@@ -1087,7 +1151,7 @@ export function useMobileSession({
       renderRequestInFlightRef.current = false;
       setIsSavingProduct(false);
     }
-  }, [isSavingProduct, localProductId, session, t, debugLog]);
+  }, [isSavingProduct, localProductId, session, sessionId, t, debugLog]);
 
   // ── Derived state ────────────────────────────────────────────────────────────
 
@@ -1132,6 +1196,7 @@ export function useMobileSession({
     handleConnect,
     handleFileSelection,
     handleProductSelect,
+    handleProductCodeSelect,
     handleCreateRender,
     heartbeatConnected,
     heartbeatFailedCount,

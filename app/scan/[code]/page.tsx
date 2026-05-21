@@ -1,18 +1,13 @@
-import fs from "fs";
-import path from "path";
 import Link from "next/link";
 import Image from "next/image";
 import type { Metadata } from "next";
+import ScanProductClient from "./ScanProductClient";
+import { getQrProductByCode } from "@/lib/room-preview/qr-products";
 
 type ProductScanPageProps = {
   params: Promise<{
     code: string;
   }>;
-};
-
-type ProductImage = {
-  fileName: string;
-  productCode: string;
 };
 
 export async function generateMetadata({
@@ -25,45 +20,9 @@ export async function generateMetadata({
   };
 }
 
-const allowedExtensions = [".jpg", ".jpeg", ".png", ".webp"];
-
-function publicAssetPath(...segments: string[]) {
-  return `/${segments.map((segment) => encodeURIComponent(segment)).join("/")}`;
-}
-
-function findProductImage(productCode: string): ProductImage | null {
-  const productsDir = path.join(process.cwd(), "public", "qr-products");
-
-  if (!fs.existsSync(productsDir)) return null;
-
-  const files = fs
-    .readdirSync(productsDir, { withFileTypes: true })
-    .filter((entry) => entry.isFile())
-    .map((entry) => entry.name);
-
-  for (const extension of allowedExtensions) {
-    const match = files.find((fileName) => {
-      const parsed = path.parse(fileName);
-      return (
-        parsed.name === productCode &&
-        parsed.ext.toLowerCase() === extension
-      );
-    });
-
-    if (match) {
-      return {
-        fileName: match,
-        productCode,
-      };
-    }
-  }
-
-  return null;
-}
-
 export default async function ProductScanPage({ params }: ProductScanPageProps) {
   const { code } = await params;
-  const product = findProductImage(code);
+  const product = getQrProductByCode(code);
 
   if (!product) {
     return (
@@ -97,17 +56,17 @@ export default async function ProductScanPage({ params }: ProductScanPageProps) 
             Product scan
           </p>
           <h1 className="mt-2 break-words text-4xl font-black tracking-normal">
-            {product.productCode}
+            {product.id}
           </h1>
           <p className="mt-2 break-all text-sm text-[var(--text-secondary)]">
-            {product.fileName}
+            {product.imageUrl}
           </p>
         </div>
 
         <div className="overflow-hidden rounded-lg border border-[var(--border)] bg-[var(--bg-surface)] shadow-[var(--shadow-md)]">
           <Image
-            src={publicAssetPath("qr-products", product.fileName)}
-            alt={`Product ${product.productCode}`}
+            src={product.imageUrl}
+            alt={`Product ${product.id}`}
             width={1200}
             height={900}
             unoptimized
@@ -117,9 +76,7 @@ export default async function ProductScanPage({ params }: ProductScanPageProps) 
 
         <div className="rounded-lg border border-[var(--border)] bg-[var(--bg-surface)] p-5 shadow-[var(--shadow-sm)]">
           <p className="text-lg font-bold">Use this product in room preview</p>
-          <p className="mt-2 text-sm leading-6 text-[var(--text-secondary)]">
-            This printed product QR is recognized. Product selection is not connected to the room preview session yet.
-          </p>
+          <ScanProductClient productCode={product.id} />
         </div>
       </section>
     </main>

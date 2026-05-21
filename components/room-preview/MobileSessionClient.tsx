@@ -8,12 +8,16 @@ import { trackClientSessionEvent } from "@/lib/room-preview/session-diagnostics-
 import { useMobileSession } from "@/features/room-preview/mobile/useMobileSession";
 import RoomStep    from "@/features/room-preview/mobile/RoomStep";
 import ProductStep from "@/features/room-preview/mobile/ProductStep";
+import ProductQrStep from "@/features/room-preview/mobile/ProductQrStep";
 import ResultStep  from "@/features/room-preview/mobile/ResultStep";
+import { ROOM_PREVIEW_ACTIVE_SESSION_STORAGE_KEY } from "@/lib/room-preview/product-qr";
 import type { RoomPreviewProduct } from "@/lib/room-preview/types";
 
 type MobileSessionClientProps = {
   sessionId: string;
   products: RoomPreviewProduct[];
+  initialProductCode?: string | null;
+  showProductListFallback?: boolean;
 };
 
 function RetryAfterDelay({ delayMs, onRetry }: { delayMs: number; onRetry: () => void }) {
@@ -87,8 +91,14 @@ function useMobileBrowserLifecycle(sessionId: string) {
   }, [sessionId]);
 }
 
-export default function MobileSessionClient({ sessionId, products }: MobileSessionClientProps) {
+export default function MobileSessionClient({
+  sessionId,
+  products,
+  initialProductCode = null,
+  showProductListFallback = false,
+}: MobileSessionClientProps) {
   useMobileBrowserLifecycle(sessionId);
+  const [useProductListFallback, setUseProductListFallback] = useState(false);
 
   const {
     t,
@@ -111,10 +121,19 @@ export default function MobileSessionClient({ sessionId, products }: MobileSessi
     retry,
     handleFileSelection,
     handleProductSelect,
+    handleProductCodeSelect,
     handleCreateRender,
     localProductId,
     heartbeatConnected,
   } = useMobileSession({ sessionId });
+
+  useEffect(() => {
+    try {
+      window.localStorage.setItem(ROOM_PREVIEW_ACTIVE_SESSION_STORAGE_KEY, sessionId);
+    } catch {
+      // Best-effort only. The in-flow scanner does not depend on localStorage.
+    }
+  }, [sessionId]);
 
   const localSelectedProduct = useMemo(() => {
     if (!localProductId) return session?.selectedProduct ?? null;
@@ -192,6 +211,29 @@ export default function MobileSessionClient({ sessionId, products }: MobileSessi
   }
 
   const isRenderingSession = session.status === "ready_to_render" || session.status === "rendering";
+  const shouldUseProductList = useProductListFallback;
+  const shouldShowProductQrStep =
+    hasSavedRoom &&
+    !shouldUseProductList &&
+    !isRenderingSession &&
+    !showResult &&
+    session.status !== "result_ready";
+  const shouldShowLegacyProductStep = hasSavedRoom && shouldUseProductList;
+  const shouldShowResultStep =
+    hasSavedRoom &&
+    hasSavedProduct &&
+    (shouldUseProductList || isRenderingSession || showResult || session.status === "result_ready");
+  const initialQrProductCode =
+    initialProductCode ??
+    (!shouldUseProductList && session.selectedProduct?.imageUrl?.startsWith("/qr-products/")
+      ? session.selectedProduct.id
+      : null);
+
+  const handleQrGenerate = async (productCode: string) => {
+    const selectedSession = await handleProductCodeSelect(productCode);
+    if (!selectedSession) return;
+    await handleCreateRender(selectedSession);
+  };
 
   return (
     <div className="tour-panel w-full rounded-[32px] p-8 text-center">
@@ -214,12 +256,22 @@ export default function MobileSessionClient({ sessionId, products }: MobileSessi
         />
       ) : null}
 
-      {hasSavedRoom ? (
+      {shouldShowLegacyProductStep ? (
         <ProductStep
           isSavingProduct={isSavingProduct}
           products={products}
           selectedProduct={localSelectedProduct}
           onProductSelect={handleProductSelect}
+        />
+      ) : null}
+
+      {shouldShowProductQrStep ? (
+        <ProductQrStep
+          initialProductCode={initialQrProductCode}
+          isBusy={isSavingProduct || isRenderingSession}
+          canUseProductListFallback={showProductListFallback}
+          onUseProductListFallback={() => setUseProductListFallback(true)}
+          onGenerateWithProductCode={handleQrGenerate}
         />
       ) : null}
 
@@ -258,7 +310,7 @@ export default function MobileSessionClient({ sessionId, products }: MobileSessi
       {productSaveStatus === "error" ? <p className="mt-4 text-sm font-semibold text-red-600 dark:text-red-400">{t.roomPreview.mobile.product.saveFailed}</p> : null}
       {successMessage ? <p className="mt-6 text-sm font-semibold text-emerald-600 dark:text-emerald-400">{successMessage}</p> : null}
 
-      {hasSavedRoom && hasSavedProduct ? (
+      {shouldShowResultStep ? (
         <ResultStep
           session={session}
           isSavingProduct={isRenderingSession}

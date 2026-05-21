@@ -35,6 +35,9 @@ export async function saveRoomPreviewSessionProduct(
       }
     | {
         productId: string;
+      }
+    | {
+        productCode: string;
       },
 ) {
   const data = await requestRoomPreviewJson(
@@ -79,6 +82,16 @@ export async function saveRoomPreviewSessionProduct(
   if ("barcode" in options && selectedProduct.barcode !== options.barcode) {
     console.error("[room-preview] Product barcode mismatch after save", {
       expectedBarcode: options.barcode,
+      reloadedProduct: selectedProduct,
+      sessionId,
+    });
+
+    throw new RoomPreviewRequestError("server", "Failed to save product. Please try again.");
+  }
+
+  if ("productCode" in options && selectedProduct.id !== options.productCode) {
+    console.error("[room-preview] Product code mismatch after save", {
+      expectedProductCode: options.productCode,
       reloadedProduct: selectedProduct,
       sessionId,
     });

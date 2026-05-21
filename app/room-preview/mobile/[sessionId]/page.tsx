@@ -10,12 +10,12 @@ const log = getLogger("mobile-page");
 
 type MobileSessionPageProps = {
   params: Promise<{ sessionId: string }>;
-  searchParams: Promise<{ devEntry?: string; lang?: string; t?: string }>;
+  searchParams: Promise<{ devEntry?: string; lang?: string; productCode?: string; t?: string }>;
 };
 
 export default async function MobileSessionPage({ params, searchParams }: MobileSessionPageProps) {
   const { sessionId } = await params;
-  const { devEntry, lang, t } = await searchParams;
+  const { devEntry, lang, productCode, t } = await searchParams;
   const langQuery = lang === "ar" || lang === "en" ? `?lang=${lang}` : "";
 
   if (t) {
@@ -61,7 +61,12 @@ export default async function MobileSessionPage({ params, searchParams }: Mobile
   return (
     <main className="relative min-h-screen overflow-hidden bg-[var(--bg-page)] text-[var(--text-primary)]">
       <div className="mx-auto flex min-h-screen max-w-2xl flex-col items-center justify-center px-4 py-10">
-        <MobileSessionClient sessionId={sessionId} products={products} />
+        <MobileSessionClient
+          sessionId={sessionId}
+          products={products}
+          initialProductCode={productCode ?? null}
+          showProductListFallback={process.env.NODE_ENV === "development"}
+        />
       </div>
 
     </main>

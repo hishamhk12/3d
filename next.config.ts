@@ -128,10 +128,9 @@ const nextConfig: NextConfig = {
         //                          in the Referer header so session IDs and
         //                          paths are not leaked to third-party APIs
         //                          (e.g. Gemini, Sentry).
-        //   Permissions-Policy   — explicitly revokes camera and microphone
-        //                          access; the TV kiosk never needs them and
-        //                          this blocks any injected script from
-        //                          silently requesting them.
+        //   Permissions-Policy   — allows same-origin camera access for mobile
+        //                          QR scanning while keeping the microphone
+        //                          blocked.
         source: "/(.*)",
         headers: [
           ...(isProd
@@ -140,7 +139,7 @@ const nextConfig: NextConfig = {
           { key: "X-Frame-Options",          value: "DENY" },
           { key: "X-Content-Type-Options",   value: "nosniff" },
           { key: "Referrer-Policy",          value: "strict-origin-when-cross-origin" },
-          { key: "Permissions-Policy",       value: "camera=(), microphone=()" },
+          { key: "Permissions-Policy",       value: "camera=(self), microphone=()" },
         ],
       },
       {

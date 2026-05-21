@@ -6,6 +6,7 @@ import {
   getRoomPreviewMockProductByBarcode,
   getRoomPreviewMockProductById,
 } from "@/data/room-preview/mock-products";
+import { getQrProductByCode } from "@/lib/room-preview/qr-products";
 import {
   isRoomPreviewSessionExpiredError,
   isRoomPreviewSessionNotFoundError,
@@ -22,9 +23,10 @@ const ProductBodySchema = z
   .object({
     productId: z.string().trim().min(1).optional(),
     barcode:   z.string().trim().min(1).optional(),
+    productCode: z.string().trim().min(1).optional(),
   })
-  .refine((d) => d.productId != null || d.barcode != null, {
-    message: "A product id or barcode is required.",
+  .refine((d) => d.productId != null || d.barcode != null || d.productCode != null, {
+    message: "A product id, barcode, or product code is required.",
   });
 
 function buildSessionProduct(product: {
@@ -70,12 +72,22 @@ export async function POST(
     );
   }
 
-  const { productId: rawProductId, barcode: rawBarcode } = parsed.data;
+  const { productId: rawProductId, barcode: rawBarcode, productCode: rawProductCode } = parsed.data;
 
   let product = null;
 
-  if (rawProductId) {
-    product = getRoomPreviewMockProductById(rawProductId);
+  if (rawProductCode) {
+    product = getQrProductByCode(rawProductCode);
+
+    if (!product) {
+      log.warn({ sessionId, productCode: rawProductCode }, "Unknown product QR code");
+      return NextResponse.json(
+        { code: "PRODUCT_NOT_FOUND", error: "Unknown product QR code." },
+        { status: 404 },
+      );
+    }
+  } else if (rawProductId) {
+    product = getRoomPreviewMockProductById(rawProductId) ?? getQrProductByCode(rawProductId);
 
     if (!product) {
       log.warn({ sessionId, productId: rawProductId }, "Unknown product id");
@@ -85,7 +97,7 @@ export async function POST(
       );
     }
   } else if (rawBarcode) {
-    product = getRoomPreviewMockProductByBarcode(rawBarcode);
+    product = getRoomPreviewMockProductByBarcode(rawBarcode) ?? getQrProductByCode(rawBarcode);
 
     if (!product) {
       log.warn({ sessionId, barcode: rawBarcode }, "Invalid barcode");
@@ -97,7 +109,7 @@ export async function POST(
   } else {
     log.warn({ sessionId }, "Missing product id and barcode");
     return NextResponse.json(
-      { error: "A product id or barcode is required." },
+      { error: "A product id, barcode, or product code is required." },
       { status: 400 },
     );
   }

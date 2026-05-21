@@ -907,3 +907,128 @@ body.translated-rtl { top: 0 !important; }
     gap: 1rem;
   }
 }
+
+html:has(.screen-kiosk-page),
+body:has(.screen-kiosk-page) {
+  width: 100vw;
+  height: 100vh;
+  height: 100dvh;
+  margin: 0;
+  overflow: hidden;
+  background: #071729;
+}
+
+.screen-kiosk-page {
+  width: 100vw;
+  height: 100vh;
+  min-height: 100vh;
+  height: 100dvh;
+  min-height: 100dvh;
+  overflow: hidden;
+  background:
+    radial-gradient(circle at 50% 12%, rgba(0,175,215,0.18), transparent 34%),
+    linear-gradient(180deg, #071729 0%, #0c1a2b 50%, #06111f 100%);
+}
+
+.screen-kiosk-page * {
+  box-sizing: border-box;
+}
+
+.screen-kiosk-shell {
+  position: relative;
+  z-index: 1;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  grid-template-rows: auto auto;
+  align-content: center;
+  justify-items: center;
+  gap: clamp(0.9rem, 2.2dvh, 2rem);
+  width: 100vw;
+  height: 100%;
+  padding: clamp(0.75rem, 2.2vw, 1.75rem);
+  overflow: hidden;
+}
+
+.screen-kiosk-qr {
+  width: min(100%, clamp(17rem, 52vw, 24rem));
+  min-width: 0;
+  justify-self: center;
+}
+
+.screen-kiosk-content {
+  display: flex;
+  width: min(100%, 44rem);
+  min-width: 0;
+  min-height: 0;
+  max-height: 100%;
+  align-items: center;
+  justify-content: center;
+  overflow: hidden;
+}
+
+.screen-kiosk-content > * {
+  min-width: 0;
+}
+
+.screen-preview-card {
+  max-width: min(100%, 44rem);
+  max-height: 100%;
+}
+
+.screen-preview-media {
+  min-height: clamp(17rem, 31dvh, 28rem);
+  max-height: min(50dvh, 34rem);
+}
+
+.screen-kiosk-page .qr-scan-guide-shell {
+  max-width: 100%;
+  padding-bottom: clamp(3.5rem, 7dvh, 6rem);
+}
+
+@media (min-width: 1180px) {
+  .screen-kiosk-shell {
+    grid-template-columns: minmax(18rem, clamp(19rem, 28vw, 23.5rem)) minmax(0, clamp(34rem, 54vw, 46rem));
+    grid-template-rows: minmax(0, 1fr);
+    align-items: center;
+    justify-content: center;
+    gap: clamp(1.5rem, 3vw, 3.75rem);
+  }
+
+  .screen-kiosk-qr,
+  .screen-kiosk-content {
+    width: 100%;
+  }
+
+  .screen-kiosk-page .qr-scan-guide-shell {
+    padding-bottom: 0;
+  }
+
+  .screen-preview-media {
+    min-height: clamp(20rem, 40dvh, 32rem);
+    max-height: min(64dvh, 38rem);
+  }
+}
+
+@media (max-height: 760px) {
+  .screen-kiosk-shell {
+    gap: 0.8rem;
+    padding: 0.65rem;
+  }
+
+  .screen-kiosk-qr {
+    width: min(100%, 18rem);
+  }
+
+  .screen-kiosk-page .qr-scan-guide-shell {
+    padding-bottom: 0 !important;
+  }
+
+  .screen-kiosk-page .qr-phone-guide {
+    display: none;
+  }
+
+  .screen-preview-media {
+    min-height: 14rem;
+    max-height: 42dvh;
+  }
+}

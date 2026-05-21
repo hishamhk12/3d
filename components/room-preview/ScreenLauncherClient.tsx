@@ -248,8 +248,8 @@ export default function ScreenLauncherClient() {
           description={t.roomPreview.launcher.brandedLoadingDescription}
         />
       ) : (
-        <main className="relative min-h-screen overflow-hidden text-[#1d1d1f]">
-          <div className="mx-auto flex min-h-screen max-w-3xl items-center justify-center px-4 py-10">
+        <main className="screen-kiosk-page dark relative overflow-hidden text-white">
+          <div className="mx-auto flex h-full max-w-3xl items-center justify-center px-4 py-6">
             <SessionStatePanel
               title={t.roomPreview.launcher.failedTitle}
               description={error ?? t.roomPreview.launcher.failedDescription}

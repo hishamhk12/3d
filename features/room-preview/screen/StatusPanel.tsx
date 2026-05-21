@@ -152,7 +152,7 @@ export default function StatusPanel({
   const statusBorderClass = statusColors[session.status] || statusColors.waiting_mobile;
 
   return (
-    <div className={`mt-0 w-full max-w-[44rem] overflow-hidden rounded-[2rem] border border-cyan-200/15 bg-[#071729]/90 p-5 text-white shadow-[0_30px_80px_rgba(0,0,0,0.50),0_0_42px_rgba(0,175,215,0.10)] backdrop-blur-xl animate-in fade-in duration-700 sm:p-6 md:p-7 ${sectionAlignClass} ${statusBorderClass}`}>
+    <div className={`screen-preview-card mt-0 w-full overflow-hidden rounded-[2rem] border border-cyan-200/15 bg-[#071729]/90 p-5 text-white shadow-[0_30px_80px_rgba(0,0,0,0.50),0_0_42px_rgba(0,175,215,0.10)] backdrop-blur-xl animate-in fade-in duration-700 sm:p-6 md:p-7 ${sectionAlignClass} ${statusBorderClass}`}>
       <p className="text-xs font-semibold uppercase tracking-[0.22em] text-cyan-100/50">
         {t.roomPreview.screen.sessionStatus}
       </p>
@@ -239,7 +239,7 @@ export default function StatusPanel({
           </div>
         </div>
 
-        <div className="relative mt-5 aspect-[4/3] min-h-[18rem] w-full overflow-hidden rounded-[1.5rem] border border-white/12 bg-[#0d2339] shadow-[inset_0_1px_0_rgba(255,255,255,0.08)] sm:min-h-[22rem] lg:min-h-[24rem]">
+        <div className="screen-preview-media relative mt-5 aspect-[4/3] w-full overflow-hidden rounded-[1.5rem] border border-white/12 bg-[#0d2339] shadow-[inset_0_1px_0_rgba(255,255,255,0.08)]">
           {session.selectedRoom?.imageUrl ? (
             <Image
               src={session.selectedRoom.imageUrl}

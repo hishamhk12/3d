@@ -19,11 +19,11 @@ export default function SessionQRCode({ dataUrl }: SessionQRCodeProps) {
   const { dir, t } = useI18n();
 
   return (
-    <div className="qr-scan-guide-shell relative isolate flex w-full max-w-sm flex-col items-center">
+    <div className="qr-scan-guide-shell relative isolate flex w-full flex-col items-center">
       <style>{`
         .qr-scan-guide-shell {
           --qr-guide-accent: var(--accent, #00AFD7);
-          padding-bottom: clamp(11rem, 36vw, 13.5rem);
+          padding-bottom: clamp(5.5rem, 18vw, 8rem);
         }
 
         .qr-scan-card {
@@ -49,7 +49,7 @@ export default function SessionQRCode({ dataUrl }: SessionQRCodeProps) {
           right: clamp(0.75rem, 12vw, 3.25rem);
           bottom: 0.5rem;
           z-index: 3;
-          width: clamp(5.75rem, 20vw, 7rem);
+          width: clamp(4.75rem, 15vw, 6.5rem);
           aspect-ratio: 0.52;
           pointer-events: none;
           opacity: 0;
@@ -272,15 +272,15 @@ export default function SessionQRCode({ dataUrl }: SessionQRCodeProps) {
           }
         }
 
-        @media (min-width: 1024px) {
+        @media (min-width: 1180px) {
           .qr-scan-guide-shell {
             padding-bottom: 0;
           }
 
           .qr-phone-guide {
-            right: clamp(-7.2rem, -8vw, -4.75rem);
-            bottom: -3.15rem;
-            width: clamp(6.35rem, 8.5vw, 8rem);
+            right: clamp(-5.8rem, -6vw, -3.8rem);
+            bottom: -2.65rem;
+            width: clamp(5.65rem, 7vw, 7.25rem);
           }
         }
 
@@ -316,8 +316,8 @@ export default function SessionQRCode({ dataUrl }: SessionQRCodeProps) {
         }
       `}</style>
 
-      <div className="qr-scan-card flex w-full flex-col items-center rounded-3xl border border-[var(--border)] bg-[var(--bg-surface)] p-8 shadow-[var(--shadow-xl)] backdrop-blur-xl animate-in fade-in zoom-in-95 duration-500">
-        <div className="relative z-[1] flex aspect-square w-full items-center justify-center rounded-2xl bg-white p-4 shadow-lg">
+      <div className="qr-scan-card flex w-full flex-col items-center rounded-3xl border border-[var(--border)] bg-[var(--bg-surface)] p-5 shadow-[var(--shadow-xl)] backdrop-blur-xl animate-in fade-in zoom-in-95 duration-500 sm:p-6">
+        <div className="relative z-[1] flex aspect-square w-full items-center justify-center rounded-2xl bg-white p-3 shadow-lg sm:p-4">
           <Image
             src={dataUrl}
             alt={t.roomPreview.qr.alt}
@@ -327,9 +327,9 @@ export default function SessionQRCode({ dataUrl }: SessionQRCodeProps) {
             className="aspect-square w-full rounded-xl"
           />
         </div>
-        <div className="relative z-[1] mt-6 text-center" dir={dir}>
-          <p className="text-lg font-bold text-[var(--text-primary)]">{t.roomPreview.qr.scanTitle}</p>
-          <p className="mt-2 text-sm text-[var(--text-muted)]">{t.roomPreview.qr.scanDescription}</p>
+        <div className="relative z-[1] mt-4 text-center sm:mt-5" dir={dir}>
+          <p className="text-base font-bold text-[var(--text-primary)] sm:text-lg">{t.roomPreview.qr.scanTitle}</p>
+          <p className="mt-1.5 text-xs leading-5 text-[var(--text-muted)] sm:text-sm">{t.roomPreview.qr.scanDescription}</p>
         </div>
       </div>
 

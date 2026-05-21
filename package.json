@@ -14,6 +14,7 @@
     "test:watch": "vitest",
     "test:coverage": "vitest run --coverage",
     "test:e2e": "playwright test",
+    "generate:product-qr": "node scripts/generate-product-qr.js",
     "test:e2e:ui": "playwright test --ui"
   },
   "dependencies": {

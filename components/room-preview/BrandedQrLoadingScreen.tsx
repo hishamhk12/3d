@@ -13,7 +13,7 @@ export default function BrandedQrLoadingScreen({
   title,
 }: BrandedQrLoadingScreenProps) {
   return (
-    <main className="relative min-h-screen overflow-hidden bg-[#050707] text-white">
+    <main className="screen-kiosk-page dark relative overflow-hidden bg-[#050707] text-white">
       <style>{`
         .qr-brand-mark {
           filter: drop-shadow(0 24px 44px rgba(0, 173, 215, 0.22));

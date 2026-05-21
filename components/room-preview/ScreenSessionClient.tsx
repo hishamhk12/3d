@@ -42,7 +42,7 @@ export default function ScreenSessionClient({ sessionId }: { sessionId: string }
 
   if (viewState === "loading") {
     return (
-      <div className="mt-6 w-full rounded-3xl border border-white/10 bg-white/10 backdrop-blur-xl p-8 text-center shadow-[0_20px_60px_rgba(0,0,0,0.4)] animate-in fade-in duration-700">
+      <div className="w-full rounded-3xl border border-white/10 bg-white/10 p-6 text-center shadow-[0_20px_60px_rgba(0,0,0,0.4)] backdrop-blur-xl animate-in fade-in duration-700 sm:p-8">
         <p className="text-sm tracking-widest text-white/60 uppercase">
           {t.roomPreview.screen.sessionStatus}
         </p>
@@ -74,7 +74,7 @@ export default function ScreenSessionClient({ sessionId }: { sessionId: string }
 
   if (viewState === "not_found") {
     return (
-      <div className="mt-6">
+      <div className="w-full">
         <SessionStatePanel
           title={t.roomPreview.screen.notFoundTitle}
           description={error ?? t.roomPreview.screen.notFoundDescription}
@@ -87,7 +87,7 @@ export default function ScreenSessionClient({ sessionId }: { sessionId: string }
 
   if (viewState === "expired") {
     return (
-      <div className="mt-6">
+      <div className="w-full">
         <SessionStatePanel
           title={t.roomPreview.screen.expiredTitle}
           description={error ?? t.roomPreview.screen.expiredDescription}
@@ -100,7 +100,7 @@ export default function ScreenSessionClient({ sessionId }: { sessionId: string }
 
   if (viewState === "failed") {
     return (
-      <div className="mt-6">
+      <div className="w-full">
         <SessionStatePanel
           title={t.roomPreview.screen.failedTitle}
           description={error ?? t.roomPreview.screen.failedDescription}
@@ -116,7 +116,7 @@ export default function ScreenSessionClient({ sessionId }: { sessionId: string }
 
   if (!session) {
     return (
-      <div className="mt-6">
+      <div className="w-full">
         <SessionStatePanel
           title={t.roomPreview.screen.failedTitle}
           description={t.roomPreview.shared.noSessionData}
@@ -144,7 +144,7 @@ export default function ScreenSessionClient({ sessionId }: { sessionId: string }
             fill
             sizes="100vw"
             className="object-contain"
-            priority
+            preload
           />
         </div>
       </div>

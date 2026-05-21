@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useRef, useState } from "react";
 import Image from "next/image";
-import { Camera, ImagePlus, Keyboard, LoaderCircle, QrCode, RotateCcw } from "lucide-react";
+import { Camera, Keyboard, LoaderCircle, QrCode, RotateCcw } from "lucide-react";
 import { AnimatedButton } from "@/components/ui/AnimatedButton";
 import { parseProductCodeFromQrValue } from "@/lib/room-preview/product-qr";
 import { useI18n } from "@/lib/i18n/provider";
@@ -53,7 +53,6 @@ export default function ProductQrStep({
   const videoRef = useRef<HTMLVideoElement | null>(null);
   const scannerRef = useRef<{ stop: () => void; destroy: () => void } | null>(null);
   const handledScanRef = useRef<string | null>(null);
-  const imageInputRef = useRef<HTMLInputElement | null>(null);
 
   const [scannerStatus, setScannerStatus] = useState<"idle" | "starting" | "scanning">("idle");
   const [manualValue, setManualValue] = useState("");
@@ -147,30 +146,6 @@ export default function ProductQrStep({
     }
   };
 
-  const scanImageFile = async (file: File | null) => {
-    if (!file) return;
-
-    setIsLookingUp(true);
-    setError(null);
-
-    try {
-      const { default: QrScanner } = await import("qr-scanner");
-      const result = await QrScanner.scanImage(file, {
-        returnDetailedScanResult: true,
-        alsoTryWithoutScanRegion: true,
-      });
-      await handleScannedValue(result.data);
-    } catch (scanError) {
-      setError(
-        scanError instanceof Error
-          ? scanError.message
-          : "No product QR was found in that image.",
-      );
-    } finally {
-      setIsLookingUp(false);
-    }
-  };
-
   const submitManualValue = () => {
     void handleScannedValue(manualValue);
   };
@@ -240,26 +215,6 @@ export default function ProductQrStep({
               </button>
             ) : null}
 
-            <input
-              ref={imageInputRef}
-              type="file"
-              accept="image/*"
-              className="sr-only"
-              onChange={(event) => {
-                const file = event.target.files?.[0] ?? null;
-                void scanImageFile(file);
-                event.target.value = "";
-              }}
-            />
-            <button
-              type="button"
-              onClick={() => imageInputRef.current?.click()}
-              disabled={isBusy || isLookingUp}
-              className="flex w-full items-center justify-center gap-2 rounded-[20px] border border-[var(--border)] bg-[var(--bg-surface-2)] py-3 text-sm font-semibold text-[var(--text-secondary)] disabled:opacity-50"
-            >
-              <ImagePlus className="size-4" />
-              {isAr ? "اختيار صورة QR" : "Scan QR from image"}
-            </button>
           </div>
 
           <div className="mt-5 rounded-[22px] border border-[var(--border)] bg-[var(--bg-surface-2)] p-4">

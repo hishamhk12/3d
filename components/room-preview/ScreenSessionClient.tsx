@@ -146,7 +146,7 @@ export default function ScreenSessionClient({ sessionId }: { sessionId: string }
             alt={t.roomPreview.shared.renderedPreview}
             className="h-full w-full"
             sizes="100vw"
-            fit="cover"
+            fit="contain"
             priority
           />
         </div>

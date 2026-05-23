@@ -44,7 +44,7 @@ export function BeforeAfterSlider({
         unoptimized={unoptimized}
         priority={priority}
         sizes={sizes}
-        className="scale-110 object-cover object-center opacity-45 blur-2xl"
+        className="scale-110 object-cover object-center opacity-90 blur-2xl"
         aria-hidden
       />
       <div className="absolute inset-0 bg-black/35" aria-hidden />
@@ -71,7 +71,7 @@ export function BeforeAfterSlider({
           unoptimized={unoptimized}
           priority={priority}
           sizes={sizes}
-          className="scale-110 object-cover object-center opacity-45 blur-2xl"
+          className="scale-110 object-cover object-center opacity-90 blur-2xl"
           aria-hidden
         />
         <div className="absolute inset-0 bg-black/35" aria-hidden />

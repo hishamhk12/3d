@@ -224,23 +224,6 @@ async function generateContentWithTimeout(
 
 const MAX_ASPECT_DRIFT = MAX_ASPECT_RATIO_DRIFT;
 
-async function normalizeOutputToInputDimensions(
-  buffer: Buffer<ArrayBuffer>,
-  targetWidth: number,
-  targetHeight: number,
-): Promise<Buffer<ArrayBuffer>> {
-  const { default: sharp } = await import("sharp");
-  // Use "fill" (stretch to exact dimensions) instead of "contain" (which pads
-  // with black bars). For the small drift tolerance we apply (≤2%), the
-  // resulting stretch is imperceptible. "contain" bakes black letterbox bars
-  // into the output file, which is the regression we are fixing.
-  return (await sharp(buffer)
-    .resize(targetWidth, targetHeight, {
-      fit: "fill",
-    })
-    .png()
-    .toBuffer()) as Buffer<ArrayBuffer>;
-}
 
 async function validateAndNormalizeOutputImage(
   outputBase64: string,
@@ -294,8 +277,6 @@ async function validateAndNormalizeOutputImage(
     "Raw Gemini output dimensions before any normalization",
   );
 
-  let normalized = false;
-
   if (inputDimensions.width > 0 && inputDimensions.height > 0) {
     const inputAspect  = inputDimensions.width  / inputDimensions.height;
     const outputAspect = width / height;
@@ -304,28 +285,18 @@ async function validateAndNormalizeOutputImage(
     if (drift > MAX_ASPECT_DRIFT) {
       log.warn(
         {
-          event: "output_aspect_ratio_normalized",
+          event: "output_aspect_ratio_mismatch",
           sessionId: context.sessionId,
           modelName: context.modelName,
           inputWidth: inputDimensions.width,
           inputHeight: inputDimensions.height,
           outputWidth: width,
           outputHeight: height,
-          resizeFit: "fill",
-          paddingApplied: false,
           driftPercent: parseFloat((drift * 100).toFixed(2)),
+          action: "saved_raw",
         },
-        "Output aspect ratio drifted — normalizing to input dimensions with fill (no padding)",
+        "Gemini output aspect ratio drifted from input — saving raw output without any transform",
       );
-
-      buffer = await normalizeOutputToInputDimensions(
-        buffer,
-        inputDimensions.width,
-        inputDimensions.height,
-      );
-      width  = inputDimensions.width;
-      height = inputDimensions.height;
-      normalized = true;
     }
   }
 
@@ -336,10 +307,10 @@ async function validateAndNormalizeOutputImage(
       modelName: context.modelName,
       finalWidth: width,
       finalHeight: height,
-      normalizedApplied: normalized,
+      normalizedApplied: false,
       paddingApplied: false,
     },
-    "Final render output dimensions after normalization check",
+    "Final render output dimensions (raw Gemini output, no transform applied)",
   );
 
   return { width, height, buffer };

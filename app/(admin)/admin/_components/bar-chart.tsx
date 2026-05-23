@@ -51,7 +51,7 @@ export function BarChart({
             >
               {/* Tooltip */}
               {showTooltip && d.value > 0 && (
-                <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-1.5 px-2 py-1 rounded bg-gray-800 border border-gray-700 text-xs text-white whitespace-nowrap opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none z-10">
+                <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-1.5 px-2 py-1 rounded bg-white border border-slate-200 text-xs text-slate-700 shadow-sm whitespace-nowrap opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none z-10">
                   {d.value}
                   {unit}
                   {d.danger ? ` · ${d.danger} failed` : ""}
@@ -78,7 +78,7 @@ export function BarChart({
         {data.map((d, i) => (
           <div key={i} className="flex-1 text-center overflow-hidden">
             {d.label && (
-              <span className="text-[10px] text-gray-600 leading-none block truncate">
+              <span className="text-[10px] text-slate-500 leading-none block truncate">
                 {d.label}
               </span>
             )}

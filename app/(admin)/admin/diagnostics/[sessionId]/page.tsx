@@ -28,9 +28,9 @@ function relativeMs(base: string, event: string) {
 }
 
 function MetadataBlock({ value }: { value: unknown }) {
-  if (value === null || value === undefined) return <span className="text-gray-700">-</span>;
+  if (value === null || value === undefined) return <span className="text-slate-400">-</span>;
   return (
-    <pre className="max-h-40 overflow-auto rounded-md bg-black/30 p-2 text-[11px] leading-5 text-gray-400">
+    <pre className="max-h-40 overflow-auto rounded-md border border-slate-200 bg-slate-50 p-2 text-[11px] leading-5 text-slate-600">
       {JSON.stringify(value, null, 2)}
     </pre>
   );
@@ -99,8 +99,8 @@ function eventLabel(type: string) {
 
 // Row background per level
 function rowBg(level: string) {
-  if (level === "error" || level === "fatal") return "bg-red-950/20";
-  if (level === "warning") return "bg-yellow-950/15";
+  if (level === "error" || level === "fatal") return "bg-red-50";
+  if (level === "warning") return "bg-amber-50";
   return "";
 }
 
@@ -175,24 +175,24 @@ export default async function SessionDiagnosticsPage({ params }: SessionDiagnost
   const sessionStart = timeline[0]?.timestamp ?? summary.id;
 
   return (
-    <div className="min-h-screen bg-gray-950">
+    <div className="min-h-screen bg-[#f6f8fb]">
       <AdminHeader />
       <main className="mx-auto max-w-7xl space-y-6 px-6 py-8">
 
         {/* Header */}
         <div className="flex items-center justify-between gap-4">
           <div>
-            <Link href="/admin/diagnostics" className="text-sm text-gray-500 hover:text-gray-300">
+            <Link href="/admin/diagnostics" className="text-sm text-slate-500 hover:text-slate-800">
               Diagnostics
             </Link>
-            <h1 className="mt-2 font-mono text-lg font-semibold text-white">{summary.id}</h1>
+            <h1 className="mt-2 font-mono text-lg font-semibold text-slate-950">{summary.id}</h1>
           </div>
-          <span className="rounded bg-gray-900 px-3 py-1.5 text-sm text-gray-300">{summary.status}</span>
+          <span className="rounded-md bg-white px-3 py-1.5 text-sm text-slate-700 ring-1 ring-slate-200">{summary.status}</span>
         </div>
 
         {/* Summary */}
-        <section className="rounded-xl border border-gray-800 bg-gray-900/50 p-5">
-          <h2 className="text-sm font-semibold text-white">Summary</h2>
+        <section className="rounded-xl border border-slate-200 bg-white p-5 shadow-sm">
+          <h2 className="text-sm font-semibold text-slate-950">Summary</h2>
           <div className="mt-4 grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
             {[
               ["current status",  summary.status],
@@ -204,18 +204,18 @@ export default async function SessionDiagnosticsPage({ params }: SessionDiagnost
               ["screen connected",boolLabel(summary.screenConnected)],
               ["mobile connected",boolLabel(summary.mobileConnected)],
             ].map(([label, value]) => (
-              <div key={label} className="rounded-lg border border-gray-800 bg-gray-950 px-3 py-2">
-                <p className="text-xs uppercase tracking-wide text-gray-600">{label}</p>
-                <p className="mt-1 text-sm text-gray-200">{value}</p>
+              <div key={label} className="rounded-lg border border-slate-200 bg-slate-50 px-3 py-2">
+                <p className="text-xs uppercase tracking-wide text-slate-500">{label}</p>
+                <p className="mt-1 text-sm text-slate-800">{value}</p>
               </div>
             ))}
           </div>
         </section>
 
         {/* Mobile lifecycle summary */}
-        <section className="rounded-xl border border-gray-800 bg-gray-900/50 p-5">
-          <h2 className="text-sm font-semibold text-white">Mobile Lifecycle Diagnostics</h2>
-          <p className="mt-1 text-xs text-gray-600">
+        <section className="rounded-xl border border-slate-200 bg-white p-5 shadow-sm">
+          <h2 className="text-sm font-semibold text-slate-950">Mobile Lifecycle Diagnostics</h2>
+          <p className="mt-1 text-xs text-slate-500">
             Client-side signals captured by useMobileDiagnostics — zero = not yet observed or session predates this feature.
           </p>
           <div className="mt-4 grid gap-2 grid-cols-3 sm:grid-cols-4 lg:grid-cols-6">
@@ -237,12 +237,12 @@ export default async function SessionDiagnosticsPage({ params }: SessionDiagnost
                 key={label}
                 className={`rounded-lg border px-3 py-2 ${
                   alert && value > 0
-                    ? "border-yellow-700/40 bg-yellow-950/20"
-                    : "border-gray-800 bg-gray-950"
+                    ? "border-amber-200 bg-amber-50"
+                    : "border-slate-200 bg-slate-50"
                 }`}
               >
-                <p className="text-xs uppercase tracking-wide text-gray-600">{label}</p>
-                <p className={`mt-1 text-lg font-bold tabular-nums ${alert && value > 0 ? "text-yellow-400" : "text-gray-400"}`}>
+                <p className="text-xs uppercase tracking-wide text-slate-500">{label}</p>
+                <p className={`mt-1 text-lg font-bold tabular-nums ${alert && value > 0 ? "text-amber-700" : "text-slate-700"}`}>
                   {value}
                 </p>
               </div>
@@ -252,27 +252,27 @@ export default async function SessionDiagnosticsPage({ params }: SessionDiagnost
 
         {/* Issues */}
         <section className="grid gap-6 lg:grid-cols-3">
-          <div className="rounded-xl border border-gray-800 bg-gray-900/50 p-5 lg:col-span-2">
-            <h2 className="text-sm font-semibold text-white">Issues</h2>
+          <div className="rounded-xl border border-slate-200 bg-white p-5 shadow-sm lg:col-span-2">
+            <h2 className="text-sm font-semibold text-slate-950">Issues</h2>
             <div className="mt-4 space-y-5">
               <div>
-                <h3 className="text-xs font-medium uppercase tracking-wide text-gray-500">Open</h3>
-                <div className="mt-2 overflow-hidden rounded-lg border border-gray-800">
+                <h3 className="text-xs font-medium uppercase tracking-wide text-slate-500">Open</h3>
+                <div className="mt-2 overflow-hidden rounded-lg border border-slate-200">
                   <table className="w-full text-sm">
-                    <tbody className="divide-y divide-gray-800 bg-gray-950">
+                    <tbody className="divide-y divide-slate-100 bg-white">
                       {openIssues.map((issue) => (
                         <tr key={issue.id}>
-                          <td className="px-3 py-3 text-xs text-gray-200">{issue.issueType}</td>
-                          <td className="px-3 py-3 text-xs text-gray-400">{issue.severity}</td>
-                          <td className="px-3 py-3 text-xs text-gray-500">{dateTime(issue.firstSeenAt)}</td>
-                          <td className="px-3 py-3 text-xs text-gray-500">{dateTime(issue.lastSeenAt)}</td>
-                          <td className="px-3 py-3 text-center text-xs text-gray-300">{issue.count}</td>
-                          <td className="px-3 py-3 text-xs text-gray-400">{issue.recommendedAction ?? "-"}</td>
+                          <td className="px-3 py-3 text-xs text-slate-800">{issue.issueType}</td>
+                          <td className="px-3 py-3 text-xs text-slate-600">{issue.severity}</td>
+                          <td className="px-3 py-3 text-xs text-slate-500">{dateTime(issue.firstSeenAt)}</td>
+                          <td className="px-3 py-3 text-xs text-slate-500">{dateTime(issue.lastSeenAt)}</td>
+                          <td className="px-3 py-3 text-center text-xs text-slate-700">{issue.count}</td>
+                          <td className="px-3 py-3 text-xs text-slate-600">{issue.recommendedAction ?? "-"}</td>
                         </tr>
                       ))}
                       {openIssues.length === 0 ? (
                         <tr>
-                          <td className="px-3 py-6 text-center text-sm text-gray-600">No open issues.</td>
+                          <td className="px-3 py-6 text-center text-sm text-slate-500">No open issues.</td>
                         </tr>
                       ) : null}
                     </tbody>
@@ -281,22 +281,22 @@ export default async function SessionDiagnosticsPage({ params }: SessionDiagnost
               </div>
 
               <div>
-                <h3 className="text-xs font-medium uppercase tracking-wide text-gray-500">
+                <h3 className="text-xs font-medium uppercase tracking-wide text-slate-500">
                   Resolved / Ignored
                 </h3>
                 <div className="mt-2 space-y-2">
                   {resolvedIssues.map((issue) => (
                     <div
                       key={issue.id}
-                      className="rounded-lg border border-gray-800 bg-gray-950 px-3 py-2 text-xs text-gray-400"
+                      className="rounded-lg border border-slate-200 bg-slate-50 px-3 py-2 text-xs text-slate-600"
                     >
-                      <span className="text-gray-200">{issue.issueType}</span>
-                      <span className="ml-2 text-gray-600">{issue.status}</span>
+                      <span className="text-slate-800">{issue.issueType}</span>
+                      <span className="ml-2 text-slate-500">{issue.status}</span>
                       <span className="ml-2">count {issue.count}</span>
                     </div>
                   ))}
                   {resolvedIssues.length === 0 ? (
-                    <p className="text-sm text-gray-600">No resolved issues.</p>
+                    <p className="text-sm text-slate-500">No resolved issues.</p>
                   ) : null}
                 </div>
               </div>
@@ -304,8 +304,8 @@ export default async function SessionDiagnosticsPage({ params }: SessionDiagnost
           </div>
 
           {/* Client diagnostics */}
-          <div className="rounded-xl border border-gray-800 bg-gray-900/50 p-5">
-            <h2 className="text-sm font-semibold text-white">Client Diagnostics</h2>
+          <div className="rounded-xl border border-slate-200 bg-white p-5 shadow-sm">
+            <h2 className="text-sm font-semibold text-slate-950">Client Diagnostics</h2>
             <div className="mt-4 space-y-3 text-sm">
               {[
                 ["last mobile event",  clientDiagnostics.lastMobileEvent?.eventType  ?? "-"],
@@ -313,9 +313,9 @@ export default async function SessionDiagnosticsPage({ params }: SessionDiagnost
                 ["last render event",  clientDiagnostics.lastRenderEvent?.eventType  ?? "-"],
                 ["last known problem", clientDiagnostics.lastKnownProblem            ?? "-"],
               ].map(([label, value]) => (
-                <div key={label} className="rounded-lg border border-gray-800 bg-gray-950 px-3 py-2">
-                  <p className="text-xs uppercase tracking-wide text-gray-600">{label}</p>
-                  <p className="mt-1 break-words text-gray-200">{value}</p>
+                <div key={label} className="rounded-lg border border-slate-200 bg-slate-50 px-3 py-2">
+                  <p className="text-xs uppercase tracking-wide text-slate-500">{label}</p>
+                  <p className="mt-1 break-words text-slate-800">{value}</p>
                 </div>
               ))}
             </div>
@@ -323,10 +323,10 @@ export default async function SessionDiagnosticsPage({ params }: SessionDiagnost
         </section>
 
         {/* Timeline */}
-        <section className="rounded-xl border border-gray-800 bg-gray-900/50 p-5">
+        <section className="rounded-xl border border-slate-200 bg-white p-5 shadow-sm">
           <div className="flex items-center justify-between gap-4 mb-4">
-            <h2 className="text-sm font-semibold text-white">Timeline</h2>
-            <span className="text-xs text-gray-600">{timeline.length} events</span>
+            <h2 className="text-sm font-semibold text-slate-950">Timeline</h2>
+            <span className="text-xs text-slate-500">{timeline.length} events</span>
           </div>
 
           {/* Visual milestone strip */}
@@ -337,18 +337,18 @@ export default async function SessionDiagnosticsPage({ params }: SessionDiagnost
                   <div key={event.id} className="flex items-start">
                     <div className="flex flex-col items-center gap-1 px-2">
                       <div
-                        className={`h-2.5 w-2.5 rounded-full ring-2 ring-gray-900 shrink-0 ${milestoneDotColor(event.eventType, event.level)}`}
+                        className={`h-2.5 w-2.5 shrink-0 rounded-full ring-2 ring-white ${milestoneDotColor(event.eventType, event.level)}`}
                         title={eventLabel(event.eventType)}
                       />
-                      <p className="text-[9px] text-gray-500 whitespace-nowrap max-w-[72px] text-center leading-tight">
+                      <p className="max-w-[72px] whitespace-nowrap text-center text-[9px] leading-tight text-slate-500">
                         {eventLabel(event.eventType)}
                       </p>
-                      <p className="text-[8px] text-gray-700 whitespace-nowrap">
+                      <p className="whitespace-nowrap text-[8px] text-slate-400">
                         {relativeMs(sessionStart, event.timestamp)}
                       </p>
                     </div>
                     {idx < milestones.length - 1 && (
-                      <div className="mt-[5px] h-px w-6 shrink-0 bg-gray-800" />
+                      <div className="mt-[5px] h-px w-6 shrink-0 bg-slate-200" />
                     )}
                   </div>
                 ))}
@@ -357,7 +357,7 @@ export default async function SessionDiagnosticsPage({ params }: SessionDiagnost
           )}
 
           {/* Legend */}
-          <div className="mb-4 flex flex-wrap gap-3 text-[10px] text-gray-600">
+          <div className="mb-4 flex flex-wrap gap-3 text-[10px] text-slate-500">
             {[
               { color: "bg-emerald-500", label: "mounted / completed" },
               { color: "bg-blue-400",    label: "upload / render" },
@@ -374,42 +374,42 @@ export default async function SessionDiagnosticsPage({ params }: SessionDiagnost
           </div>
 
           {/* Full event table */}
-          <div className="overflow-hidden rounded-lg border border-gray-800">
+          <div className="overflow-hidden rounded-lg border border-slate-200">
             <table className="w-full text-sm">
-              <thead className="border-b border-gray-800 bg-gray-900">
+              <thead className="border-b border-slate-200 bg-slate-50">
                 <tr>
-                  <th className="px-3 py-2 text-left text-xs uppercase tracking-wide text-gray-500">Time</th>
-                  <th className="px-3 py-2 text-left text-xs uppercase tracking-wide text-gray-500">+Δ</th>
-                  <th className="px-3 py-2 text-left text-xs uppercase tracking-wide text-gray-500">Src</th>
-                  <th className="px-3 py-2 text-left text-xs uppercase tracking-wide text-gray-500">Event</th>
-                  <th className="px-3 py-2 text-left text-xs uppercase tracking-wide text-gray-500">Code</th>
-                  <th className="px-3 py-2 text-left text-xs uppercase tracking-wide text-gray-500">Message</th>
-                  <th className="px-3 py-2 text-left text-xs uppercase tracking-wide text-gray-500">Metadata</th>
+                  <th className="px-3 py-2 text-left text-xs uppercase tracking-wide text-slate-500">Time</th>
+                  <th className="px-3 py-2 text-left text-xs uppercase tracking-wide text-slate-500">+Δ</th>
+                  <th className="px-3 py-2 text-left text-xs uppercase tracking-wide text-slate-500">Src</th>
+                  <th className="px-3 py-2 text-left text-xs uppercase tracking-wide text-slate-500">Event</th>
+                  <th className="px-3 py-2 text-left text-xs uppercase tracking-wide text-slate-500">Code</th>
+                  <th className="px-3 py-2 text-left text-xs uppercase tracking-wide text-slate-500">Message</th>
+                  <th className="px-3 py-2 text-left text-xs uppercase tracking-wide text-slate-500">Metadata</th>
                 </tr>
               </thead>
-              <tbody className="divide-y divide-gray-800 bg-gray-950">
+              <tbody className="divide-y divide-slate-100 bg-white">
                 {timeline.map((event) => (
                   <tr key={event.id} className={rowBg(event.level)}>
-                    <td className="whitespace-nowrap px-3 py-2 text-xs text-gray-500">
+                    <td className="whitespace-nowrap px-3 py-2 text-xs text-slate-500">
                       {dateTime(event.timestamp)}
                     </td>
-                    <td className="whitespace-nowrap px-3 py-2 text-xs text-gray-700">
+                    <td className="whitespace-nowrap px-3 py-2 text-xs text-slate-400">
                       {relativeMs(sessionStart, event.timestamp)}
                     </td>
-                    <td className="px-3 py-2 text-xs text-gray-500">{event.source}</td>
+                    <td className="px-3 py-2 text-xs text-slate-500">{event.source}</td>
                     <td className="px-3 py-2 text-xs">
                       <span className={
                         event.level === "error" || event.level === "fatal"
-                          ? "text-red-300"
+                          ? "text-red-700"
                           : event.level === "warning"
-                            ? "text-yellow-300"
-                            : "text-gray-200"
+                            ? "text-amber-700"
+                            : "text-slate-800"
                       }>
                         {eventLabel(event.eventType)}
                       </span>
                     </td>
-                    <td className="px-3 py-2 text-xs text-gray-400">{event.code ?? "-"}</td>
-                    <td className="max-w-xs px-3 py-2 text-xs text-gray-400">{event.message ?? "-"}</td>
+                    <td className="px-3 py-2 text-xs text-slate-600">{event.code ?? "-"}</td>
+                    <td className="max-w-xs px-3 py-2 text-xs text-slate-600">{event.message ?? "-"}</td>
                     <td className="px-3 py-2">
                       <MetadataBlock value={event.metadata} />
                     </td>
@@ -417,7 +417,7 @@ export default async function SessionDiagnosticsPage({ params }: SessionDiagnost
                 ))}
                 {timeline.length === 0 ? (
                   <tr>
-                    <td colSpan={7} className="px-3 py-8 text-center text-sm text-gray-600">
+                    <td colSpan={7} className="px-3 py-8 text-center text-sm text-slate-500">
                       No events recorded.
                     </td>
                   </tr>

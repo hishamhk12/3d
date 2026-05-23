@@ -37,6 +37,18 @@ import {
 
 const log = getLogger("render-service");
 
+function getFailureReason(err: unknown): string | null {
+  if (
+    err &&
+    typeof err === "object" &&
+    "failureReason" in err &&
+    typeof (err as { failureReason?: unknown }).failureReason === "string"
+  ) {
+    return (err as { failureReason: string }).failureReason;
+  }
+  return null;
+}
+
 async function persistSessionTransition(nextSession: RoomPreviewSession) {
   const updatedSession = await saveSessionState({
     id: nextSession.id,
@@ -272,12 +284,16 @@ async function runRoomPreviewRenderPipeline(sessionId: string) {
     }
 
     await markSessionAsFailed(sessionId).catch(() => undefined);
+
+    const failureReason = getFailureReason(err);
+
     await openSessionIssue({
       sessionId,
       type: "RENDER_FAILED",
       metadata: {
         renderJobId,
         error: diagnosticsErrorMetadata(err),
+        ...(failureReason ? { failureReason } : {}),
       },
     });
     await trackSessionEvent({
@@ -285,9 +301,9 @@ async function runRoomPreviewRenderPipeline(sessionId: string) {
       source: "renderer",
       eventType: "render_failed",
       level: "error",
-      code: "RENDER_FAILED",
+      code: failureReason ?? "RENDER_FAILED",
       message: err instanceof Error ? err.message : String(err),
-      metadata: { renderJobId },
+      metadata: { renderJobId, ...(failureReason ? { failureReason } : {}) },
     });
     await decrementRenderCount(sessionId).catch((error) => {
       log.error({ err: error, sessionId }, "Failed to roll back render count after pipeline failure");

@@ -16,6 +16,7 @@ import type {
   RoomPreviewRenderProviderResult,
 } from "@/lib/room-preview/render-providers/types";
 import { storageUpload } from "@/lib/storage";
+import { trackSessionEvent } from "@/lib/room-preview/session-diagnostics";
 import { getLogger } from "@/lib/logger";
 
 const log = getLogger("gemini-provider");
@@ -35,6 +36,7 @@ const GEMINI_CALL_TIMEOUT_MS = 100_000;
 const MIN_OUTPUT_BYTES = 10_000;
 const MIN_OUTPUT_DIMENSION_PX = 400;
 const MAX_ASPECT_RATIO_DRIFT = 0.02;
+const REJECT_ASPECT_RATIO_DRIFT = 0.05;
 
 /**
  * Maximum pixel length on either dimension before resizing.
@@ -45,6 +47,9 @@ const MAX_ASPECT_RATIO_DRIFT = 0.02;
  */
 const MAX_IMAGE_DIMENSION_PX = 1280;
 
+/** When true, raw buffers are saved under debug/render-jobs/{sessionId}/{jobId}/. */
+const DEBUG_ARTIFACTS_ENABLED = process.env.ROOM_PREVIEW_DEBUG_RENDER_ARTIFACTS === "true";
+
 // ─── Storage key builder ──────────────────────────────────────────────────────
 
 const RENDER_OUTPUT_KEY_PREFIX = "uploads/room-preview/renders";
@@ -52,6 +57,41 @@ const RENDER_OUTPUT_KEY_PREFIX = "uploads/room-preview/renders";
 function buildRenderStorageKey(options: { jobId: string; sessionId: string }) {
   const fileName = `${options.sessionId}-${options.jobId}.png`;
   return `${RENDER_OUTPUT_KEY_PREFIX}/${fileName}`;
+}
+
+function buildDebugArtifactKey(sessionId: string, jobId: string, filename: string): string {
+  return `debug/render-jobs/${sessionId}/${jobId}/${filename}`;
+}
+
+async function saveDebugArtifacts(params: {
+  sessionId: string;
+  jobId: string;
+  geminiInputBuffer: Buffer;
+  rawOutputBuffer: Buffer;
+  mimeType: string;
+  prompt: string;
+  snapshotMeta: Record<string, unknown>;
+}): Promise<Record<string, string>> {
+  const { sessionId, jobId, mimeType } = params;
+  const ext = mimeType === "image/jpeg" ? "jpg" : mimeType === "image/webp" ? "webp" : "png";
+  const urls: Record<string, string> = {};
+
+  const tasks: Array<{ key: string; filename: string; data: Buffer; ct: string }> = [
+    { key: "02-gemini-input",      filename: `02-gemini-input.${ext}`,       data: params.geminiInputBuffer, ct: mimeType },
+    { key: "03-gemini-raw-output", filename: "03-gemini-raw-output.png",     data: params.rawOutputBuffer,   ct: "image/png" },
+    { key: "04-final-saved-output",filename: "04-final-saved-output.png",    data: params.rawOutputBuffer,   ct: "image/png" },
+    { key: "prompt",               filename: "prompt.txt",                   data: Buffer.from(params.prompt, "utf-8"),                           ct: "text/plain" },
+    { key: "metadata",             filename: "metadata.json",                data: Buffer.from(JSON.stringify(params.snapshotMeta, null, 2), "utf-8"), ct: "application/json" },
+  ];
+
+  await Promise.allSettled(
+    tasks.map(async ({ key, filename, data, ct }) => {
+      const result = await storageUpload(buildDebugArtifactKey(sessionId, jobId, filename), data, ct);
+      urls[key] = result.publicUrl;
+    }),
+  );
+
+  return urls;
 }
 
 // ─── Gemini client ────────────────────────────────────────────────────────────
@@ -75,8 +115,12 @@ const IMAGE_FETCH_TIMEOUT_MS = 15_000;
 type PreparedImage = {
   base64: string;
   mimeType: string;
+  /** Final dimensions sent to Gemini (after EXIF rotation + possible resize). */
   width: number;
   height: number;
+  /** Dimensions after EXIF rotation but before any pixel resize — the "original upload" size. */
+  originalWidth: number;
+  originalHeight: number;
 };
 
 /**
@@ -195,8 +239,7 @@ async function loadAndPrepareImage(
     "Render input image dimensions after resize",
   );
 
-  // rawBuffer is no longer referenced after this point — eligible for GC.
-  return { base64: finalBuffer.toString("base64"), mimeType, width, height };
+  return { base64: finalBuffer.toString("base64"), mimeType, width, height, originalWidth, originalHeight };
 }
 
 // ─── Per-call timeout wrapper ─────────────────────────────────────────────────
@@ -218,6 +261,24 @@ async function generateContentWithTimeout(
   const params = { model: modelName, ...contentRequest } as any;
 
   return Promise.race([ai.models.generateContent(params), timeout]);
+}
+
+// ─── Typed render errors ──────────────────────────────────────────────────────
+
+class AspectRatioMismatchError extends Error {
+  readonly failureReason = "output_aspect_ratio_mismatch" as const;
+  constructor(
+    public readonly driftPercent: number,
+    public readonly inputWidth: number,
+    public readonly inputHeight: number,
+    public readonly outputWidth: number,
+    public readonly outputHeight: number,
+  ) {
+    super(
+      `Aspect ratio mismatch: output ${outputWidth}×${outputHeight} vs input ${inputWidth}×${inputHeight} (drift ${driftPercent.toFixed(1)}%)`,
+    );
+    this.name = "AspectRatioMismatchError";
+  }
 }
 
 // ─── Output validation + normalization ───────────────────────────────────────
@@ -281,8 +342,10 @@ async function validateAndNormalizeOutputImage(
     const inputAspect  = inputDimensions.width  / inputDimensions.height;
     const outputAspect = width / height;
     const drift = Math.abs(outputAspect - inputAspect) / inputAspect;
+    const driftPct = parseFloat((drift * 100).toFixed(2));
 
     if (drift > MAX_ASPECT_DRIFT) {
+      const shouldReject = drift > REJECT_ASPECT_RATIO_DRIFT;
       log.warn(
         {
           event: "output_aspect_ratio_mismatch",
@@ -292,11 +355,17 @@ async function validateAndNormalizeOutputImage(
           inputHeight: inputDimensions.height,
           outputWidth: width,
           outputHeight: height,
-          driftPercent: parseFloat((drift * 100).toFixed(2)),
-          action: "saved_raw",
+          driftPercent: driftPct,
+          action: shouldReject ? "rejected" : "saved_raw",
         },
-        "Gemini output aspect ratio drifted from input — saving raw output without any transform",
+        shouldReject
+          ? "Gemini output aspect ratio mismatch exceeds 5% — rejecting"
+          : "Gemini output aspect ratio drifted from input — saving raw output without any transform",
       );
+
+      if (shouldReject) {
+        throw new AspectRatioMismatchError(driftPct, inputDimensions.width, inputDimensions.height, width, height);
+      }
     }
   }
 
@@ -331,6 +400,18 @@ async function sleep(ms: number) {
 }
 
 // ─── Provider ─────────────────────────────────────────────────────────────────
+//
+// IMPORTANT — generation mode, not editing mode:
+// This uses Gemini's multimodal generateContent API with responseModalities:["IMAGE"].
+// The room and product images are sent as reference content, but Gemini generates a
+// NEW image rather than editing the input pixel-by-pixel (no inpainting/masking).
+// Consequences:
+//   - Output dimensions are not guaranteed to match input → the 5% aspect-ratio guard
+//     is the only defence against severely wrong-sized output.
+//   - Without a floorPolygon the model guesses the floor region, which can cause the
+//     scene composition (perspective, doors, walls) to shift.
+//   - For true in-place editing, consider switching to an inpainting API such as
+//     Imagen 3 edit mode, which accepts a mask and preserves the rest of the image.
 
 export const geminiRoomPreviewRenderProvider = {
   name: "gemini-nano-banana-renderer",
@@ -362,26 +443,48 @@ export const geminiRoomPreviewRenderProvider = {
       inputDimensions,
     );
 
-    const contentRequest: Record<string, unknown> = {
-      contents: [
-        {
-          role: "user" as const,
-          parts: [
-            { inlineData: { mimeType: roomImage.mimeType,    data: roomImage.base64    } },
-            { inlineData: { mimeType: productImage.mimeType, data: productImage.base64 } },
-            { text: prompt },
-          ],
-        },
-      ],
-      config: {
-        responseModalities: ["TEXT", "IMAGE"] as ("TEXT" | "IMAGE")[],
-      },
-    };
+    const imageParts = [
+      { inlineData: { mimeType: roomImage.mimeType,    data: roomImage.base64    } },
+      { inlineData: { mimeType: productImage.mimeType, data: productImage.base64 } },
+    ];
+
+    // Warn when rendering without a floor polygon — the model will estimate the floor
+    // region from the image content alone, which increases the risk of wrong-aspect
+    // output and scene composition drift.
+    if (!room.floorQuad) {
+      log.warn(
+        { event: "floor_polygon_missing_prompt_only_mode", sessionId },
+        "floor_polygon_missing_prompt_only_mode: no floorPolygon — Gemini will estimate the floor region from the image",
+      );
+      trackSessionEvent({
+        sessionId,
+        source: "renderer",
+        eventType: "floor_polygon_missing_prompt_only_mode",
+        level: "warning",
+        message: "Rendering in prompt-only mode — no floorPolygon available. Gemini will estimate the floor region.",
+      }).catch((evtErr) => {
+        log.warn({ evtErr, sessionId }, "floor_polygon_missing_prompt_only_mode event failed (non-fatal)");
+      });
+    }
 
     let lastError: unknown = null;
+    let aspectRatioRetried = false;
+    let activePrompt = prompt;
 
     for (const modelName of GEMINI_IMAGE_MODELS) {
       for (let attempt = 1; attempt <= MAX_RETRIES; attempt++) {
+        const contentRequest: Record<string, unknown> = {
+          contents: [
+            {
+              role: "user" as const,
+              parts: [...imageParts, { text: activePrompt }],
+            },
+          ],
+          config: {
+            responseModalities: ["TEXT", "IMAGE"] as ("TEXT" | "IMAGE")[],
+          },
+        };
+
         try {
           log.info(
             { modelName, attempt, sessionId, promptVersion: PROMPT_VERSION },
@@ -445,6 +548,67 @@ export const geminiRoomPreviewRenderProvider = {
             "Render succeeded",
           );
 
+          // ── Diagnostics snapshot ───────────────────────────────────────────
+          const resizedApplied =
+            roomImage.width !== roomImage.originalWidth ||
+            roomImage.height !== roomImage.originalHeight;
+
+          const snapshotMeta: Record<string, unknown> = {
+            renderJobId: request.jobId,
+            originalDimensions:      { width: roomImage.originalWidth, height: roomImage.originalHeight },
+            geminiInputDimensions:   { width: roomImage.width,         height: roomImage.height },
+            rawOutputDimensions:     { width, height },
+            finalOutputDimensions:   { width, height },
+            resizedApplied,
+            cropApplied:             false,
+            paddingApplied:          false,
+            normalizedApplied:       false,
+            fillApplied:             false,
+            containApplied:          false,
+            coverApplied:            false,
+            exifOrientationApplied:  true,
+            savedRaw:                true,
+            promptVersion:           PROMPT_VERSION,
+            modelName,
+            productName:             product.name ?? null,
+            floorPolygon:            room.floorQuad ?? null,
+            promptText:              prompt,
+            outputImageUrl:          uploadResult.publicUrl,
+            artifactUrls:            {} as Record<string, string>,
+          };
+
+          if (DEBUG_ARTIFACTS_ENABLED) {
+            try {
+              const geminiInputBuffer = Buffer.from(roomImage.base64, "base64");
+              const artifactUrls = await saveDebugArtifacts({
+                sessionId,
+                jobId: request.jobId,
+                geminiInputBuffer,
+                rawOutputBuffer: imageBuffer,
+                mimeType: roomImage.mimeType,
+                prompt,
+                snapshotMeta: { ...snapshotMeta, artifactUrls: undefined },
+              });
+              artifactUrls["01-original-upload"] = room.imageUrl ?? "";
+              snapshotMeta["artifactUrls"] = artifactUrls;
+            } catch (debugErr) {
+              log.warn(
+                { debugErr, sessionId, jobId: request.jobId },
+                "Debug artifact saving failed (non-fatal)",
+              );
+            }
+          }
+
+          trackSessionEvent({
+            sessionId,
+            source: "renderer",
+            eventType: "render_diagnostics_snapshot",
+            level: "info",
+            metadata: snapshotMeta,
+          }).catch((evtErr) => {
+            log.warn({ evtErr, sessionId }, "render_diagnostics_snapshot event failed (non-fatal)");
+          });
+
           return {
             generatedAt: new Date().toISOString(),
             imageUrl: uploadResult.publicUrl,
@@ -453,6 +617,44 @@ export const geminiRoomPreviewRenderProvider = {
           };
         } catch (err) {
           lastError = err;
+
+          if (err instanceof AspectRatioMismatchError && !aspectRatioRetried) {
+            aspectRatioRetried = true;
+            activePrompt =
+              `${prompt}\n\nCRITICAL CORRECTION: Your previous output had the wrong aspect ratio ` +
+              `(${err.outputWidth}×${err.outputHeight} instead of ${err.inputWidth}×${err.inputHeight}). ` +
+              `The output image MUST be exactly ${inputDimensions.width} pixels wide and ${inputDimensions.height} pixels tall. ` +
+              `Match the input image dimensions exactly — do NOT change the aspect ratio.`;
+            log.warn(
+              {
+                event: "output_aspect_ratio_mismatch_rejected",
+                sessionId,
+                modelName,
+                attempt,
+                driftPercent: err.driftPercent,
+                inputDimensions,
+                outputDimensions: { width: err.outputWidth, height: err.outputHeight },
+                action: "retrying_with_strict_prompt",
+              },
+              "Aspect ratio mismatch — retrying once with stricter dimension constraint",
+            );
+            continue;
+          }
+
+          if (err instanceof AspectRatioMismatchError) {
+            log.error(
+              {
+                event: "output_aspect_ratio_mismatch_rejected",
+                sessionId,
+                modelName,
+                attempt,
+                driftPercent: err.driftPercent,
+                action: "giving_up",
+              },
+              "Aspect ratio mismatch persists after strict-prompt retry — failing render",
+            );
+            break;
+          }
 
           if (isRetryableError(err) && attempt < MAX_RETRIES) {
             const delay = BASE_DELAY_MS * Math.pow(2, attempt - 1);

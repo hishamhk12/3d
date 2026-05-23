@@ -152,7 +152,7 @@ export async function getSessionDiagnostics(sessionId: string) {
       renderJobs: {
         orderBy: { createdAt: "desc" },
         take: 5,
-        select: { id: true, status: true, createdAt: true, updatedAt: true },
+        select: { id: true, status: true, input: true, result: true, createdAt: true, updatedAt: true },
       },
       sessionIssues: {
         orderBy: [{ status: "asc" }, { lastSeenAt: "desc" }],
@@ -228,5 +228,13 @@ export async function getSessionDiagnostics(sessionId: string) {
       lastRenderEvent: latestBySource(newestEvents, "renderer"),
       lastKnownProblem,
     },
+    renderJobs: session.renderJobs.map((job) => ({
+      id: job.id,
+      status: job.status,
+      input: job.input as unknown,
+      result: job.result as unknown,
+      createdAt: job.createdAt.toISOString(),
+      updatedAt: job.updatedAt.toISOString(),
+    })),
   };
 }

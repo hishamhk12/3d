@@ -151,7 +151,7 @@ export default async function SessionDiagnosticsPage({ params }: SessionDiagnost
 
   if (!diagnostics) notFound();
 
-  const { clientDiagnostics, issues, summary, timeline } = diagnostics;
+  const { clientDiagnostics, issues, summary, timeline, renderJobs } = diagnostics;
   const openIssues     = issues.filter((issue) => issue.status === "open");
   const resolvedIssues = issues.filter((issue) => issue.status !== "open");
 
@@ -427,7 +427,458 @@ export default async function SessionDiagnosticsPage({ params }: SessionDiagnost
           </div>
         </section>
 
+        {/* ── Render Diagnostics ──────────────────────────────────────────── */}
+        <RenderDiagnosticsSection renderJobs={renderJobs} timeline={timeline} sessionId={sessionId} />
+
       </main>
+    </div>
+  );
+}
+
+// ─── Render Diagnostics helpers ───────────────────────────────────────────────
+
+type RenderJobRaw = { id: string; status: string; input: unknown; result: unknown; createdAt: string; updatedAt: string };
+type DiagSnapshotMeta = {
+  renderJobId?: string;
+  originalDimensions?:    { width: number; height: number } | null;
+  geminiInputDimensions?: { width: number; height: number } | null;
+  rawOutputDimensions?:   { width: number; height: number } | null;
+  finalOutputDimensions?: { width: number; height: number } | null;
+  resizedApplied?:             boolean;
+  cropApplied?:                boolean;
+  paddingApplied?:             boolean;
+  normalizedApplied?:          boolean;
+  fillApplied?:                boolean;
+  containApplied?:             boolean;
+  coverApplied?:               boolean;
+  exifOrientationApplied?:     boolean;
+  savedRaw?:                   boolean;
+  promptVersion?:              string | null;
+  modelName?:                  string | null;
+  productName?:                string | null;
+  floorPolygon?:               unknown;
+  promptText?:                 string | null;
+  outputImageUrl?:             string | null;
+  artifactUrls?:               Record<string, string>;
+};
+
+function isRecord(v: unknown): v is Record<string, unknown> {
+  return typeof v === "object" && v !== null;
+}
+
+function extractInput(job: RenderJobRaw) {
+  if (!isRecord(job.input)) return null;
+  const room    = isRecord(job.input["room"])    ? job.input["room"]    : null;
+  const product = isRecord(job.input["product"]) ? job.input["product"] : null;
+  return {
+    roomImageUrl:    (room    && typeof room["imageUrl"]    === "string") ? room["imageUrl"]    : null,
+    floorPolygon:    (room    && room["floorQuad"]          != null)      ? room["floorQuad"]    : null,
+    productName:     (product && typeof product["name"]     === "string") ? product["name"]     : null,
+    productImageUrl: (product && typeof product["imageUrl"] === "string") ? product["imageUrl"] : null,
+  };
+}
+
+function extractResult(job: RenderJobRaw) {
+  if (!isRecord(job.result)) return null;
+  return {
+    imageUrl:    typeof job.result["imageUrl"]    === "string" ? job.result["imageUrl"]    : null,
+    modelName:   typeof job.result["modelName"]   === "string" ? job.result["modelName"]   : null,
+    generatedAt: typeof job.result["generatedAt"] === "string" ? job.result["generatedAt"] : null,
+  };
+}
+
+function extractSnapshot(
+  timeline: { eventType: string; metadata: unknown }[],
+  renderJobId: string,
+): DiagSnapshotMeta | null {
+  const events = timeline.filter(
+    (e) => e.eventType === "render_diagnostics_snapshot" && isRecord(e.metadata),
+  );
+  // Match by renderJobId first; fall back to the latest snapshot
+  const match =
+    events.find((e) => isRecord(e.metadata) && (e.metadata as Record<string,unknown>)["renderJobId"] === renderJobId) ??
+    events[events.length - 1];
+  return match ? (match.metadata as DiagSnapshotMeta) : null;
+}
+
+function aspectRatio(w: number, h: number) {
+  return h === 0 ? "—" : (w / h).toFixed(3);
+}
+
+function DimBadge({ drift }: { drift: number }) {
+  if (drift === 0) return null;
+  const pct = (drift * 100).toFixed(1);
+  return (
+    <span className="ml-1 inline-flex items-center rounded-full bg-amber-100 px-2 py-0.5 text-[10px] font-semibold text-amber-800">
+      ⚠ {pct}% اختلاف أبعاد
+    </span>
+  );
+}
+
+function WarnBadge({ label }: { label: string }) {
+  return (
+    <span className="inline-flex items-center rounded-full bg-red-100 px-2 py-0.5 text-[10px] font-semibold text-red-700">
+      ⚠ {label}
+    </span>
+  );
+}
+
+function FlagRow({ label, value }: { label: string; value: boolean | undefined }) {
+  const v = value ?? false;
+  return (
+    <div className={`flex items-center justify-between rounded-lg border px-3 py-1.5 ${v ? "border-amber-200 bg-amber-50" : "border-slate-100 bg-white"}`}>
+      <span className="text-xs text-slate-600 font-mono">{label}</span>
+      <span className={`text-xs font-bold ${v ? "text-amber-700" : "text-slate-400"}`}>{v ? "yes" : "no"}</span>
+    </div>
+  );
+}
+
+// ─── Render Diagnostics Section ───────────────────────────────────────────────
+
+function RenderDiagnosticsSection({
+  renderJobs,
+  timeline,
+  sessionId,
+}: {
+  renderJobs: RenderJobRaw[];
+  timeline: { eventType: string; metadata: unknown; timestamp: string }[];
+  sessionId: string;
+}) {
+  const latestJob = renderJobs[0] ?? null;
+
+  return (
+    <section className="rounded-xl border border-blue-200 bg-white p-5 shadow-sm">
+      <div className="flex items-center justify-between gap-4 mb-4">
+        <div>
+          <h2 className="text-sm font-semibold text-slate-950">Render Diagnostics</h2>
+          <p className="mt-0.5 text-xs text-slate-500">
+            Image pipeline stages, dimension mismatches, and debug artifacts for this session&apos;s render jobs.
+          </p>
+        </div>
+        {renderJobs.length > 1 && (
+          <span className="rounded-full bg-slate-100 px-2.5 py-1 text-xs text-slate-600">
+            {renderJobs.length} jobs
+          </span>
+        )}
+      </div>
+
+      {!latestJob ? (
+        <p className="rounded-lg bg-slate-50 px-4 py-6 text-center text-sm text-slate-500">
+          لا توجد بيانات تشخيص للرندر بعد. شغّل رندر جديد مع تفعيل التشخيص.
+        </p>
+      ) : (
+        <RenderJobDiag job={latestJob} timeline={timeline} sessionId={sessionId} />
+      )}
+
+      {renderJobs.length > 1 && (
+        <details className="mt-4">
+          <summary className="cursor-pointer text-xs font-medium text-slate-500 hover:text-slate-800">
+            Show {renderJobs.length - 1} earlier job(s)
+          </summary>
+          <div className="mt-3 space-y-6">
+            {renderJobs.slice(1).map((job) => (
+              <RenderJobDiag key={job.id} job={job} timeline={timeline} sessionId={sessionId} />
+            ))}
+          </div>
+        </details>
+      )}
+    </section>
+  );
+}
+
+function RenderJobDiag({
+  job,
+  timeline,
+  sessionId,
+}: {
+  job: RenderJobRaw;
+  timeline: { eventType: string; metadata: unknown; timestamp: string }[];
+  sessionId: string;
+}) {
+  const input    = extractInput(job);
+  const result   = extractResult(job);
+  const snap     = extractSnapshot(timeline, job.id);
+
+  const orig  = snap?.originalDimensions;
+  const gin   = snap?.geminiInputDimensions;
+  const rout  = snap?.rawOutputDimensions;
+  const fout  = snap?.finalOutputDimensions;
+
+  function driftVs(a: { width: number; height: number } | null | undefined, b: { width: number; height: number } | null | undefined) {
+    if (!a || !b || a.height === 0 || b.height === 0) return 0;
+    const ar = a.width / a.height;
+    const br = b.width / b.height;
+    return Math.abs(ar - br) / ar;
+  }
+
+  const ginVsOrig  = driftVs(gin, orig);
+  const routVsGin  = driftVs(rout, gin);
+  const foutVsRout = driftVs(fout, rout);
+
+  function jobEventHasFailureReason(reason: string) {
+    return timeline.some(
+      (e) =>
+        e.eventType === "render_failed" &&
+        isRecord(e.metadata) &&
+        (e.metadata as Record<string, unknown>)["failureReason"] === reason &&
+        (e.metadata as Record<string, unknown>)["renderJobId"] === job.id,
+    );
+  }
+
+  const promptOnlyMode = timeline.some(
+    (e) => e.eventType === "floor_polygon_missing_prompt_only_mode",
+  );
+
+  const warnings: string[] = [];
+  if (!snap)                              warnings.push("لا يوجد render_diagnostics_snapshot — شغّل رندراً جديداً");
+  if (jobEventHasFailureReason("output_aspect_ratio_mismatch"))
+                                          warnings.push("سبب الفشل: output_aspect_ratio_mismatch — نسبة أبعاد ناتج Gemini مختلفة عن المدخل بعد المحاولة الثانية");
+  if (!input?.floorPolygon && snap)       warnings.push(promptOnlyMode ? "floorPolygon مفقود — الرندر في وضع النص فقط (prompt-only)" : "floorPolygon مفقود");
+  if (!input?.productName  && snap)       warnings.push("productName مفقود");
+  if (!snap?.promptVersion && snap)       warnings.push("promptVersion مفقود");
+  if (snap?.paddingApplied)               warnings.push("احتمال قص/تمديد — paddingApplied: true");
+  if (snap?.cropApplied)                  warnings.push("احتمال قص — cropApplied: true");
+  if (ginVsOrig  > 0.02)                  warnings.push(`اختلاف أبعاد — Gemini input vs original: ${(ginVsOrig * 100).toFixed(1)}%`);
+  if (routVsGin  > 0.05)                  warnings.push(`اختلاف أبعاد — raw output vs Gemini input: ${(routVsGin * 100).toFixed(1)}%`);
+  if (foutVsRout > 0.001)                 warnings.push(`تم حفظ الناتج الخام — final differs from raw output`);
+
+  const statusColor =
+    job.status === "completed" ? "bg-emerald-100 text-emerald-800"
+    : job.status === "failed"  ? "bg-red-100 text-red-800"
+    : "bg-slate-100 text-slate-700";
+
+  const artifacts = snap?.artifactUrls ?? {};
+  const artifactList: Array<{ key: string; label: string }> = [
+    { key: "01-original-upload",   label: "01 · Original Upload" },
+    { key: "02-gemini-input",      label: "02 · Gemini Input" },
+    { key: "03-gemini-raw-output", label: "03 · Raw Gemini Output" },
+    { key: "04-final-saved-output",label: "04 · Final Saved Output" },
+    { key: "prompt",               label: "prompt.txt" },
+    { key: "metadata",             label: "metadata.json" },
+  ];
+  // Inject direct link for 01 from room imageUrl if no artifact was saved
+  if (!artifacts["01-original-upload"] && input?.roomImageUrl) {
+    artifacts["01-original-upload"] = input.roomImageUrl;
+  }
+
+  return (
+    <div className="space-y-4 pt-4 border-t border-slate-100 first:border-t-0 first:pt-0">
+
+      {/* Job header */}
+      <div className="flex flex-wrap items-center gap-2">
+        <span className="font-mono text-xs text-slate-800">{job.id}</span>
+        <span className={`rounded-full px-2 py-0.5 text-[11px] font-semibold ${statusColor}`}>{job.status}</span>
+        {result?.modelName && (
+          <span className="rounded-full bg-blue-50 px-2 py-0.5 text-[11px] text-blue-700 font-medium">{result.modelName}</span>
+        )}
+        {snap?.promptVersion && (
+          <span className="rounded-full bg-purple-50 px-2 py-0.5 text-[11px] text-purple-700 font-medium">{snap.promptVersion}</span>
+        )}
+        <span className="text-[11px] text-slate-400">{dateTime(job.createdAt)}</span>
+      </div>
+
+      {/* Warnings */}
+      {warnings.length > 0 && (
+        <div className="rounded-lg border border-red-200 bg-red-50 p-3 space-y-1">
+          <p className="text-[11px] font-semibold text-red-700 uppercase tracking-wide">Warnings</p>
+          {warnings.map((w, i) => (
+            <p key={i} className="flex items-start gap-1.5 text-xs text-red-700">
+              <span>⚠</span> {w}
+            </p>
+          ))}
+        </div>
+      )}
+
+      <div className="grid gap-4 lg:grid-cols-2">
+
+        {/* Metadata table */}
+        <div>
+          <h3 className="mb-2 text-[11px] font-semibold uppercase tracking-wide text-slate-500">Metadata</h3>
+          <div className="overflow-hidden rounded-lg border border-slate-200">
+            <table className="w-full text-xs">
+              <tbody className="divide-y divide-slate-100 bg-white">
+                {([
+                  ["sessionId",      sessionId],
+                  ["renderJobId",    job.id],
+                  ["status",         job.status],
+                  ["model",          result?.modelName ?? snap?.modelName ?? "—"],
+                  ["promptVersion",  snap?.promptVersion ?? "—"],
+                  ["productName",    input?.productName ?? "—"],
+                  ["createdAt",      dateTime(job.createdAt)],
+                  ["updatedAt",      dateTime(job.updatedAt)],
+                ] as [string, string][]).map(([k, v]) => (
+                  <tr key={k}>
+                    <td className="whitespace-nowrap px-3 py-2 font-mono text-slate-500 w-36">{k}</td>
+                    <td className="px-3 py-2 text-slate-800 break-all">{v}</td>
+                  </tr>
+                ))}
+                {input?.productImageUrl && (
+                  <tr>
+                    <td className="px-3 py-2 font-mono text-slate-500">productImage</td>
+                    <td className="px-3 py-2">
+                      {/* eslint-disable-next-line @next/next/no-img-element */}
+                      <img src={input.productImageUrl} alt="" className="h-12 w-12 rounded object-contain bg-slate-100" />
+                    </td>
+                  </tr>
+                )}
+                {input?.roomImageUrl && (
+                  <tr>
+                    <td className="px-3 py-2 font-mono text-slate-500">roomImage</td>
+                    <td className="px-3 py-2">
+                      {/* eslint-disable-next-line @next/next/no-img-element */}
+                      <img src={input.roomImageUrl} alt="" className="h-20 rounded object-contain bg-slate-100" />
+                    </td>
+                  </tr>
+                )}
+                {result?.imageUrl && (
+                  <tr>
+                    <td className="px-3 py-2 font-mono text-slate-500">outputImage</td>
+                    <td className="px-3 py-2">
+                      {/* eslint-disable-next-line @next/next/no-img-element */}
+                      <img src={result.imageUrl} alt="" className="h-20 rounded object-contain bg-slate-100" />
+                    </td>
+                  </tr>
+                )}
+                <tr>
+                  <td className="px-3 py-2 font-mono text-slate-500 align-top">floorPolygon</td>
+                  <td className="px-3 py-2">
+                    {input?.floorPolygon
+                      ? <pre className="text-[10px] text-slate-700 leading-4">{JSON.stringify(input.floorPolygon, null, 2)}</pre>
+                      : <WarnBadge label="floorPolygon مفقود" />}
+                  </td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+
+        {/* Right column: dimensions + flags */}
+        <div className="space-y-4">
+
+          {/* Dimensions table */}
+          <div>
+            <h3 className="mb-2 text-[11px] font-semibold uppercase tracking-wide text-slate-500">Image Pipeline Dimensions</h3>
+            {!snap ? (
+              <p className="rounded-lg bg-slate-50 px-3 py-4 text-xs text-slate-500 text-center">
+                No snapshot yet — run a new render to populate this table.
+              </p>
+            ) : (
+              <div className="overflow-x-auto rounded-lg border border-slate-200">
+                <table className="w-full text-xs">
+                  <thead className="border-b border-slate-200 bg-slate-50">
+                    <tr>
+                      {["Stage", "W", "H", "Aspect", "Notes"].map((h) => (
+                        <th key={h} className="px-3 py-2 text-left text-[10px] uppercase tracking-wide text-slate-500">{h}</th>
+                      ))}
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-slate-100 bg-white">
+                    {([
+                      { label: "Original upload",    dim: orig,  drift: 0,          note: snap.resizedApplied ? "resize will apply" : "no resize needed" },
+                      { label: "Gemini input",        dim: gin,   drift: ginVsOrig,  note: snap.resizedApplied ? "fit:inside resized" : "no resize applied" },
+                      { label: "Raw Gemini output",   dim: rout,  drift: routVsGin,  note: snap.savedRaw ? "saved_raw (no transform)" : "" },
+                      { label: "Final saved output",  dim: fout,  drift: foutVsRout, note: snap.outputImageUrl ? "→ storage" : "" },
+                    ] as Array<{ label: string; dim: typeof orig; drift: number; note: string }>).map(({ label, dim, drift, note }) => (
+                      <tr key={label}>
+                        <td className="whitespace-nowrap px-3 py-2 text-slate-700">{label}</td>
+                        <td className="px-3 py-2 tabular-nums text-slate-800">{dim?.width ?? "—"}</td>
+                        <td className="px-3 py-2 tabular-nums text-slate-800">{dim?.height ?? "—"}</td>
+                        <td className="px-3 py-2 tabular-nums text-slate-600">
+                          {dim ? aspectRatio(dim.width, dim.height) : "—"}
+                          <DimBadge drift={drift} />
+                        </td>
+                        <td className="px-3 py-2 text-slate-400 text-[10px]">{note}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            )}
+          </div>
+
+          {/* Flags */}
+          {snap && (
+            <div>
+              <h3 className="mb-2 text-[11px] font-semibold uppercase tracking-wide text-slate-500">Transform Flags</h3>
+              <div className="space-y-1">
+                <FlagRow label="resizedApplied"          value={snap.resizedApplied} />
+                <FlagRow label="cropApplied"             value={snap.cropApplied} />
+                <FlagRow label="paddingApplied"          value={snap.paddingApplied} />
+                <FlagRow label="normalizedApplied"       value={snap.normalizedApplied} />
+                <FlagRow label="fillApplied"             value={snap.fillApplied} />
+                <FlagRow label="containApplied"         value={snap.containApplied} />
+                <FlagRow label="coverApplied"            value={snap.coverApplied} />
+                <FlagRow label="exifOrientationApplied"  value={snap.exifOrientationApplied} />
+                <FlagRow label="savedRaw"                value={snap.savedRaw} />
+              </div>
+            </div>
+          )}
+        </div>
+      </div>
+
+      {/* Prompt viewer */}
+      {snap?.promptText && (
+        <details className="mt-2">
+          <summary className="cursor-pointer rounded-lg border border-slate-200 bg-slate-50 px-3 py-2 text-xs font-medium text-slate-700 hover:bg-slate-100 list-none flex items-center justify-between">
+            <span>Prompt <span className="ml-1.5 text-slate-400 font-normal">(version: {snap.promptVersion ?? "—"}, model: {snap.modelName ?? "—"})</span></span>
+            <span className="text-slate-400">▼</span>
+          </summary>
+          <pre className="mt-2 max-h-72 overflow-auto rounded-lg border border-slate-200 bg-slate-950 p-4 text-[11px] leading-5 text-emerald-300 whitespace-pre-wrap">
+            {snap.promptText}
+          </pre>
+        </details>
+      )}
+
+      {/* Debug artifact links */}
+      {Object.keys(artifacts).length > 0 && (
+        <div>
+          <h3 className="mb-2 text-[11px] font-semibold uppercase tracking-wide text-slate-500">
+            Debug Artifacts
+            {!process.env.ROOM_PREVIEW_DEBUG_RENDER_ARTIFACTS && (
+              <span className="ml-2 font-normal text-slate-400">(enable ROOM_PREVIEW_DEBUG_RENDER_ARTIFACTS=true to save all stages)</span>
+            )}
+          </h3>
+          <div className="flex flex-wrap gap-2">
+            {artifactList.map(({ key, label }) => {
+              const url = artifacts[key];
+              if (!url) return null;
+              const isImage = key.startsWith("0") && !key.endsWith("txt");
+              return (
+                <a
+                  key={key}
+                  href={url}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="group flex flex-col items-center gap-1.5 rounded-lg border border-slate-200 bg-slate-50 p-2 text-[10px] text-slate-600 hover:border-blue-300 hover:bg-blue-50 hover:text-blue-700 transition-colors"
+                >
+                  {isImage ? (
+                    /* eslint-disable-next-line @next/next/no-img-element */
+                    <img
+                      src={url}
+                      alt={label}
+                      className="h-20 w-28 rounded object-contain bg-white border border-slate-200"
+                      loading="lazy"
+                    />
+                  ) : (
+                    <div className="h-20 w-28 rounded border border-slate-200 bg-white flex items-center justify-center text-slate-400">
+                      <span className="text-lg">📄</span>
+                    </div>
+                  )}
+                  <span className="font-mono text-center leading-tight">{label}</span>
+                </a>
+              );
+            })}
+          </div>
+        </div>
+      )}
+
+      {/* No artifacts hint */}
+      {Object.keys(artifacts).length === 0 && snap && (
+        <p className="rounded-lg border border-dashed border-slate-200 px-4 py-3 text-xs text-slate-500">
+          No debug artifacts saved.
+          Set <code className="rounded bg-slate-100 px-1 font-mono text-slate-700">ROOM_PREVIEW_DEBUG_RENDER_ARTIFACTS=true</code> and re-run a render to save stage images and the prompt.
+        </p>
+      )}
     </div>
   );
 }

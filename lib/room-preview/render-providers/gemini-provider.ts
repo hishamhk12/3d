@@ -88,7 +88,10 @@ type PreparedImage = {
  * re-decoding to Buffer just to read metadata, which held two copies of the
  * image in memory simultaneously.
  */
-async function loadAndPrepareImage(url: string): Promise<PreparedImage> {
+async function loadAndPrepareImage(
+  url: string,
+  context: { imageRole: "room" | "product"; sessionId: string },
+): Promise<PreparedImage> {
   const { default: sharp } = await import("sharp");
 
   let rawBuffer: Buffer;
@@ -130,6 +133,19 @@ async function loadAndPrepareImage(url: string): Promise<PreparedImage> {
     originalWidth  > MAX_IMAGE_DIMENSION_PX ||
     originalHeight > MAX_IMAGE_DIMENSION_PX;
 
+  log.info(
+    {
+      event: "render_input_image_dimensions_before_resize",
+      imageRole: context.imageRole,
+      resizeFit: "inside",
+      sessionId: context.sessionId,
+      url: url.slice(0, 120),
+      width: originalWidth,
+      height: originalHeight,
+    },
+    "Render input image dimensions before resize",
+  );
+
   let finalBuffer: Buffer;
   let width: number;
   let height: number;
@@ -147,7 +163,17 @@ async function loadAndPrepareImage(url: string): Promise<PreparedImage> {
     height = resizedMeta.height ?? originalHeight;
 
     log.info(
-      { url: url.slice(0, 80), originalWidth, originalHeight, width, height },
+      {
+        event: "render_input_image_dimensions_after_resize",
+        imageRole: context.imageRole,
+        originalWidth,
+        originalHeight,
+        resizeFit: "inside",
+        sessionId: context.sessionId,
+        url: url.slice(0, 120),
+        width,
+        height,
+      },
       "Image resized before Gemini upload",
     );
   } else {
@@ -155,6 +181,19 @@ async function loadAndPrepareImage(url: string): Promise<PreparedImage> {
     width  = originalWidth;
     height = originalHeight;
   }
+
+  log.info(
+    {
+      event: "render_input_image_dimensions_after_resize",
+      imageRole: context.imageRole,
+      resized: needsResize,
+      resizeFit: "inside",
+      sessionId: context.sessionId,
+      width,
+      height,
+    },
+    "Render input image dimensions after resize",
+  );
 
   // rawBuffer is no longer referenced after this point — eligible for GC.
   return { base64: finalBuffer.toString("base64"), mimeType, width, height };
@@ -192,7 +231,10 @@ async function normalizeOutputToInputDimensions(
 ): Promise<Buffer<ArrayBuffer>> {
   const { default: sharp } = await import("sharp");
   return (await sharp(buffer)
-    .resize(targetWidth, targetHeight, { fit: "cover", position: "center" })
+    .resize(targetWidth, targetHeight, {
+      fit: "contain",
+      background: { r: 0, g: 0, b: 0, alpha: 1 },
+    })
     .png()
     .toBuffer()) as Buffer<ArrayBuffer>;
 }
@@ -251,6 +293,7 @@ async function validateAndNormalizeOutputImage(
           inputHeight: inputDimensions.height,
           outputWidth: width,
           outputHeight: height,
+          resizeFit: "contain",
           driftPercent: parseFloat((drift * 100).toFixed(2)),
         },
         "Output aspect ratio drifted — normalizing to input dimensions",
@@ -307,8 +350,8 @@ export const geminiRoomPreviewRenderProvider = {
     // Load, decode, and resize (if needed) in a single sharp pipeline each.
     // Dimensions are returned directly — no second decode needed for metadata.
     const [roomImage, productImage] = await Promise.all([
-      loadAndPrepareImage(room.imageUrl),
-      loadAndPrepareImage(product.imageUrl),
+      loadAndPrepareImage(room.imageUrl, { imageRole: "room", sessionId }),
+      loadAndPrepareImage(product.imageUrl, { imageRole: "product", sessionId }),
     ]);
 
     const inputDimensions = { width: roomImage.width, height: roomImage.height };

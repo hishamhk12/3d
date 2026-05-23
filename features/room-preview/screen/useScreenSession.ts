@@ -20,7 +20,7 @@ import { createRoomPreviewSessionPoller } from "@/lib/room-preview/session-polli
 import { trackClientSessionEvent } from "@/lib/room-preview/session-diagnostics-client";
 import { useScreenHeartbeat } from "@/features/room-preview/screen/useScreenHeartbeat";
 import type { TranslationDictionary } from "@/lib/i18n/dictionaries";
-import type { RoomPreviewSession } from "@/lib/room-preview/types";
+import type { RoomPreviewSession, RoomPreviewSessionStatus } from "@/lib/room-preview/types";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -80,6 +80,7 @@ function shouldStopPolling(error: RoomPreviewRequestError | Error) {
 }
 
 const FALLBACK_NOTICE_DELAY_MS = 10_000;
+const SSE_RECONNECT_POLLING_GRACE_MS = 4_000;
 const SOFT_FALLBACK_NOTICE = {
   ar: "جارٍ متابعة التحديثات...",
   en: "Following updates...",
@@ -87,6 +88,58 @@ const SOFT_FALLBACK_NOTICE = {
 
 function isPollingTerminalStatus(status: RoomPreviewSession["status"] | null | undefined) {
   return status === "completed" || status === "failed" || status === "expired";
+}
+
+const STATUS_RANK: Record<RoomPreviewSessionStatus, number> = {
+  created: 0,
+  waiting_for_mobile: 1,
+  mobile_connected: 2,
+  room_selected: 3,
+  product_selected: 4,
+  ready_to_render: 5,
+  rendering: 6,
+  result_ready: 7,
+  completed: 8,
+  failed: 8,
+  expired: 8,
+};
+
+function getSessionUpdatedAtMs(session: RoomPreviewSession) {
+  const timestamp = Date.parse(session.updatedAt);
+  return Number.isFinite(timestamp) ? timestamp : 0;
+}
+
+function shouldIgnoreIncomingSession(
+  current: RoomPreviewSession | null,
+  incoming: RoomPreviewSession,
+) {
+  if (!current || current.id !== incoming.id) return false;
+
+  const currentUpdatedAt = getSessionUpdatedAtMs(current);
+  const incomingUpdatedAt = getSessionUpdatedAtMs(incoming);
+
+  if (incomingUpdatedAt < currentUpdatedAt) return true;
+  if (incomingUpdatedAt > currentUpdatedAt) return false;
+
+  return STATUS_RANK[incoming.status] < STATUS_RANK[current.status];
+}
+
+function mergeIncomingSession(
+  current: RoomPreviewSession | null,
+  incoming: RoomPreviewSession,
+) {
+  if (!current || current.id !== incoming.id) return incoming;
+  if (shouldIgnoreIncomingSession(current, incoming)) return current;
+
+  return {
+    ...incoming,
+    selectedRoom:
+      incoming.selectedRoom ??
+      (STATUS_RANK[incoming.status] >= STATUS_RANK.room_selected ? current.selectedRoom : null),
+    selectedProduct:
+      incoming.selectedProduct ??
+      (STATUS_RANK[incoming.status] >= STATUS_RANK.product_selected ? current.selectedProduct : null),
+  };
 }
 
 function logRealtimeEvent(
@@ -116,8 +169,10 @@ export function useScreenSession({ sessionId }: { sessionId: string }): UseScree
   const [resetCountdown,        setResetCountdown]       = useState<number | null>(null);
   const [idleCountdown,         setIdleCountdown]        = useState<number | null>(null);
   const [errorCountdown,        setErrorCountdown]       = useState<number | null>(null);
+  const sessionRef = useRef<RoomPreviewSession | null>(null);
   const fallbackStartedRef = useRef(false);
   const fallbackNoticeTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const reconnectPollingGraceTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const hasLoadedSession   = session !== null;
   const hasSelectedProduct = Boolean(session?.selectedProduct?.id && session?.selectedProduct?.imageUrl);
@@ -129,12 +184,82 @@ export function useScreenSession({ sessionId }: { sessionId: string }): UseScree
   const sessionStatusRef = useRef<RoomPreviewSession["status"] | null>(null);
   sessionStatusRef.current = session?.status ?? null;
 
+  const clearReconnectPollingGraceTimer = useCallback(() => {
+    if (reconnectPollingGraceTimeoutRef.current !== null) {
+      clearTimeout(reconnectPollingGraceTimeoutRef.current);
+      reconnectPollingGraceTimeoutRef.current = null;
+    }
+  }, []);
+
   const clearFallbackNoticeTimer = useCallback(() => {
     if (fallbackNoticeTimeoutRef.current !== null) {
       clearTimeout(fallbackNoticeTimeoutRef.current);
       fallbackNoticeTimeoutRef.current = null;
     }
   }, []);
+
+  const applySessionUpdate = useCallback((nextSession: RoomPreviewSession, transport: string) => {
+    const previousSession = sessionRef.current;
+
+    if (shouldIgnoreIncomingSession(previousSession, nextSession)) {
+      console.info("[room-preview] screen_session_update_ignored_stale", {
+        currentStatus: previousSession?.status ?? null,
+        currentUpdatedAt: previousSession?.updatedAt ?? null,
+        incomingStatus: nextSession.status,
+        incomingUpdatedAt: nextSession.updatedAt,
+        sessionId,
+        transport,
+      });
+      return false;
+    }
+
+    const mergedSession = mergeIncomingSession(previousSession, nextSession);
+    sessionRef.current = mergedSession;
+    setSession(mergedSession);
+
+    if (
+      mergedSession.selectedRoom?.imageUrl &&
+      mergedSession.selectedRoom.imageUrl !== previousSession?.selectedRoom?.imageUrl
+    ) {
+      console.info("[room-preview] screen_session_updated_after_upload", {
+        roomImageUrl: mergedSession.selectedRoom.imageUrl,
+        sessionId,
+        status: mergedSession.status,
+        transport,
+      });
+      void trackClientSessionEvent(sessionId, {
+        source: "screen",
+        eventType: "screen_session_updated_after_upload",
+        level: "info",
+        statusAfter: mergedSession.status,
+        metadata: {
+          roomImageUrl: mergedSession.selectedRoom.imageUrl,
+          transport,
+        },
+      });
+    }
+
+    if (
+      mergedSession.selectedProduct?.imageUrl &&
+      mergedSession.selectedProduct.imageUrl !== previousSession?.selectedProduct?.imageUrl
+    ) {
+      console.info("[room-preview] screen_session_updated_after_product_selection", {
+        productId: mergedSession.selectedProduct.id,
+        productImageUrl: mergedSession.selectedProduct.imageUrl,
+        sessionId,
+        status: mergedSession.status,
+        transport,
+      });
+    }
+
+    return true;
+  }, [sessionId]);
+
+  const fetchAndApplyLatestSession = useCallback(async (transport: string) => {
+    const latestSession = await fetchRoomPreviewSession(sessionId);
+    applySessionUpdate(latestSession, transport);
+    return latestSession;
+  }, [applySessionUpdate, sessionId]);
 
   const {
     isConnected: heartbeatConnected,
@@ -197,7 +322,7 @@ export function useScreenSession({ sessionId }: { sessionId: string }): UseScree
       try {
         const nextSession = await fetchRoomPreviewSession(sessionId);
         if (!active) return;
-        setSession(nextSession);
+        applySessionUpdate(nextSession, "initial_fetch");
         setViewState("ready");
         trackClientSessionEvent(sessionId, {
           source: "screen",
@@ -209,6 +334,7 @@ export function useScreenSession({ sessionId }: { sessionId: string }): UseScree
       } catch (loadError) {
         if (!active) return;
         const failure = getViewStateFromError(loadError, t);
+        sessionRef.current = null;
         setSession(null);
         setViewState(failure.state);
         setError(failure.message);
@@ -217,7 +343,7 @@ export function useScreenSession({ sessionId }: { sessionId: string }): UseScree
 
     void loadSession();
     return () => { active = false; };
-  }, [loadAttempt, sessionId, t]);
+  }, [applySessionUpdate, loadAttempt, sessionId, t]);
 
   // ── SSE (real-time) ────────────────────────────────────────────────────────
   useEffect(() => {
@@ -238,15 +364,36 @@ export function useScreenSession({ sessionId }: { sessionId: string }): UseScree
           level: "info",
           statusAfter: sessionStatusRef.current,
         });
-        if (reconnected) {
-          setIsUsingPollingFallback(false);
-          fallbackStartedRef.current = false;
-        }
         clearFallbackNoticeTimer();
         setPollError(null);
+
+        if (reconnected) {
+          clearReconnectPollingGraceTimer();
+          void fetchAndApplyLatestSession("sse_reconnect_fetch")
+            .then((latestSession) => {
+              if (!active) return;
+              if (isPollingTerminalStatus(latestSession.status)) {
+                setIsUsingPollingFallback(false);
+                return;
+              }
+              reconnectPollingGraceTimeoutRef.current = setTimeout(() => {
+                if (!active) return;
+                setIsUsingPollingFallback(false);
+              }, SSE_RECONNECT_POLLING_GRACE_MS);
+            })
+            .catch((refreshError) => {
+              if (!active) return;
+              console.warn("[room-preview] sse_reconnect_fetch_failed", {
+                error: refreshError instanceof Error ? refreshError.message : String(refreshError),
+                sessionId,
+              });
+              setIsUsingPollingFallback(true);
+            });
+        }
       },
       onError: ({ attempt, nextDelayMs }) => {
         if (!active) return;
+        clearReconnectPollingGraceTimer();
         logRealtimeEvent("sse_disconnected", {
           attempt,
           nextDelayMs,
@@ -271,7 +418,7 @@ export function useScreenSession({ sessionId }: { sessionId: string }): UseScree
           clearFallbackNoticeTimer();
         }
         setPollError(null);
-        setSession(nextSession);
+        applySessionUpdate(nextSession, "sse");
         trackClientSessionEvent(sessionId, {
           source: "screen",
           eventType: "screen_received_session_update",
@@ -285,9 +432,19 @@ export function useScreenSession({ sessionId }: { sessionId: string }): UseScree
     return () => {
       active = false;
       clearFallbackNoticeTimer();
+      clearReconnectPollingGraceTimer();
       stopEvents();
     };
-  }, [clearFallbackNoticeTimer, hasLoadedSession, isPollingTerminal, sessionId, viewState]);
+  }, [
+    applySessionUpdate,
+    clearFallbackNoticeTimer,
+    clearReconnectPollingGraceTimer,
+    fetchAndApplyLatestSession,
+    hasLoadedSession,
+    isPollingTerminal,
+    sessionId,
+    viewState,
+  ]);
 
   // ── Polling fallback ───────────────────────────────────────────────────────
   useEffect(() => {
@@ -326,6 +483,7 @@ export function useScreenSession({ sessionId }: { sessionId: string }): UseScree
       onError: (nextError) => {
         if (shouldStopPolling(nextError)) {
           const failure = getViewStateFromError(nextError, t);
+          sessionRef.current = null;
           setSession(null);
           setViewState(failure.state);
           setError(failure.message);
@@ -350,7 +508,7 @@ export function useScreenSession({ sessionId }: { sessionId: string }): UseScree
       },
       onUpdate: (nextSession) => {
         setPollError(null);
-        setSession(nextSession);
+        applySessionUpdate(nextSession, "polling");
         if (isPollingTerminalStatus(nextSession.status)) {
           setIsUsingPollingFallback(false);
         }
@@ -366,7 +524,7 @@ export function useScreenSession({ sessionId }: { sessionId: string }): UseScree
 
     return stopPolling;
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [clearFallbackNoticeTimer, hasLoadedSession, isUsingPollingFallback, sessionId, viewState, t.roomPreview.screen.invalidLink, t.roomPreview.screen.expiredLink, t.roomPreview.screen.failedDescription]);
+  }, [applySessionUpdate, clearFallbackNoticeTimer, hasLoadedSession, isUsingPollingFallback, sessionId, viewState, t.roomPreview.screen.invalidLink, t.roomPreview.screen.expiredLink, t.roomPreview.screen.failedDescription]);
 
   // ── Auto-reset: terminal session states (result_ready / failed) ───────────
   useEffect(() => {

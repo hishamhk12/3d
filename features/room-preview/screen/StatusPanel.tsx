@@ -218,7 +218,7 @@ export default function StatusPanel({
                 alt={selectedProduct.name ?? t.roomPreview.shared.selectedProductThumbnail}
                 fill
                 sizes="80px"
-                className="object-cover"
+                className="object-contain p-1"
               />
             ) : (
               <div className="h-full w-full bg-[linear-gradient(135deg,rgba(0,175,215,0.18),rgba(255,255,255,0.06))]" />
@@ -244,7 +244,7 @@ export default function StatusPanel({
               alt={t.roomPreview.shared.selectedRoomThumbnail}
               fill
               sizes="(max-width: 1024px) 90vw, 44rem"
-              className="object-cover"
+              className="object-contain"
             />
           ) : (
             <div className="flex h-full w-full items-center justify-center bg-[radial-gradient(circle_at_top,rgba(0,175,215,0.18),rgba(7,23,41,0.92)_55%)] px-8 text-center">
@@ -268,7 +268,7 @@ export default function StatusPanel({
                 alt={t.roomPreview.shared.renderedPreview}
                 fill
                 sizes="(max-width: 640px) 100vw, 100vw"
-                className="object-cover"
+                className="object-contain"
               />
             </div>
             {resetCountdown !== null ? (

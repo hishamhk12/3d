@@ -21,12 +21,13 @@ function getSmartPollIntervalMs(status: RoomPreviewSessionStatus | null | undefi
     case "waiting_for_mobile":
       return 4_000;
     case "mobile_connected":
+      return 2_000;
     case "room_selected":
     case "product_selected":
-      return 2_250;
+      return 1_000;
     case "ready_to_render":
     case "rendering":
-      return 1_250;
+      return 1_000;
     case "result_ready":
       return 1_000;
     default:

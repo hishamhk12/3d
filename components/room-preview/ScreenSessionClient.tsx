@@ -1,8 +1,8 @@
 "use client";
 
-import Image from "next/image";
 import { LoaderCircle } from "lucide-react";
 import SessionStatePanel from "@/components/room-preview/SessionStatePanel";
+import { BeforeAfterSlider } from "@/components/room-preview/BeforeAfterSlider";
 import { ROOM_PREVIEW_ROUTES, SCREEN_ERROR_RESET_MS } from "@/lib/room-preview/constants";
 import { useScreenSession } from "@/features/room-preview/screen/useScreenSession";
 import StatusPanel from "@/features/room-preview/screen/StatusPanel";
@@ -138,13 +138,16 @@ export default function ScreenSessionClient({ sessionId }: { sessionId: string }
       <div key={session.renderResult!.imageUrl!} className="fixed inset-0 z-50 overflow-hidden bg-black animate-in fade-in duration-700">
         <div className="absolute inset-0 z-0 bg-gradient-to-br from-[#1d1d1f] to-black" />
         <div className="absolute inset-0 z-10 flex items-center justify-center">
-          <Image
-            src={session.renderResult!.imageUrl!}
+          <BeforeAfterSlider
+            beforeImageUrl={session.selectedRoom?.imageUrl}
+            afterImageUrl={session.renderResult!.imageUrl!}
+            beforeLabel={locale === "ar" ? "قبل" : "Before"}
+            afterLabel={locale === "ar" ? "بعد" : "After"}
             alt={t.roomPreview.shared.renderedPreview}
-            fill
+            className="h-full w-full"
             sizes="100vw"
-            className="object-contain"
-            preload
+            fit="contain"
+            priority
           />
         </div>
       </div>

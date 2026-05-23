@@ -190,6 +190,8 @@ export async function POST(
 
   log.info(
     {
+      event: "room_image_uploaded_url",
+      roomImageUrl: session.selectedRoom.imageUrl,
       sessionId,
       source: session.selectedRoom.source,
       status: session.status,
@@ -230,6 +232,7 @@ export async function POST(
     level: "info",
     statusAfter: session.status,
     metadata: {
+      roomImageUrl: session.selectedRoom.imageUrl,
       source: session.selectedRoom.source,
       directUpload: true,
     },

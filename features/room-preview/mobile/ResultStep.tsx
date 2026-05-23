@@ -1,39 +1,17 @@
 "use client";
 
-import { useState, useEffect, useRef, type CSSProperties } from "react";
+import { useState, useEffect, useRef } from "react";
 import { createPortal } from "react-dom";
 import Image from "next/image";
 import { Download, RotateCcw, Share2, ZoomIn, X } from "lucide-react";
 import { AnimatedButton } from "@/components/ui/AnimatedButton";
+import { BeforeAfterSlider } from "@/components/room-preview/BeforeAfterSlider";
 import { useI18n } from "@/lib/i18n/provider";
 import { getProductTypeLabel } from "@/features/room-preview/shared/helpers";
 import { trackClientSessionEvent } from "@/lib/room-preview/session-diagnostics-client";
 import type { RoomPreviewSession } from "@/lib/room-preview/types";
 
 // ── Confetti ───────────────────────────────────────────────────────────────────
-
-const CONFETTI_COLORS = ["#F1B434", "#00AFD7", "#003C71", "#FFD97D", "#ffffff"];
-
-function seededRandom(seed: number) {
-  const x = Math.sin(seed * 999) * 10000;
-  return x - Math.floor(x);
-}
-
-const CONFETTI_PARTICLES = Array.from({ length: 14 }).map((_, i) => {
-  const angle = (i * 360) / 14 + (seededRandom(i + 1) * 20 - 10);
-  const distance = 40 + seededRandom(i + 2) * 40;
-  const startRotation = seededRandom(i + 4) * 360;
-  return {
-    id: i,
-    x: Math.cos((angle * Math.PI) / 180) * distance,
-    y: Math.sin((angle * Math.PI) / 180) * distance,
-    size: 4 + seededRandom(i + 3) * 5,
-    startRotation,
-    endRotation: startRotation + (seededRandom(i + 5) * 180 - 90),
-    color: CONFETTI_COLORS[Math.floor(seededRandom(i + 6) * CONFETTI_COLORS.length)],
-    duration: 0.8 + seededRandom(i + 7) * 0.4,
-  };
-});
 
 // ── Render loading screen ──────────────────────────────────────────────────────
 
@@ -67,16 +45,17 @@ function RenderLoadingScreen({
   const [fadeOut, setFadeOut] = useState(false);
 
   useEffect(() => {
+    const timers: ReturnType<typeof setTimeout>[] = [];
     if (showResult) {
-      setProgress(100);
+      timers.push(setTimeout(() => setProgress(100), 0));
       // Wait for the logo clip transition (1300ms) to finish before fading out
-      const timer = setTimeout(() => setFadeOut(true), 1400);
-      return () => clearTimeout(timer);
+      timers.push(setTimeout(() => setFadeOut(true), 1400));
+      return () => timers.forEach(clearTimeout);
     }
-    setFadeOut(false);
-    const timers = PROGRESS_STAGES.map(([pct, delay]) =>
+    timers.push(setTimeout(() => setFadeOut(false), 0));
+    timers.push(...PROGRESS_STAGES.map(([pct, delay]) =>
       setTimeout(() => setProgress(pct), delay),
-    );
+    ));
     return () => timers.forEach(clearTimeout);
   }, [showResult]);
 
@@ -132,8 +111,8 @@ function RenderLoadingScreen({
               src={roomBg}
               alt=""
               aria-hidden
-              className="absolute inset-0 h-full w-full object-cover"
-              style={{ filter: "blur(26px)", transform: "scale(1.08)" }}
+              className="absolute inset-0 h-full w-full object-contain"
+              style={{ filter: "blur(12px)" }}
             />
             <div className="absolute inset-0 bg-black/72" />
           </>
@@ -281,14 +260,17 @@ export default function ResultStep({
         className="fullscreen-scale-in relative h-[90svh] w-[96vw] max-h-[90svh] max-w-[96vw] overflow-hidden cursor-default"
         onClick={(e) => e.stopPropagation()}
       >
-        <Image
-          src={session.renderResult?.imageUrl ?? "/rs/rs.png"}
+        <BeforeAfterSlider
+          beforeImageUrl={session.selectedRoom?.imageUrl}
+          afterImageUrl={session.renderResult?.imageUrl ?? "/rs/rs.png"}
+          beforeLabel={locale === "ar" ? "قبل" : "Before"}
+          afterLabel={locale === "ar" ? "بعد" : "After"}
           alt="Full screen preview"
-          fill
-          unoptimized
-          className="object-contain object-center"
+          className="h-full w-full"
           sizes="96vw"
+          fit="contain"
           priority
+          unoptimized
         />
       </div>
     </div>
@@ -303,21 +285,28 @@ export default function ResultStep({
         >
           {/* Image — fills all space above action bar */}
           <div
-            className="group relative min-h-0 flex-1 cursor-pointer overflow-hidden bg-black"
-            onClick={() => setIsFullscreen(true)}
+            className="group relative min-h-0 flex-1 overflow-hidden bg-black"
           >
-            <div className="absolute top-4 right-4 z-20 rounded-full bg-black/50 p-2.5 text-white/80 opacity-70 backdrop-blur-md transition-opacity">
+            <button
+              type="button"
+              className="absolute top-4 right-4 z-50 rounded-full bg-black/50 p-2.5 text-white/80 opacity-80 backdrop-blur-md transition hover:bg-black/65 hover:text-white"
+              onClick={() => setIsFullscreen(true)}
+              aria-label={locale === "ar" ? "تكبير المعاينة" : "Open preview"}
+            >
               <ZoomIn size={20} />
-            </div>
+            </button>
 
-            <Image
-              src={session.renderResult?.imageUrl ?? "/rs/rs.png"}
+            <BeforeAfterSlider
+              beforeImageUrl={session.selectedRoom?.imageUrl}
+              afterImageUrl={session.renderResult?.imageUrl ?? "/rs/rs.png"}
+              beforeLabel={locale === "ar" ? "قبل" : "Before"}
+              afterLabel={locale === "ar" ? "بعد" : "After"}
               alt={t.roomPreview.shared.renderedPreview}
-              fill
-              unoptimized
-              className="object-cover object-center"
-              priority
+              className="h-full w-full"
               sizes="100vw"
+              fit="contain"
+              priority
+              unoptimized
             />
 
             <div className="pointer-events-none absolute inset-x-0 bottom-0 h-1/2 bg-gradient-to-t from-black/85 via-black/35 to-transparent" />
@@ -336,7 +325,7 @@ export default function ResultStep({
                         alt={selectedProduct.name ?? ""}
                         fill
                         unoptimized
-                        className="object-cover"
+                        className="object-contain bg-black/20 p-1"
                       />
                     </div>
                     <div className={`min-w-0 flex-1 ${dir === "rtl" ? "text-right" : "text-left"}`}>

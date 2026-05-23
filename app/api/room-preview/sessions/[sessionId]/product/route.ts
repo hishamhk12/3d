@@ -164,8 +164,10 @@ export async function POST(
 
   log.info(
     {
+      event: "product_selected_image_url",
       sessionId,
       productId: session.selectedProduct.id,
+      productImageUrl: session.selectedProduct.imageUrl,
       barcode: session.selectedProduct.barcode,
       productType: session.selectedProduct.productType,
       status: session.status,
@@ -189,6 +191,7 @@ export async function POST(
       statusAfter: session.status,
       metadata: {
         newProductId,
+        productImageUrl: session.selectedProduct.imageUrl,
         newSku: session.selectedProduct.barcode ?? undefined,
         ...(hasExistingProduct && {
           previousProductId: previousProduct.id,

@@ -3,6 +3,11 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useActionState } from "react";
+import {
+  Badge,
+  Button,
+  Text,
+} from "@fluentui/react-components";
 import { logoutAction } from "../login/actions";
 import { triggerCleanup, type CleanupResult } from "../actions";
 import { AutoRefresh } from "./auto-refresh";
@@ -20,29 +25,14 @@ function CleanupButton() {
 
   return (
     <form action={formAction} className="flex items-center gap-2">
-      <button
-        type="submit"
-        disabled={isPending}
-        className="text-xs text-gray-500 hover:text-gray-200 transition-colors px-2.5 py-1.5 rounded-md hover:bg-gray-800 disabled:opacity-40 disabled:cursor-not-allowed border border-gray-800"
-      >
-        {isPending ? "Running…" : "Run Cleanup"}
-      </button>
-      {result && (
-        <span className="text-xs text-gray-600 whitespace-nowrap" title={`ran at ${result.ranAt}`}>
-          {total === 0
-            ? "nothing to clean"
-            : [
-                result.expired > 0 && `${result.expired} expired`,
-                result.idleExpired > 0 && `${result.idleExpired} idle`,
-                result.stuckFailed > 0 && `${result.stuckFailed} failed`,
-                result.stuckRenderJobsFailed > 0 && `${result.stuckRenderJobsFailed} jobs failed`,
-                result.completed > 0 && `${result.completed} completed`,
-                result.detectedIssues > 0 && `${result.detectedIssues} issues`,
-              ]
-                .filter(Boolean)
-                .join(" · ")}
-        </span>
-      )}
+      <Button appearance="secondary" disabled={isPending} size="small" type="submit">
+        {isPending ? "Running..." : "Run cleanup"}
+      </Button>
+      {result ? (
+        <Badge appearance="tint" color={total === 0 ? "subtle" : "important"}>
+          {total === 0 ? "nothing to clean" : `${total} updates`}
+        </Badge>
+      ) : null}
     </form>
   );
 }
@@ -55,10 +45,10 @@ export function AdminHeader() {
     return (
       <Link
         href={href}
-        className={`text-sm px-3 py-1.5 rounded-md transition-colors ${
+        className={`rounded-md px-3 py-1.5 text-sm transition-colors ${
           active
-            ? "bg-gray-800 text-white font-medium"
-            : "text-gray-400 hover:text-white hover:bg-gray-800/60"
+            ? "bg-[#e8f0fe] text-[#115ea3] font-semibold"
+            : "text-slate-600 hover:bg-slate-100 hover:text-slate-950"
         }`}
       >
         {label}
@@ -67,30 +57,17 @@ export function AdminHeader() {
   };
 
   return (
-    <header className="border-b border-gray-800 bg-gray-900 sticky top-0 z-10">
-      <div className="max-w-7xl mx-auto px-6 h-14 flex items-center justify-between gap-4">
-        {/* Brand + nav */}
+    <header className="sticky top-0 z-10 border-b border-slate-200 bg-white/95 backdrop-blur">
+      <div className="mx-auto flex h-14 max-w-7xl items-center justify-between gap-4 px-6">
         <div className="flex items-center gap-5">
-          <div className="flex items-center gap-2.5 shrink-0">
-            <div className="w-7 h-7 rounded-md bg-indigo-600 flex items-center justify-center">
-              <svg
-                className="w-4 h-4 text-white"
-                fill="none"
-                stroke="currentColor"
-                viewBox="0 0 24 24"
-              >
-                <path
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                  strokeWidth={2}
-                  d="M4 6a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2V6zM14 6a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2V6zM4 16a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2v-2zM14 16a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2v-2z"
-                />
-              </svg>
+          <div className="flex shrink-0 items-center gap-2.5">
+            <div className="flex size-7 items-center justify-center rounded-md bg-[#115ea3] text-white">
+              <span className="text-xs font-bold">I</span>
             </div>
-            <span className="text-sm font-semibold text-white">Ibdaa 360</span>
+            <Text size={300} weight="semibold">Ibdaa 360</Text>
           </div>
 
-          <div className="h-4 w-px bg-gray-800" />
+          <div className="h-4 w-px bg-slate-200" />
 
           <nav className="flex items-center gap-1">
             {navLink("/admin", "Dashboard")}
@@ -99,23 +76,19 @@ export function AdminHeader() {
           </nav>
         </div>
 
-        {/* Right side */}
         <div className="flex items-center gap-3">
-          {pathname === "/admin" && (
+          {pathname === "/admin" ? (
             <>
               <CleanupButton />
-              <div className="h-4 w-px bg-gray-800" />
+              <div className="h-4 w-px bg-slate-200" />
               <AutoRefresh intervalSeconds={15} />
             </>
-          )}
+          ) : null}
 
           <form action={logoutAction}>
-            <button
-              type="submit"
-              className="text-sm text-gray-400 hover:text-white transition-colors px-3 py-1.5 rounded-md hover:bg-gray-800"
-            >
+            <Button appearance="subtle" size="small" type="submit">
               Sign out
-            </button>
+            </Button>
           </form>
         </div>
       </div>

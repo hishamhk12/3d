@@ -76,6 +76,11 @@ const EVENT_LABELS: Record<string, string> = {
   screen_received_session_update:    "Session Update Received",
   screen_stale_detected:             "Screen Stale",
   screen_polling_started:            "Polling Started",
+  sse_connected:                     "SSE Connected",
+  sse_disconnected:                  "SSE Disconnected",
+  sse_reconnected:                   "SSE Reconnected",
+  fallback_polling_started:          "Fallback Polling Started",
+  fallback_polling_stopped:          "Fallback Polling Stopped",
   // Server
   session_created:                   "Session Created",
   session_status_changed:            "Status Changed",

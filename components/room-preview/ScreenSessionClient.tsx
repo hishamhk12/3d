@@ -161,7 +161,6 @@ export default function ScreenSessionClient({ sessionId }: { sessionId: string }
       pollError={pollError}
       resetCountdown={resetCountdown}
       idleCountdown={idleCountdown}
-      onRetry={retry}
     />
   );
 }

@@ -32,6 +32,10 @@ export async function getDashboardMetrics() {
     liveCount,
     waitingCount,
     renderingCount,
+    resultReadyCount,
+    completedCount,
+    failedCount,
+    expiredCount,
     successToday,
     failedJobsLastHour,
     completedJobsToday,
@@ -44,6 +48,18 @@ export async function getDashboardMetrics() {
     }),
     prisma.roomPreviewSession.count({
       where: { status: "rendering" },
+    }),
+    prisma.roomPreviewSession.count({
+      where: { status: "result_ready" },
+    }),
+    prisma.roomPreviewSession.count({
+      where: { status: "completed" },
+    }),
+    prisma.roomPreviewSession.count({
+      where: { status: "failed" },
+    }),
+    prisma.roomPreviewSession.count({
+      where: { status: "expired" },
     }),
     prisma.roomPreviewSession.count({
       where: {
@@ -72,6 +88,10 @@ export async function getDashboardMetrics() {
     liveCount,
     waitingCount,
     renderingCount,
+    resultReadyCount,
+    completedCount,
+    failedCount,
+    expiredCount,
     successToday,
     failedJobsLastHour,
     rendersToday: completedJobsToday.length,

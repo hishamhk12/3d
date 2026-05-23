@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { useI18n } from "@/lib/i18n/provider";
 import {
@@ -79,6 +79,28 @@ function shouldStopPolling(error: RoomPreviewRequestError | Error) {
   return isRoomPreviewRequestError(error) && (error.code === "not_found" || error.code === "expired");
 }
 
+const FALLBACK_NOTICE_DELAY_MS = 10_000;
+const SOFT_FALLBACK_NOTICE = {
+  ar: "جارٍ متابعة التحديثات...",
+  en: "Following updates...",
+} as const;
+
+function isPollingTerminalStatus(status: RoomPreviewSession["status"] | null | undefined) {
+  return status === "completed" || status === "failed" || status === "expired";
+}
+
+function logRealtimeEvent(
+  eventType:
+    | "sse_connected"
+    | "sse_disconnected"
+    | "fallback_polling_started"
+    | "fallback_polling_stopped"
+    | "sse_reconnected",
+  metadata?: Record<string, unknown>,
+) {
+  console.info(`[room-preview] ${eventType}`, metadata ?? {});
+}
+
 // ─── Hook ─────────────────────────────────────────────────────────────────────
 
 export function useScreenSession({ sessionId }: { sessionId: string }): UseScreenSessionReturn {
@@ -94,6 +116,8 @@ export function useScreenSession({ sessionId }: { sessionId: string }): UseScree
   const [resetCountdown,        setResetCountdown]       = useState<number | null>(null);
   const [idleCountdown,         setIdleCountdown]        = useState<number | null>(null);
   const [errorCountdown,        setErrorCountdown]       = useState<number | null>(null);
+  const fallbackStartedRef = useRef(false);
+  const fallbackNoticeTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const hasLoadedSession   = session !== null;
   const hasSelectedProduct = Boolean(session?.selectedProduct?.id && session?.selectedProduct?.imageUrl);
@@ -101,6 +125,16 @@ export function useScreenSession({ sessionId }: { sessionId: string }): UseScree
   const hasRenderResult    = Boolean(
     session?.renderResult?.imageUrl && session?.status === "result_ready",
   );
+  const isPollingTerminal = isPollingTerminalStatus(session?.status);
+  const sessionStatusRef = useRef<RoomPreviewSession["status"] | null>(null);
+  sessionStatusRef.current = session?.status ?? null;
+
+  const clearFallbackNoticeTimer = useCallback(() => {
+    if (fallbackNoticeTimeoutRef.current !== null) {
+      clearTimeout(fallbackNoticeTimeoutRef.current);
+      fallbackNoticeTimeoutRef.current = null;
+    }
+  }, []);
 
   const {
     isConnected: heartbeatConnected,
@@ -187,29 +221,55 @@ export function useScreenSession({ sessionId }: { sessionId: string }): UseScree
 
   // ── SSE (real-time) ────────────────────────────────────────────────────────
   useEffect(() => {
-    if (viewState !== "ready" || !hasLoadedSession || isUsingPollingFallback) return;
+    if (viewState !== "ready" || !hasLoadedSession || isPollingTerminal) return;
 
     let active = true;
 
     const stopEvents = createRoomPreviewSessionEventsClient(sessionId, {
-      onOpen: () => {
+      onOpen: ({ reconnected }) => {
         if (!active) return;
-        setPollError(null);
-      },
-      onError: () => {
-        if (!active) return;
-        setPollError(t.roomPreview.screen.realtimeInterrupted);
-        setIsUsingPollingFallback(true);
+        logRealtimeEvent(reconnected ? "sse_reconnected" : "sse_connected", {
+          sessionId,
+          status: sessionStatusRef.current,
+        });
         trackClientSessionEvent(sessionId, {
           source: "screen",
-          eventType: "screen_stale_detected",
-          level: "warning",
-          code: "SCREEN_NOT_UPDATING",
-          message: "Realtime updates interrupted; falling back to polling.",
+          eventType: reconnected ? "sse_reconnected" : "sse_connected",
+          level: "info",
+          statusAfter: sessionStatusRef.current,
         });
+        if (reconnected) {
+          setIsUsingPollingFallback(false);
+          fallbackStartedRef.current = false;
+        }
+        clearFallbackNoticeTimer();
+        setPollError(null);
+      },
+      onError: ({ attempt, nextDelayMs }) => {
+        if (!active) return;
+        logRealtimeEvent("sse_disconnected", {
+          attempt,
+          nextDelayMs,
+          sessionId,
+          status: sessionStatusRef.current,
+        });
+        trackClientSessionEvent(sessionId, {
+          source: "screen",
+          eventType: "sse_disconnected",
+          level: "warning",
+          statusBefore: sessionStatusRef.current,
+          metadata: { attempt, nextDelayMs },
+        });
+        setPollError(null);
+        setIsUsingPollingFallback(true);
       },
       onSessionUpdate: (nextSession) => {
         if (!active) return;
+        if (isPollingTerminalStatus(nextSession.status)) {
+          setIsUsingPollingFallback(false);
+          fallbackStartedRef.current = false;
+          clearFallbackNoticeTimer();
+        }
         setPollError(null);
         setSession(nextSession);
         trackClientSessionEvent(sessionId, {
@@ -224,22 +284,45 @@ export function useScreenSession({ sessionId }: { sessionId: string }): UseScree
 
     return () => {
       active = false;
+      clearFallbackNoticeTimer();
       stopEvents();
     };
-  }, [hasLoadedSession, isUsingPollingFallback, sessionId, t.roomPreview.screen.realtimeInterrupted, viewState]);
+  }, [clearFallbackNoticeTimer, hasLoadedSession, isPollingTerminal, sessionId, viewState]);
 
   // ── Polling fallback ───────────────────────────────────────────────────────
   useEffect(() => {
+    clearFallbackNoticeTimer();
+
+    if (!isUsingPollingFallback) {
+      setPollError(null);
+      return;
+    }
+
+    fallbackNoticeTimeoutRef.current = setTimeout(() => {
+      setPollError(SOFT_FALLBACK_NOTICE[locale]);
+    }, FALLBACK_NOTICE_DELAY_MS);
+
+    return clearFallbackNoticeTimer;
+  }, [clearFallbackNoticeTimer, isUsingPollingFallback, locale]);
+
+  useEffect(() => {
     if (viewState !== "ready" || !hasLoadedSession || !isUsingPollingFallback) return;
 
-    trackClientSessionEvent(sessionId, {
-      source: "screen",
-      eventType: "screen_polling_started",
-      level: "info",
-    });
+    if (!fallbackStartedRef.current) {
+      fallbackStartedRef.current = true;
+      logRealtimeEvent("fallback_polling_started", {
+        sessionId,
+        status: sessionStatusRef.current,
+      });
+      trackClientSessionEvent(sessionId, {
+        source: "screen",
+        eventType: "fallback_polling_started",
+        level: "info",
+        statusAfter: sessionStatusRef.current,
+      });
+    }
 
     const stopPolling = createRoomPreviewSessionPoller(sessionId, {
-      intervalMs: 2000,
       onError: (nextError) => {
         if (shouldStopPolling(nextError)) {
           const failure = getViewStateFromError(nextError, t);
@@ -247,14 +330,30 @@ export function useScreenSession({ sessionId }: { sessionId: string }): UseScree
           setViewState(failure.state);
           setError(failure.message);
           setPollError(null);
+          setIsUsingPollingFallback(false);
+          fallbackStartedRef.current = false;
           return false;
         }
-        setPollError(nextError.message);
         return true;
+      },
+      onStop: (reason) => {
+        logRealtimeEvent("fallback_polling_stopped", { reason, sessionId });
+        trackClientSessionEvent(sessionId, {
+          source: "screen",
+          eventType: "fallback_polling_stopped",
+          level: "info",
+          metadata: { reason },
+        });
+        fallbackStartedRef.current = false;
+        clearFallbackNoticeTimer();
+        setPollError(null);
       },
       onUpdate: (nextSession) => {
         setPollError(null);
         setSession(nextSession);
+        if (isPollingTerminalStatus(nextSession.status)) {
+          setIsUsingPollingFallback(false);
+        }
         trackClientSessionEvent(sessionId, {
           source: "screen",
           eventType: "screen_received_session_update",
@@ -267,7 +366,7 @@ export function useScreenSession({ sessionId }: { sessionId: string }): UseScree
 
     return stopPolling;
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [hasLoadedSession, isUsingPollingFallback, sessionId, viewState, t.roomPreview.screen.invalidLink, t.roomPreview.screen.expiredLink, t.roomPreview.screen.failedDescription]);
+  }, [clearFallbackNoticeTimer, hasLoadedSession, isUsingPollingFallback, sessionId, viewState, t.roomPreview.screen.invalidLink, t.roomPreview.screen.expiredLink, t.roomPreview.screen.failedDescription]);
 
   // ── Auto-reset: terminal session states (result_ready / failed) ───────────
   useEffect(() => {

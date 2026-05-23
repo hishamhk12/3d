@@ -10,7 +10,7 @@ import { trackSessionEvent } from "@/lib/room-preview/session-diagnostics";
 
 type RouteParams = { params: Promise<{ sessionId: string }> };
 
-const TERMINAL_STATUSES = new Set(["expired", "completed"]);
+const TERMINAL_STATUSES = new Set(["expired", "completed", "failed"]);
 const STALE_THRESHOLD_MS = 75_000;
 
 function getCookieValue(request: NextRequest, name: string): string | null {

@@ -26,8 +26,8 @@ export function AutoRefresh({ intervalSeconds = 15 }: AutoRefreshProps) {
   }, [router, intervalSeconds]);
 
   return (
-    <span className="text-xs text-gray-600" title={`Refreshes every ${intervalSeconds}s`}>
-      &#8635; {intervalSeconds}s &mdash; last{" "}
+    <span className="text-xs text-slate-500" title={`Refreshes every ${intervalSeconds}s`}>
+      &#8635; {intervalSeconds}s - last{" "}
       {lastRefresh.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit", second: "2-digit" })}
     </span>
   );

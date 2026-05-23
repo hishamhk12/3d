@@ -89,7 +89,6 @@ interface StatusPanelProps {
   pollError: string | null;
   resetCountdown: number | null;
   idleCountdown: number | null;
-  onRetry: () => void;
 }
 
 // ─── Component ────────────────────────────────────────────────────────────────
@@ -101,7 +100,6 @@ export default function StatusPanel({
   pollError,
   resetCountdown,
   idleCountdown,
-  onRetry,
 }: StatusPanelProps) {
   const { dir, formatMessage, locale, t } = useI18n();
   const sectionAlignClass = dir === "rtl" ? "text-right" : "text-left";
@@ -291,16 +289,8 @@ export default function StatusPanel({
       </section>
 
       {pollError ? (
-        <div className="mt-6 rounded-2xl border border-orange-500/30 bg-orange-500/10 px-5 py-4 text-base text-orange-200">
-          <p className="font-semibold">{t.roomPreview.screen.pollFailedTitle}</p>
-          <p className="mt-2 text-orange-200/80">{pollError}</p>
-          <button
-            type="button"
-            onClick={onRetry}
-            className="btn-secondary mt-4 inline-flex px-6 py-2.5 text-sm"
-          >
-            {t.common.actions.retry}
-          </button>
+        <div className="mt-5 rounded-2xl border border-white/10 bg-white/[0.04] px-4 py-3 text-center text-sm text-white/55">
+          {pollError}
         </div>
       ) : null}
     </div>

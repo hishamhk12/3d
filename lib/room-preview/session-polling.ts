@@ -1,20 +1,68 @@
 import { fetchRoomPreviewSession, RoomPreviewRequestError } from "@/lib/room-preview/session-client";
 import { ROOM_PREVIEW_TIMEOUTS } from "@/lib/room-preview/constants";
-import type { RoomPreviewSession } from "@/lib/room-preview/types";
+import type { RoomPreviewSession, RoomPreviewSessionStatus } from "@/lib/room-preview/types";
 
 type RoomPreviewSessionPollerOptions = {
   intervalMs?: number;
+  onStop?: (reason: "stopped" | "terminal") => void;
   onError?: (error: Error) => boolean | void;
   onUpdate: (session: RoomPreviewSession) => void;
 };
+
+const TERMINAL_SESSION_STATUSES = new Set<RoomPreviewSessionStatus>([
+  "completed",
+  "failed",
+  "expired",
+]);
+
+function getSmartPollIntervalMs(status: RoomPreviewSessionStatus | null | undefined) {
+  switch (status) {
+    case "created":
+    case "waiting_for_mobile":
+      return 4_000;
+    case "mobile_connected":
+    case "room_selected":
+    case "product_selected":
+      return 2_250;
+    case "ready_to_render":
+    case "rendering":
+      return 1_250;
+    case "result_ready":
+      return 1_000;
+    default:
+      return 3_000;
+  }
+}
+
+function getVisibilityMultiplier() {
+  if (typeof document === "undefined") return 1;
+  return document.visibilityState === "hidden" ? 4 : 1;
+}
 
 export function createRoomPreviewSessionPoller(
   sessionId: string,
   options: RoomPreviewSessionPollerOptions,
 ) {
-  const { intervalMs = 2000, onError, onUpdate } = options;
+  const { intervalMs, onError, onStop, onUpdate } = options;
   let active = true;
   let timeoutId: number | undefined;
+  let lastStatus: RoomPreviewSessionStatus | null = null;
+  let stopNotified = false;
+
+  const notifyStop = (reason: "stopped" | "terminal") => {
+    if (stopNotified) return;
+    stopNotified = true;
+    onStop?.(reason);
+  };
+
+  const scheduleNextPoll = () => {
+    if (!active) return;
+    const baseIntervalMs = intervalMs ?? getSmartPollIntervalMs(lastStatus);
+    timeoutId = window.setTimeout(
+      poll,
+      Math.max(1_000, baseIntervalMs * getVisibilityMultiplier()),
+    );
+  };
 
   async function poll() {
     try {
@@ -25,6 +73,13 @@ export function createRoomPreviewSessionPoller(
       }
 
       onUpdate(session);
+      lastStatus = session.status;
+
+      if (TERMINAL_SESSION_STATUSES.has(session.status)) {
+        active = false;
+        notifyStop("terminal");
+        return;
+      }
     } catch (error) {
       if (!active) {
         return;
@@ -38,13 +93,12 @@ export function createRoomPreviewSessionPoller(
 
       if (shouldContinue === false) {
         active = false;
+        notifyStop("stopped");
         return;
       }
     }
 
-    if (active) {
-      timeoutId = window.setTimeout(poll, intervalMs);
-    }
+    scheduleNextPoll();
   }
 
   void poll();
@@ -55,6 +109,7 @@ export function createRoomPreviewSessionPoller(
     if (timeoutId) {
       window.clearTimeout(timeoutId);
     }
+    notifyStop("stopped");
   };
 }
 

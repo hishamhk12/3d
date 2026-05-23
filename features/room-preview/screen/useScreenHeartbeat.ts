@@ -3,7 +3,7 @@
 import { useEffect, useRef, useState } from "react";
 
 const INTERVAL_MS = 30_000;
-const TERMINAL_STATUSES = new Set(["expired", "completed"]);
+const TERMINAL_STATUSES = new Set(["expired", "completed", "failed"]);
 
 export interface ScreenHeartbeatState {
   isConnected: boolean;

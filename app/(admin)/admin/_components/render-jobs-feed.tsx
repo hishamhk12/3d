@@ -1,8 +1,6 @@
 import Image from "next/image";
 import { getAdminRenderJobs } from "@/lib/admin/session-dashboard";
 
-// ─── Helpers ──────────────────────────────────────────────────────────────────
-
 function relativeTime(isoString: string): string {
   const diffMs = Date.now() - new Date(isoString).getTime();
   const s = Math.floor(diffMs / 1000);
@@ -18,7 +16,7 @@ function formatDuration(ms: number): string {
 }
 
 function getResultImageUrl(result: unknown): string | null {
-  if (result !== null && typeof result === "object" && "imageUrl" in (result as object)) {
+  if (result !== null && typeof result === "object" && "imageUrl" in result) {
     const url = (result as Record<string, unknown>).imageUrl;
     if (typeof url === "string" && url) return url;
   }
@@ -26,161 +24,121 @@ function getResultImageUrl(result: unknown): string | null {
 }
 
 function getProductName(input: unknown): string {
-  if (
-    input !== null &&
-    typeof input === "object" &&
-    "product" in (input as object)
-  ) {
+  if (input !== null && typeof input === "object" && "product" in input) {
     const product = (input as Record<string, unknown>).product;
     if (typeof product === "object" && product !== null && "name" in product) {
       const name = (product as Record<string, unknown>).name;
       if (typeof name === "string") return name;
     }
   }
-  return "—";
+  return "-";
 }
 
-// ─── Status badge ─────────────────────────────────────────────────────────────
-
 const JOB_STATUS_STYLES: Record<string, string> = {
-  pending: "bg-gray-800 text-gray-400",
-  processing: "bg-amber-950 text-amber-300 animate-pulse",
-  stuck: "bg-red-950 text-red-200 ring-1 ring-red-700/60",
-  completed: "bg-green-950 text-green-300",
-  failed: "bg-red-950 text-red-300",
+  pending: "bg-slate-100 text-slate-600",
+  processing: "bg-amber-100 text-amber-700 animate-pulse",
+  stuck: "bg-red-100 text-red-700 ring-1 ring-red-200",
+  completed: "bg-emerald-100 text-emerald-700",
+  failed: "bg-red-100 text-red-700",
 };
 
 function JobStatusBadge({ status }: { status: string }) {
-  const cls = JOB_STATUS_STYLES[status] ?? "bg-gray-800 text-gray-400";
+  const cls = JOB_STATUS_STYLES[status] ?? "bg-slate-100 text-slate-600";
   return (
-    <span className={`inline-flex items-center px-2 py-0.5 rounded text-xs font-medium ${cls}`}>
+    <span className={`inline-flex items-center rounded px-2 py-0.5 text-xs font-medium ${cls}`}>
       {status}
     </span>
   );
 }
-
-// ─── Feed ─────────────────────────────────────────────────────────────────────
 
 export async function RenderJobsFeed() {
   const jobs = await getAdminRenderJobs();
 
   if (jobs.length === 0) {
     return (
-      <div className="rounded-xl border border-gray-800 bg-gray-900/40 px-6 py-12 text-center">
-        <p className="text-sm text-gray-500">No render jobs yet.</p>
+      <div className="rounded-xl border border-slate-200 bg-white px-6 py-12 text-center shadow-sm">
+        <p className="text-sm text-slate-500">No render jobs yet.</p>
       </div>
     );
   }
 
   return (
-    <div className="rounded-xl border border-gray-800 overflow-hidden">
+    <div className="overflow-hidden rounded-xl border border-slate-200 bg-white shadow-sm">
       <div className="overflow-x-auto">
         <table className="w-full text-sm">
           <thead>
-            <tr className="border-b border-gray-800 bg-gray-900">
-              <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                Job
-              </th>
-              <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                Session
-              </th>
-              <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                Status
-              </th>
-              <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                Product
-              </th>
-              <th className="px-4 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">
-                Duration
-              </th>
-              <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                When
-              </th>
-              <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                Result
-              </th>
+            <tr className="border-b border-slate-200 bg-slate-50">
+              {["Job", "Session", "Status", "Product", "Duration", "When", "Result"].map((label) => (
+                <th
+                  key={label}
+                  className={`px-4 py-3 text-xs font-medium uppercase tracking-wider text-slate-500 ${
+                    label === "Duration" ? "text-right" : "text-left"
+                  }`}
+                >
+                  {label}
+                </th>
+              ))}
             </tr>
           </thead>
-          <tbody className="divide-y divide-gray-800/60 bg-gray-950">
-            {jobs.map((job) => (
-              <tr
-                key={job.id}
-                className={`hover:bg-gray-900/60 transition-colors ${
-                  job.status === "failed" || job.isStuck ? "bg-red-950/5" : ""
-                }`}
-              >
-                <td className="px-4 py-3">
-                  <span className="font-mono text-xs text-gray-400">
-                    {job.id.slice(0, 8)}…
-                  </span>
-                </td>
-                <td className="px-4 py-3">
-                  <span className="font-mono text-xs text-gray-600">
-                    {job.sessionId.slice(0, 8)}…
-                  </span>
-                </td>
-                <td className="px-4 py-3">
-                  <JobStatusBadge status={job.isStuck ? "stuck" : job.status} />
-                </td>
-                <td className="px-4 py-3 max-w-[160px]">
-                  <span className="text-gray-300 truncate block text-xs">
-                    {getProductName(job.input)}
-                  </span>
-                </td>
-                <td className="px-4 py-3 text-right">
-                  <span
-                    className={`tabular-nums text-xs ${
-                      job.status === "completed"
-                        ? job.durationMs > 30_000
-                          ? "text-amber-400"
-                          : "text-green-400"
-                        : "text-gray-600"
-                    }`}
-                  >
-                    {job.status === "pending" ? "—" : formatDuration(job.durationMs)}
-                  </span>
-                </td>
-                <td className="px-4 py-3">
-                  <span className="text-gray-500 text-xs whitespace-nowrap">
-                    {relativeTime(job.createdAt)}
-                  </span>
-                </td>
-                <td className="px-4 py-3">
-                  {(() => {
-                    const url = getResultImageUrl(job.result);
-                    if (!url) {
-                      return (
-                        <span className="text-gray-700 text-xs">—</span>
-                      );
-                    }
-                    return (
+          <tbody className="divide-y divide-slate-100 bg-white">
+            {jobs.map((job) => {
+              const resultUrl = getResultImageUrl(job.result);
+              return (
+                <tr
+                  key={job.id}
+                  className={`transition-colors hover:bg-slate-50 ${
+                    job.status === "failed" || job.isStuck ? "bg-red-50" : ""
+                  }`}
+                >
+                  <td className="px-4 py-3">
+                    <span className="font-mono text-xs text-slate-600">{job.id.slice(0, 8)}...</span>
+                  </td>
+                  <td className="px-4 py-3">
+                    <span className="font-mono text-xs text-slate-500">{job.sessionId.slice(0, 8)}...</span>
+                  </td>
+                  <td className="px-4 py-3">
+                    <JobStatusBadge status={job.isStuck ? "stuck" : job.status} />
+                  </td>
+                  <td className="max-w-[160px] px-4 py-3">
+                    <span className="block truncate text-xs text-slate-700">{getProductName(job.input)}</span>
+                  </td>
+                  <td className="px-4 py-3 text-right">
+                    <span className="text-xs tabular-nums text-slate-600">
+                      {job.status === "pending" ? "-" : formatDuration(job.durationMs)}
+                    </span>
+                  </td>
+                  <td className="px-4 py-3">
+                    <span className="whitespace-nowrap text-xs text-slate-500">{relativeTime(job.createdAt)}</span>
+                  </td>
+                  <td className="px-4 py-3">
+                    {resultUrl ? (
                       <a
-                        href={url}
-                        target="_blank"
+                        className="relative block h-12 w-16 shrink-0 overflow-hidden rounded-lg border border-slate-200 transition-colors hover:border-blue-500"
+                        href={resultUrl}
                         rel="noopener noreferrer"
+                        target="_blank"
                         title="Open full image"
-                        className="block w-16 h-12 rounded-lg overflow-hidden border border-gray-700 hover:border-indigo-500 transition-colors relative shrink-0"
                       >
                         <Image
-                          src={url}
                           alt="Render result"
-                          fill
-                          unoptimized
                           className="object-cover"
+                          fill
+                          src={resultUrl}
+                          unoptimized
                         />
                       </a>
-                    );
-                  })()}
-                </td>
-              </tr>
-            ))}
+                    ) : (
+                      <span className="text-xs text-slate-400">-</span>
+                    )}
+                  </td>
+                </tr>
+              );
+            })}
           </tbody>
         </table>
       </div>
-      <div className="px-4 py-2.5 border-t border-gray-800 bg-gray-900/60">
-        <span className="text-xs text-gray-600">
-          Last {jobs.length} render jobs
-        </span>
+      <div className="border-t border-slate-200 bg-slate-50 px-4 py-2.5">
+        <span className="text-xs text-slate-500">Last {jobs.length} render jobs</span>
       </div>
     </div>
   );

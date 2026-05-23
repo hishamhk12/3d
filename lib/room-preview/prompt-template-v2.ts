@@ -7,7 +7,7 @@ import type { FloorQuad } from "@/lib/room-preview/types";
  * old and new render outputs incompatible. Stored on each render job so
  * A/B comparisons and rollbacks are auditable.
  */
-export const PROMPT_VERSION = "gemini-floor-v3";
+export const PROMPT_VERSION = "gemini-floor-v4";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -20,6 +20,8 @@ export interface FloorRenderPromptV2Input {
    * When absent the model infers the floor from scene geometry.
    */
   floorPolygon?: FloorQuad | null;
+  /** Exact pixel dimensions of the (possibly resized) input room image. */
+  dimensions?: { width: number; height: number } | null;
 }
 
 // ─── Sentinel strings (must match gemini-provider.ts checks) ─────────────────
@@ -48,11 +50,37 @@ export function sanitizeProductName(name: string): string {
  *  - QUALITY CHECK section acts as an implicit self-review step before output.
  */
 export function buildFloorRenderPromptV2(input: FloorRenderPromptV2Input): string {
-  void input;
+  const { productName, floorPolygon, dimensions } = input;
 
-  return `Replace ONLY the visible FLOOR surface in the provided room image with the selected parquet product texture/reference.
+  const productLine = productName
+    ? `PRODUCT TO APPLY: "${productName}" — match the color, grain, tone, and finish shown in the second (product) image.`
+    : "PRODUCT TO APPLY: the flooring product shown in the second image — match its color, grain, tone, and finish exactly.";
 
-OUTPUT REQUIREMENTS:
+  const dimensionSection = dimensions
+    ? `OUTPUT SIZE REQUIREMENT:
+- The input room photo is exactly ${dimensions.width}×${dimensions.height} pixels.
+- Your output image MUST also be exactly ${dimensions.width}×${dimensions.height} pixels.
+- Do NOT generate a square image. Do NOT change the aspect ratio. Do NOT add padding or black bars.
+`
+    : "";
+
+  const polygonSection = floorPolygon
+    ? `FLOOR BOUNDARY (pixel coordinates in the room image, top-left origin):
+- Top-left:     (${Math.round(floorPolygon[0].x)}, ${Math.round(floorPolygon[0].y)})
+- Top-right:    (${Math.round(floorPolygon[1].x)}, ${Math.round(floorPolygon[1].y)})
+- Bottom-right: (${Math.round(floorPolygon[2].x)}, ${Math.round(floorPolygon[2].y)})
+- Bottom-left:  (${Math.round(floorPolygon[3].x)}, ${Math.round(floorPolygon[3].y)})
+Apply the flooring ONLY within this quadrilateral. Do NOT edit any pixel outside this boundary.
+`
+    : "";
+
+  return `This is a PHOTO EDITING task, not an image generation task. You receive the original room photo (first image) and a flooring product reference (second image). Your job is to edit the room photo so that only the floor surface is replaced.
+
+${productLine}
+
+${dimensionSection}TASK: Replace ONLY the visible FLOOR surface in the provided room image with the selected parquet product texture/reference.
+
+${polygonSection}OUTPUT REQUIREMENTS:
 - Keep the EXACT same image resolution as the input.
 - Maintain the EXACT same aspect ratio.
 - Do not crop, zoom, rotate, or reframe the image.
@@ -133,12 +161,14 @@ export function buildRenderPrompt(
   productType: string | null,
   productName: string | null,
   floorQuad?: FloorQuad | null,
+  dimensions?: { width: number; height: number } | null,
 ): string {
   if (productType === "floor_material") {
     const cleanedName = productName ? sanitizeProductName(productName) : null;
     return buildFloorRenderPromptV2({
       productName: cleanedName && cleanedName.length > 0 ? cleanedName : null,
       floorPolygon: floorQuad ?? null,
+      dimensions: dimensions ?? null,
     });
   }
 

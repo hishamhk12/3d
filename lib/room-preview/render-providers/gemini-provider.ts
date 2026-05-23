@@ -230,10 +230,13 @@ async function normalizeOutputToInputDimensions(
   targetHeight: number,
 ): Promise<Buffer<ArrayBuffer>> {
   const { default: sharp } = await import("sharp");
+  // Use "fill" (stretch to exact dimensions) instead of "contain" (which pads
+  // with black bars). For the small drift tolerance we apply (≤2%), the
+  // resulting stretch is imperceptible. "contain" bakes black letterbox bars
+  // into the output file, which is the regression we are fixing.
   return (await sharp(buffer)
     .resize(targetWidth, targetHeight, {
-      fit: "contain",
-      background: { r: 0, g: 0, b: 0, alpha: 1 },
+      fit: "fill",
     })
     .png()
     .toBuffer()) as Buffer<ArrayBuffer>;
@@ -278,6 +281,21 @@ async function validateAndNormalizeOutputImage(
     );
   }
 
+  log.info(
+    {
+      event: "render_output_dimensions_raw",
+      sessionId: context.sessionId,
+      modelName: context.modelName,
+      outputWidth: width,
+      outputHeight: height,
+      inputWidth: inputDimensions.width,
+      inputHeight: inputDimensions.height,
+    },
+    "Raw Gemini output dimensions before any normalization",
+  );
+
+  let normalized = false;
+
   if (inputDimensions.width > 0 && inputDimensions.height > 0) {
     const inputAspect  = inputDimensions.width  / inputDimensions.height;
     const outputAspect = width / height;
@@ -293,10 +311,11 @@ async function validateAndNormalizeOutputImage(
           inputHeight: inputDimensions.height,
           outputWidth: width,
           outputHeight: height,
-          resizeFit: "contain",
+          resizeFit: "fill",
+          paddingApplied: false,
           driftPercent: parseFloat((drift * 100).toFixed(2)),
         },
-        "Output aspect ratio drifted — normalizing to input dimensions",
+        "Output aspect ratio drifted — normalizing to input dimensions with fill (no padding)",
       );
 
       buffer = await normalizeOutputToInputDimensions(
@@ -306,8 +325,22 @@ async function validateAndNormalizeOutputImage(
       );
       width  = inputDimensions.width;
       height = inputDimensions.height;
+      normalized = true;
     }
   }
+
+  log.info(
+    {
+      event: "render_output_dimensions_final",
+      sessionId: context.sessionId,
+      modelName: context.modelName,
+      finalWidth: width,
+      finalHeight: height,
+      normalizedApplied: normalized,
+      paddingApplied: false,
+    },
+    "Final render output dimensions after normalization check",
+  );
 
   return { width, height, buffer };
 }
@@ -341,20 +374,22 @@ export const geminiRoomPreviewRenderProvider = {
 
     const ai = getGeminiClient();
 
-    const prompt = buildRenderPrompt(
-      product.productType ?? null,
-      product.name ?? null,
-      room.floorQuad ?? null,
-    );
-
     // Load, decode, and resize (if needed) in a single sharp pipeline each.
     // Dimensions are returned directly — no second decode needed for metadata.
+    // Prompt is built after loading so we can include exact pixel dimensions.
     const [roomImage, productImage] = await Promise.all([
       loadAndPrepareImage(room.imageUrl, { imageRole: "room", sessionId }),
       loadAndPrepareImage(product.imageUrl, { imageRole: "product", sessionId }),
     ]);
 
     const inputDimensions = { width: roomImage.width, height: roomImage.height };
+
+    const prompt = buildRenderPrompt(
+      product.productType ?? null,
+      product.name ?? null,
+      room.floorQuad ?? null,
+      inputDimensions,
+    );
 
     const contentRequest: Record<string, unknown> = {
       contents: [

@@ -1,7 +1,7 @@
 "use client";
 
 import Image from "next/image";
-import { useRef } from "react";
+import { useEffect, useRef, useState } from "react";
 import { ImagePlus, LoaderCircle, RefreshCw } from "lucide-react";
 import { AnimatedButton } from "@/components/ui/AnimatedButton";
 import { useI18n } from "@/lib/i18n/provider";
@@ -22,6 +22,7 @@ export default function RoomStep({
 }: RoomStepProps) {
   const { locale, t, dir } = useI18n();
   const inputRef = useRef<HTMLInputElement>(null);
+  const [isPortraitPreview, setIsPortraitPreview] = useState(false);
 
   const openPicker = () => {
     if (!isSavingRoom) inputRef.current?.click();
@@ -29,6 +30,31 @@ export default function RoomStep({
 
   const hasPreview = Boolean(selectedRoom?.imageUrl);
   const isAr = locale === "ar";
+
+  useEffect(() => {
+    const timers: ReturnType<typeof setTimeout>[] = [];
+    if (!selectedRoom?.imageUrl) {
+      timers.push(setTimeout(() => setIsPortraitPreview(false), 0));
+      return () => timers.forEach(clearTimeout);
+    }
+
+    let active = true;
+    const image = new window.Image();
+    image.onload = () => {
+      if (!active) return;
+      setIsPortraitPreview(image.naturalHeight > image.naturalWidth);
+    };
+    image.onerror = () => {
+      if (!active) return;
+      setIsPortraitPreview(false);
+    };
+    image.src = selectedRoom.imageUrl;
+
+    return () => {
+      active = false;
+      timers.forEach(clearTimeout);
+    };
+  }, [selectedRoom?.imageUrl]);
 
   return (
     <section className={`mt-8 rounded-[28px] border border-[var(--border)] bg-[var(--bg-surface)] p-6 ${dir === "rtl" ? "text-right" : "text-left"}`}>
@@ -56,6 +82,12 @@ export default function RoomStep({
       </h2>
       <p className="mt-3 text-sm leading-7 text-[var(--text-secondary)]">
         {isAr ? "اختر صورة واضحة من معرض الهاتف لتجربة المنتج داخل مساحتك." : "Choose a clear photo from your gallery to experience the product in your space."}
+      </p>
+
+      <p className="mt-2 rounded-2xl border border-[var(--brand-cyan)]/15 bg-[var(--brand-cyan)]/[0.06] px-3 py-2 text-xs leading-6 text-[var(--text-secondary)]">
+        {isAr
+          ? "لأفضل نتيجة، صوّر الغرفة بشكل أفقي وبإضاءة واضحة."
+          : "For best results, capture the room horizontally with clear lighting."}
       </p>
 
       {/* Upload tap area */}
@@ -98,10 +130,19 @@ export default function RoomStep({
           <div className="relative aspect-[4/3] w-full overflow-hidden rounded-[20px] border border-[var(--border)] shadow-[0_8px_32px_rgba(0,0,0,0.20)]">
             <Image
               src={selectedRoom!.imageUrl!}
+              alt=""
+              fill
+              unoptimized
+              className="scale-110 object-cover opacity-45 blur-2xl"
+              aria-hidden
+            />
+            <div className="absolute inset-0 bg-[var(--bg-page)]/35" aria-hidden />
+            <Image
+              src={selectedRoom!.imageUrl!}
               alt={isAr ? "صورة الغرفة المختارة" : "Selected room image"}
               fill
               unoptimized
-              className="object-cover"
+              className="object-contain"
             />
             {isSavingRoom ? (
               <div className="absolute inset-0 flex flex-col items-center justify-center gap-3 rounded-[20px] bg-[var(--bg-page)]/80 backdrop-blur-sm">
@@ -112,6 +153,14 @@ export default function RoomStep({
               </div>
             ) : null}
           </div>
+
+          {isPortraitPreview ? (
+            <p className="mt-3 rounded-2xl border border-amber-300/25 bg-amber-300/10 px-3 py-2 text-xs leading-6 text-[var(--text-secondary)]">
+              {isAr
+                ? "الصورة طولية، قد تظهر بفراغات جانبية على الشاشة. الأفضل تصوير الغرفة أفقياً."
+                : "This photo is portrait, so it may show side spacing on the screen. Landscape room photos work best."}
+            </p>
+          ) : null}
 
           {!isSavingRoom ? (
             <AnimatedButton

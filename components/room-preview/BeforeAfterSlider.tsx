@@ -36,7 +36,19 @@ export function BeforeAfterSlider({
   const objectClass = fit === "contain" ? "object-contain" : "object-cover";
 
   return (
-    <div className={`relative isolate overflow-hidden bg-black ${className}`}>
+    <div className={`relative isolate overflow-hidden bg-[#071729] ${className}`}>
+      <Image
+        src={afterImageUrl}
+        alt=""
+        fill
+        unoptimized={unoptimized}
+        priority={priority}
+        sizes={sizes}
+        className="scale-110 object-cover object-center opacity-45 blur-2xl"
+        aria-hidden
+      />
+      <div className="absolute inset-0 bg-black/35" aria-hidden />
+
       <Image
         src={afterImageUrl}
         alt={alt}
@@ -44,14 +56,25 @@ export function BeforeAfterSlider({
         unoptimized={unoptimized}
         priority={priority}
         sizes={sizes}
-        className={`${objectClass} object-center ${imageClassName}`}
+        className={`z-10 ${objectClass} object-center ${imageClassName}`}
       />
 
       <div
-        className="absolute inset-0"
+        className="absolute inset-0 z-20"
         style={{ clipPath: `inset(0 ${100 - beforeReveal}% 0 0)` }}
         aria-hidden
       >
+        <Image
+          src={beforeSrc}
+          alt=""
+          fill
+          unoptimized={unoptimized}
+          priority={priority}
+          sizes={sizes}
+          className="scale-110 object-cover object-center opacity-45 blur-2xl"
+          aria-hidden
+        />
+        <div className="absolute inset-0 bg-black/35" aria-hidden />
         <Image
           src={beforeSrc}
           alt=""

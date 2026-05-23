@@ -111,8 +111,8 @@ function RenderLoadingScreen({
               src={roomBg}
               alt=""
               aria-hidden
-              className="absolute inset-0 h-full w-full object-contain"
-              style={{ filter: "blur(12px)" }}
+              className="absolute inset-0 h-full w-full scale-110 object-cover opacity-80"
+              style={{ filter: "blur(24px)" }}
             />
             <div className="absolute inset-0 bg-black/72" />
           </>

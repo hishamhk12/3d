@@ -213,13 +213,23 @@ export default function StatusPanel({
         >
           <div className="relative size-16 shrink-0 overflow-hidden rounded-2xl border border-white/15 bg-white/[0.06] shadow-[inset_0_1px_0_rgba(255,255,255,0.10)] sm:size-20">
             {selectedProduct?.imageUrl ? (
-              <Image
-                src={selectedProduct.imageUrl}
-                alt={selectedProduct.name ?? t.roomPreview.shared.selectedProductThumbnail}
-                fill
-                sizes="80px"
-                className="object-contain p-1"
-              />
+              <>
+                <Image
+                  src={selectedProduct.imageUrl}
+                  alt=""
+                  fill
+                  sizes="80px"
+                  className="scale-110 object-cover opacity-35 blur-md"
+                  aria-hidden
+                />
+                <Image
+                  src={selectedProduct.imageUrl}
+                  alt={selectedProduct.name ?? t.roomPreview.shared.selectedProductThumbnail}
+                  fill
+                  sizes="80px"
+                  className="object-contain p-1.5"
+                />
+              </>
             ) : (
               <div className="h-full w-full bg-[linear-gradient(135deg,rgba(0,175,215,0.18),rgba(255,255,255,0.06))]" />
             )}
@@ -237,15 +247,26 @@ export default function StatusPanel({
           </div>
         </div>
 
-        <div className="screen-preview-media relative mt-5 aspect-[4/3] w-full overflow-hidden rounded-[1.5rem] border border-white/12 bg-[#0d2339] shadow-[inset_0_1px_0_rgba(255,255,255,0.08)]">
+        <div className="screen-preview-media relative mt-5 aspect-[4/3] max-h-[62vh] w-full overflow-hidden rounded-[1.5rem] border border-white/12 bg-[#0d2339] shadow-[inset_0_1px_0_rgba(255,255,255,0.08)]">
           {session.selectedRoom?.imageUrl ? (
-            <Image
-              src={session.selectedRoom.imageUrl}
-              alt={t.roomPreview.shared.selectedRoomThumbnail}
-              fill
-              sizes="(max-width: 1024px) 90vw, 44rem"
-              className="object-contain"
-            />
+            <>
+              <Image
+                src={session.selectedRoom.imageUrl}
+                alt=""
+                fill
+                sizes="(max-width: 1024px) 90vw, 44rem"
+                className="scale-110 object-cover opacity-45 blur-2xl"
+                aria-hidden
+              />
+              <div className="absolute inset-0 bg-[#071729]/35" aria-hidden />
+              <Image
+                src={session.selectedRoom.imageUrl}
+                alt={t.roomPreview.shared.selectedRoomThumbnail}
+                fill
+                sizes="(max-width: 1024px) 90vw, 44rem"
+                className="object-contain"
+              />
+            </>
           ) : (
             <div className="flex h-full w-full items-center justify-center bg-[radial-gradient(circle_at_top,rgba(0,175,215,0.18),rgba(7,23,41,0.92)_55%)] px-8 text-center">
               <p className="text-base font-medium text-white/55">
@@ -263,13 +284,26 @@ export default function StatusPanel({
               <p className="mt-2 text-base text-emerald-300/80">{localizedCompletedAt}</p>
             ) : null}
             <div className="relative mt-6 aspect-[16/9] w-full overflow-hidden rounded-xl border border-emerald-500/25 shadow-inner">
-              <Image
-                src={renderResult?.imageUrl ?? ""}
-                alt={t.roomPreview.shared.renderedPreview}
-                fill
-                sizes="(max-width: 640px) 100vw, 100vw"
-                className="object-contain"
-              />
+              {renderResult?.imageUrl ? (
+                <>
+                  <Image
+                    src={renderResult.imageUrl}
+                    alt=""
+                    fill
+                    sizes="(max-width: 640px) 100vw, 100vw"
+                    className="scale-110 object-cover opacity-45 blur-2xl"
+                    aria-hidden
+                  />
+                  <div className="absolute inset-0 bg-[#071729]/35" aria-hidden />
+                  <Image
+                    src={renderResult.imageUrl}
+                    alt={t.roomPreview.shared.renderedPreview}
+                    fill
+                    sizes="(max-width: 640px) 100vw, 100vw"
+                    className="object-contain"
+                  />
+                </>
+              ) : null}
             </div>
             {resetCountdown !== null ? (
               <div className="mt-8 mx-auto max-w-sm">

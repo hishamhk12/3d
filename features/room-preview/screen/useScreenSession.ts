@@ -214,6 +214,23 @@ export function useScreenSession({ sessionId }: { sessionId: string }): UseScree
     }
 
     const mergedSession = mergeIncomingSession(previousSession, nextSession);
+
+    // Preload result image before committing state so the browser fetches it
+    // in parallel with the React render cycle. Only fires on new result URLs.
+    if (
+      mergedSession.status === "result_ready" &&
+      mergedSession.renderResult?.imageUrl &&
+      mergedSession.renderResult.imageUrl !== previousSession?.renderResult?.imageUrl
+    ) {
+      const img = new window.Image();
+      img.src = mergedSession.renderResult.imageUrl;
+      console.info("[room-preview] result_image_preload_started", {
+        sessionId,
+        imageUrl: mergedSession.renderResult.imageUrl,
+        transport,
+      });
+    }
+
     sessionRef.current = mergedSession;
     setSession(mergedSession);
 

@@ -183,7 +183,7 @@ export async function POST(
     const hasExistingProduct = previousProduct !== null;
     const eventType = hasExistingProduct ? "product_changed" : "product_selected";
 
-    await trackSessionEvent({
+    void trackSessionEvent({
       sessionId,
       source: "server",
       eventType,

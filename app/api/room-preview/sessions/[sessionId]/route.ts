@@ -2,6 +2,8 @@ import { NextResponse } from "next/server";
 import { getLogger } from "@/lib/logger";
 import { getRoomPreviewSession } from "@/lib/room-preview/session-service";
 
+export const dynamic = "force-dynamic";
+
 const log = getLogger("session-api");
 
 export async function GET(
@@ -32,7 +34,9 @@ export async function GET(
       );
     }
 
-    return NextResponse.json(session);
+    return NextResponse.json(session, {
+      headers: { "Cache-Control": "no-store" },
+    });
   } catch (err) {
     log.error({ err }, "Failed to get session");
     return NextResponse.json(

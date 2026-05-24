@@ -148,6 +148,7 @@ export default function ScreenSessionClient({ sessionId }: { sessionId: string }
             sizes="100vw"
             fit="contain"
             priority
+            unoptimized
           />
         </div>
       </div>

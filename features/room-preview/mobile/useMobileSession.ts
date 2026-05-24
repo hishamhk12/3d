@@ -878,7 +878,7 @@ export function useMobileSession({
         .finally(() => {
           setIsSavingProduct(false);
         });
-    }, 700);
+    }, 300);
   }, [session, sessionId, t, debugLog]);
 
   // Look up a product by scanned/entered value. Tries barcode → id → name substring.

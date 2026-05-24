@@ -140,7 +140,9 @@ export function useMobileSession({
   const [loadAttempt,         setLoadAttempt]        = useState(0);
   const [isConnecting,        setIsConnecting]       = useState(false);
   const [isSavingRoom,        setIsSavingRoom]       = useState(false);
-  const [isSavingProduct,     setIsSavingProduct]    = useState(false);
+  const [isSavingProduct,     _setIsSavingProduct]   = useState(false);
+  const isSavingProductRef = useRef(false);
+  const setIsSavingProduct = (v: boolean) => { isSavingProductRef.current = v; _setIsSavingProduct(v); };
   const [localProductId,      setLocalProductId]     = useState<string | null>(null);
   const productAbortRef       = useRef<AbortController | null>(null);
   const productSavePromiseRef = useRef<Promise<RoomPreviewSession | null> | null>(null);
@@ -895,11 +897,12 @@ export function useMobileSession({
         return null;
       })
       .finally(() => {
-        // Only clear saving state if this is still the active request.
+        // Always clear the save promise — even aborted saves must not block future renders.
+        if (productSavePromiseRef.current === savePromise) productSavePromiseRef.current = null;
+        // Only clear saving state / abort ref if this is still the active request.
         if (!controller.signal.aborted) {
           setIsSavingProduct(false);
           if (productAbortRef.current === controller) productAbortRef.current = null;
-          if (productSavePromiseRef.current === savePromise) productSavePromiseRef.current = null;
         }
       });
 
@@ -973,7 +976,7 @@ export function useMobileSession({
     console.log("[render] handler called", {
       productSaveInFlight: productSavePromiseRef.current !== null,
       inFlight: renderRequestInFlightRef.current,
-      isSavingProduct,
+      isSavingProduct: isSavingProductRef.current,
       sessionStatus: activeSession?.status ?? null,
       sessionId,
     });
@@ -992,14 +995,14 @@ export function useMobileSession({
 
     if (
       renderRequestInFlightRef.current ||
-      isSavingProduct ||
+      isSavingProductRef.current ||
       !activeSession ||
       activeSession.status === "ready_to_render" ||
       activeSession.status === "rendering"
     ) {
       const blockedBy = renderRequestInFlightRef.current
         ? "in_flight"
-        : isSavingProduct
+        : isSavingProductRef.current
           ? "is_saving_product"
           : !activeSession
             ? "no_session"
@@ -1122,7 +1125,7 @@ export function useMobileSession({
       renderRequestInFlightRef.current = false;
       setIsSavingProduct(false);
     }
-  }, [isSavingProduct, session, sessionId, t, debugLog]);
+  }, [session, sessionId, t, debugLog]);
 
   // ── Derived state ────────────────────────────────────────────────────────────
 

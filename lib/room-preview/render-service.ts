@@ -116,6 +116,8 @@ async function markSessionAsFailed(sessionId: string) {
 }
 
 async function runRoomPreviewRenderPipeline(sessionId: string) {
+  const pipelineStart = Date.now();
+
   // Atomic check-and-claim: only one process can win for a given sessionId.
   // This replaces the in-process globalThis guard and works across multiple
   // server instances because it relies on a conditional DB update.
@@ -125,6 +127,11 @@ async function runRoomPreviewRenderPipeline(sessionId: string) {
     // Session is already rendering, not ready, or doesn't exist.
     return;
   }
+
+  // Timing checkpoints (ms since pipelineStart; 0 = not yet reached)
+  let tSetupDone    = 0;   // Gemini slot acquired — provider is about to start
+  let tProviderDone = 0;   // renderRoomPreviewWithProvider returned
+  let tSaved        = 0;   // session state persisted + SSE published
 
   let renderJobId: string | null = null;
 
@@ -193,6 +200,8 @@ async function runRoomPreviewRenderPipeline(sessionId: string) {
       throw new Error("Render capacity reached. Please try again in a moment.");
     }
 
+    tSetupDone = Date.now() - pipelineStart;
+
     let composedPreview: Awaited<ReturnType<typeof renderRoomPreviewWithProvider>>;
     try {
       composedPreview = await renderRoomPreviewWithProvider({
@@ -203,6 +212,7 @@ async function runRoomPreviewRenderPipeline(sessionId: string) {
     } finally {
       await releaseGeminiSlot(semaphore.slot);
     }
+    tProviderDone = Date.now() - pipelineStart;
 
     const result = {
       imageUrl: composedPreview.imageUrl,
@@ -263,6 +273,22 @@ async function runRoomPreviewRenderPipeline(sessionId: string) {
         modelName: result.modelName,
       } satisfies RoomPreviewRenderResult),
     );
+    tSaved = Date.now() - pipelineStart;
+
+    void trackSessionEvent({
+      sessionId,
+      source: "renderer",
+      eventType: "render_timing_summary",
+      level: "info",
+      metadata: {
+        renderJobId: createdJob.id,
+        status: "completed",
+        totalMs:    tSaved,
+        setupMs:    tSetupDone > 0 ? tSetupDone : null,
+        providerMs: tProviderDone > 0 && tSetupDone > 0 ? tProviderDone - tSetupDone : null,
+        saveMs:     tSaved > 0 && tProviderDone > 0 ? tSaved - tProviderDone : null,
+      },
+    }).catch(() => undefined);
 
     // Save experience for returning customer tracking (fire-and-forget).
     after(async () => {
@@ -305,6 +331,22 @@ async function runRoomPreviewRenderPipeline(sessionId: string) {
       message: err instanceof Error ? err.message : String(err),
       metadata: { renderJobId, ...(failureReason ? { failureReason } : {}) },
     });
+
+    void trackSessionEvent({
+      sessionId,
+      source: "renderer",
+      eventType: "render_timing_summary",
+      level: "warning",
+      metadata: {
+        renderJobId,
+        status: "failed",
+        totalMs:    Date.now() - pipelineStart,
+        setupMs:    tSetupDone > 0 ? tSetupDone : null,
+        providerMs: tProviderDone > 0 && tSetupDone > 0 ? tProviderDone - tSetupDone : null,
+        saveMs:     null,
+      },
+    }).catch(() => undefined);
+
     await decrementRenderCount(sessionId).catch((error) => {
       log.error({ err: error, sessionId }, "Failed to roll back render count after pipeline failure");
     });

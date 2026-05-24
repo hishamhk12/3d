@@ -425,6 +425,7 @@ export const geminiRoomPreviewRenderProvider = {
     if (!product.imageUrl) throw new Error("A product image is required for Gemini rendering.");
 
     const ai = getGeminiClient();
+    const tProviderStart = Date.now();
 
     // Load, decode, and resize (if needed) in a single sharp pipeline each.
     // Dimensions are returned directly — no second decode needed for metadata.
@@ -433,6 +434,7 @@ export const geminiRoomPreviewRenderProvider = {
       loadAndPrepareImage(room.imageUrl, { imageRole: "room", sessionId }),
       loadAndPrepareImage(product.imageUrl, { imageRole: "product", sessionId }),
     ]);
+    const tImagesLoaded = Date.now();
 
     const inputDimensions = { width: roomImage.width, height: roomImage.height };
 
@@ -491,7 +493,9 @@ export const geminiRoomPreviewRenderProvider = {
             "Starting render attempt",
           );
 
+          const tGeminiStart = Date.now();
           const response = await generateContentWithTimeout(ai, modelName, contentRequest);
+          const tGeminiDone = Date.now();
 
           const parts = response.candidates?.[0]?.content?.parts ?? [];
           const imagePart = parts.find(
@@ -534,7 +538,9 @@ export const geminiRoomPreviewRenderProvider = {
           );
 
           const storageKey = buildRenderStorageKey({ jobId: request.jobId, sessionId });
+          const tUploadStart = Date.now();
           const uploadResult = await storageUpload(storageKey, imageBuffer, "image/png");
+          const tUploadDone = Date.now();
 
           log.info(
             {
@@ -575,6 +581,14 @@ export const geminiRoomPreviewRenderProvider = {
             promptText:              prompt,
             outputImageUrl:          uploadResult.publicUrl,
             artifactUrls:            {} as Record<string, string>,
+            timings: {
+              imageLoadMs:     tImagesLoaded - tProviderStart,
+              geminiMs:        tGeminiDone - tGeminiStart,
+              uploadMs:        tUploadDone - tUploadStart,
+              totalProviderMs: tUploadDone - tProviderStart,
+              attempt,
+              modelName,
+            },
           };
 
           if (DEBUG_ARTIFACTS_ENABLED) {

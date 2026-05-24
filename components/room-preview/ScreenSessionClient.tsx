@@ -5,7 +5,7 @@ import { LoaderCircle } from "lucide-react";
 import SessionStatePanel from "@/components/room-preview/SessionStatePanel";
 import { BeforeAfterSlider } from "@/components/room-preview/BeforeAfterSlider";
 import { RenderLoadingAnimation } from "@/features/room-preview/shared/RenderLoadingAnimation";
-import { ROOM_PREVIEW_ROUTES, SCREEN_ERROR_RESET_MS } from "@/lib/room-preview/constants";
+import { SCREEN_ERROR_RESET_MS } from "@/lib/room-preview/constants";
 import { useScreenSession } from "@/features/room-preview/screen/useScreenSession";
 import StatusPanel from "@/features/room-preview/screen/StatusPanel";
 
@@ -37,7 +37,6 @@ export default function ScreenSessionClient({ sessionId }: { sessionId: string }
     hasSelectedProduct,
     hasSelectedRoom,
     hasRenderResult,
-    retry,
   } = useScreenSession({ sessionId });
 
   // Tracks whether we've witnessed a "rendering" status in this page load.
@@ -85,7 +84,6 @@ export default function ScreenSessionClient({ sessionId }: { sessionId: string }
         <SessionStatePanel
           title={t.roomPreview.screen.notFoundTitle}
           description={error ?? t.roomPreview.screen.notFoundDescription}
-          actions={[{ href: ROOM_PREVIEW_ROUTES.screenLauncher, label: t.roomPreview.shared.startNewSession }]}
         />
         {errorCountdownFooter}
       </div>
@@ -98,7 +96,6 @@ export default function ScreenSessionClient({ sessionId }: { sessionId: string }
         <SessionStatePanel
           title={t.roomPreview.screen.expiredTitle}
           description={error ?? t.roomPreview.screen.expiredDescription}
-          actions={[{ href: ROOM_PREVIEW_ROUTES.screenLauncher, label: t.roomPreview.shared.startNewSession }]}
         />
         {errorCountdownFooter}
       </div>
@@ -111,10 +108,6 @@ export default function ScreenSessionClient({ sessionId }: { sessionId: string }
         <SessionStatePanel
           title={t.roomPreview.screen.failedTitle}
           description={error ?? t.roomPreview.screen.failedDescription}
-          actions={[
-            { label: t.common.actions.retry, onClick: retry },
-            { href: ROOM_PREVIEW_ROUTES.screenLauncher, label: t.roomPreview.shared.startNewSession, variant: "secondary" },
-          ]}
         />
         {errorCountdownFooter}
       </div>
@@ -127,10 +120,6 @@ export default function ScreenSessionClient({ sessionId }: { sessionId: string }
         <SessionStatePanel
           title={t.roomPreview.screen.failedTitle}
           description={t.roomPreview.shared.noSessionData}
-          actions={[
-            { label: t.common.actions.retry, onClick: retry },
-            { href: ROOM_PREVIEW_ROUTES.screenLauncher, label: t.roomPreview.shared.startNewSession, variant: "secondary" },
-          ]}
         />
       </div>
     );

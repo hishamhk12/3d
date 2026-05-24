@@ -295,7 +295,7 @@ const en = {
         qualityRetry: "This may take a little longer while the system retries automatically for a better result.",
         finishing: "Almost there. Final quality checks are running before showing the preview.",
       },
-      pipelineFailed: "The render pipeline failed for this session.",
+      pipelineFailed: "Could not create the preview. Please retry from your phone.",
       completedAt: "Completed at {datetime}",
       baseUrlMissingTitle: "Missing NEXT_PUBLIC_BASE_URL",
       baseUrlMissingDescription:
@@ -718,7 +718,7 @@ const ar: TranslationDictionary = {
         qualityRetry: "قد يستغرق الأمر وقتًا أطول قليلًا لأن النظام يعيد المحاولة تلقائيًا للحصول على نتيجة أفضل.",
         finishing: "اقتربنا من الانتهاء، يتم الآن فحص الجودة النهائي قبل عرض المعاينة.",
       },
-      pipelineFailed: "فشل مسار المعالجة لهذه الجلسة.",
+      pipelineFailed: "تعذر إنشاء المعاينة. يرجى إعادة المحاولة من الجوال.",
       completedAt: "اكتملت في {datetime}",
       baseUrlMissingTitle: "المتغير NEXT_PUBLIC_BASE_URL غير مضبوط",
       baseUrlMissingDescription:

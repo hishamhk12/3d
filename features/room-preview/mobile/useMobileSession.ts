@@ -79,6 +79,7 @@ export interface UseMobileSessionReturn {
   handleProductSelect: (productId: string) => void;
   handleProductCodeSelect: (productCode: string) => Promise<RoomPreviewSession | null>;
   handleCreateRender: (sessionOverride?: RoomPreviewSession) => Promise<void>;
+  handleRetakeRoomPhoto: () => void;
 
   // Heartbeat
   heartbeatConnected: boolean;
@@ -1009,6 +1010,9 @@ export function useMobileSession({
             : "already_rendering";
       console.log("[render] early return", { blockedBy, status: activeSession?.status });
       debugLog("warn", `Ignored duplicate render request (blockedBy: ${blockedBy})`);
+      if (blockedBy === "already_rendering") {
+        setError("المعاينة لا تزال قيد الإنشاء، يرجى الانتظار قليلًا.");
+      }
       return;
     }
 
@@ -1127,6 +1131,13 @@ export function useMobileSession({
     }
   }, [session, sessionId, t, debugLog]);
 
+  const handleRetakeRoomPhoto = useCallback(() => {
+    if (!session) return;
+    setSession({ ...session, selectedRoom: null });
+    setError(null);
+    setRecoveryMessage(null);
+  }, [session]);
+
   // ── Derived state ────────────────────────────────────────────────────────────
 
   const isConnected    = session ? isSessionConnected(session) : false;
@@ -1172,6 +1183,7 @@ export function useMobileSession({
     handleProductSelect,
     handleProductCodeSelect,
     handleCreateRender,
+    handleRetakeRoomPhoto,
     heartbeatConnected,
     heartbeatFailedCount,
     heartbeatLastSuccessAt,

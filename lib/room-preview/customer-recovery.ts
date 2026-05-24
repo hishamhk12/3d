@@ -21,8 +21,8 @@ export const CUSTOMER_RECOVERY_MESSAGES: Record<CustomerMessageKey, CustomerReco
   },
   retry_render: {
     ctaIntent: "retry_render",
-    ctaText: "إعادة المعالجة",
-    text: "المعالجة تستغرق وقتاً أطول من المعتاد. أعد المحاولة.",
+    ctaText: "إعادة المحاولة",
+    text: "استغرق إنشاء المعاينة وقتًا أطول من المتوقع. يرجى المحاولة مرة أخرى.",
   },
   reload_page: {
     ctaIntent: "reload_page",

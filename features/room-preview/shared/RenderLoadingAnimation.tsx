@@ -33,6 +33,7 @@ export function RenderLoadingAnimation({
   const [progress, setProgress] = useState(0);
   const [msgIndex, setMsgIndex] = useState(0);
   const [fadeOut, setFadeOut] = useState(false);
+  const [showLongRenderMsg, setShowLongRenderMsg] = useState(false);
 
   useEffect(() => {
     const timers: ReturnType<typeof setTimeout>[] = [];
@@ -57,6 +58,12 @@ export function RenderLoadingAnimation({
     );
     return () => clearInterval(id);
   }, [showResult]);
+
+  useEffect(() => {
+    if (variant !== "screen" || showResult) { setShowLongRenderMsg(false); return; }
+    const timer = setTimeout(() => setShowLongRenderMsg(true), 90_000);
+    return () => { clearTimeout(timer); setShowLongRenderMsg(false); };
+  }, [variant, showResult]);
 
   // Lock scroll while overlay is mounted
   useEffect(() => {
@@ -162,6 +169,15 @@ export function RenderLoadingAnimation({
               <span className={`font-mono ${metaTextClass} text-white/40`}>{progress}%</span>
             </div>
           </div>
+
+          {isScreen && showLongRenderMsg && !showResult ? (
+            <p
+              className="text-center text-[15px] font-medium leading-relaxed text-white/50 animate-in fade-in duration-700"
+              dir="rtl"
+            >
+              قد تستغرق المعاينة وقتًا أطول قليلًا، نعمل على تجهيزها الآن...
+            </p>
+          ) : null}
 
         </div>
       </div>

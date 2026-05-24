@@ -87,7 +87,9 @@ const SOFT_FALLBACK_NOTICE = {
 } as const;
 
 function isPollingTerminalStatus(status: RoomPreviewSession["status"] | null | undefined) {
-  return status === "completed" || status === "failed" || status === "expired";
+  // "failed" is intentionally excluded: SSE must stay open so the screen receives
+  // the retry transition (failed → ready_to_render) when the mobile user retries.
+  return status === "completed" || status === "expired";
 }
 
 const STATUS_RANK: Record<RoomPreviewSessionStatus, number> = {

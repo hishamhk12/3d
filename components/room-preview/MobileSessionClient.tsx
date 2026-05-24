@@ -123,6 +123,7 @@ export default function MobileSessionClient({
     handleProductSelect,
     handleProductCodeSelect,
     handleCreateRender,
+    handleRetakeRoomPhoto,
     localProductId,
     heartbeatConnected,
   } = useMobileSession({ sessionId });
@@ -312,9 +313,11 @@ export default function MobileSessionClient({
                 }
                 if (recoveryMessage.ctaIntent === "retry_render") { void handleCreateRender(); return; }
                 if (recoveryMessage.ctaIntent === "reconnect_mobile") { retry(); return; }
+                if (recoveryMessage.ctaIntent === "retake_room_photo") { handleRetakeRoomPhoto(); return; }
                 clearRecoveryMessage();
               }}
-              className="mt-3 block w-full rounded-[18px] border border-[var(--border-strong)] bg-[var(--bg-surface)] px-4 py-2.5 text-sm font-semibold text-[var(--text-primary)] hover:bg-[var(--bg-surface-2)] transition-colors"
+              disabled={recoveryMessage.ctaIntent === "retry_render" && session.status !== "failed"}
+              className="mt-3 block w-full rounded-[18px] border border-[var(--border-strong)] bg-[var(--bg-surface)] px-4 py-2.5 text-sm font-semibold text-[var(--text-primary)] hover:bg-[var(--bg-surface-2)] transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
             >
               {recoveryMessage.ctaText}
             </button>

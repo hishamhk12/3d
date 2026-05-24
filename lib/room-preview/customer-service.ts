@@ -76,7 +76,7 @@ export async function getLatestCustomerExperiences(
   limit = 3,
 ): Promise<CustomerExperience[]> {
   return prisma.customerExperience.findMany({
-    where: { customerId },
+    where: { customerId, resultImageUrl: { not: null } },
     orderBy: { createdAt: "desc" },
     take: limit,
   });

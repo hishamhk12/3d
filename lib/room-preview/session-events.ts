@@ -195,7 +195,11 @@ function publishRedis(sessionId: string, event: RoomPreviewSessionEvent) {
   // Publish to the per-session channel (targeted SSE delivery).
   pub.publish(sessionChannel, payload)
     .then((receiverCount) => {
-      log.info({ channel: sessionChannel, sessionId, eventType: event.type, receiverCount }, "Redis event published");
+      if (receiverCount === 0) {
+        log.warn({ channel: sessionChannel, sessionId, eventType: event.type }, "Redis event published but no subscribers — screen SSE may not be connected");
+      } else {
+        log.info({ channel: sessionChannel, sessionId, eventType: event.type, receiverCount }, "Redis event published");
+      }
     })
     .catch((err) => {
       log.error({ err, channel: sessionChannel }, "Failed to publish to session channel");

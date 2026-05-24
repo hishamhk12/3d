@@ -6,6 +6,7 @@ import { HealthBar } from "./_components/health-bar";
 import { MarkStuckRenderJobsButton } from "./_components/mark-stuck-render-jobs-button";
 import { RenderJobsFeed } from "./_components/render-jobs-feed";
 import { SessionTable } from "./_components/session-table";
+import { SystemHealthCard } from "./_components/system-health-card";
 
 export const metadata = {
   title: "Admin Dashboard - Ibdaa 360",
@@ -74,6 +75,8 @@ export default function AdminHomePage() {
         <Suspense fallback={<MetricsSkeleton />}>
           <HealthBar />
         </Suspense>
+
+        <SystemHealthCard />
 
         <Suspense fallback={<ChartsSkeleton />}>
           <DashboardCharts />

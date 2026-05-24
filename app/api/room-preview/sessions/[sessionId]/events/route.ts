@@ -161,7 +161,9 @@ export async function GET(
       );
 
       cleanup.heartbeat = setInterval(() => {
-        safeEnqueue(createSseComment("keepalive"));
+        // Send as a named event so the client-side EventSource can observe it
+        // and detect a silently-stale connection (e.g. Redis unavailable).
+        safeEnqueue(createSseMessage("keepalive", "{}"));
       }, ROOM_PREVIEW_TIMEOUTS.SSE_KEEPALIVE_MS);
 
       request.signal.addEventListener("abort", close);

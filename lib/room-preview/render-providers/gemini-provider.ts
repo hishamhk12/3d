@@ -198,16 +198,15 @@ async function loadAndPrepareImage(
   let height: number;
 
   if (needsResize) {
-    finalBuffer = await image
+    const { data, info } = await image
       .resize(maxDimension, maxDimension, {
         fit: "inside",
         withoutEnlargement: true,
       })
-      .toBuffer();
-
-    const resizedMeta = await sharp(finalBuffer).metadata();
-    width  = resizedMeta.width  ?? originalWidth;
-    height = resizedMeta.height ?? originalHeight;
+      .toBuffer({ resolveWithObject: true });
+    finalBuffer = data;
+    width  = info.width;
+    height = info.height;
 
     log.info(
       {
@@ -557,7 +556,11 @@ export const geminiRoomPreviewRenderProvider = {
 
           const storageKey = buildRenderStorageKey({ jobId: request.jobId, sessionId });
           const tUploadStart = Date.now();
-          const uploadResult = await storageUpload(storageKey, imageBuffer, "image/png");
+          const geminiOutputMimeType = imagePart.inlineData.mimeType ?? "";
+          const uploadBuffer = geminiOutputMimeType === "image/png"
+            ? imageBuffer
+            : await (await import("sharp")).default(imageBuffer).png().toBuffer();
+          const uploadResult = await storageUpload(storageKey, uploadBuffer, "image/png");
           const tUploadDone = Date.now();
 
           log.info(
@@ -567,7 +570,7 @@ export const geminiRoomPreviewRenderProvider = {
               sessionId,
               promptVersion: PROMPT_VERSION,
               outputDimensions: `${width}x${height}`,
-              outputBytes: imageBuffer.length,
+              outputBytes: uploadBuffer.length,
             },
             "Render succeeded",
           );

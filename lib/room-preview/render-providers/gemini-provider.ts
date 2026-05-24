@@ -46,6 +46,7 @@ const REJECT_ASPECT_RATIO_DRIFT = 0.05;
  * still strictly validated against the prepared input aspect ratio.
  */
 const MAX_IMAGE_DIMENSION_PX = 1280;
+const MAX_PRODUCT_IMAGE_DIMENSION_PX = 768;
 
 /** When true, raw buffers are saved under debug/render-jobs/{sessionId}/{jobId}/. */
 const DEBUG_ARTIFACTS_ENABLED = process.env.ROOM_PREVIEW_DEBUG_RENDER_ARTIFACTS === "true";
@@ -173,9 +174,11 @@ async function loadAndPrepareImage(
   const originalWidth  = meta.width  ?? 0;
   const originalHeight = meta.height ?? 0;
 
+  const maxDimension = context.imageRole === "product" ? MAX_PRODUCT_IMAGE_DIMENSION_PX : MAX_IMAGE_DIMENSION_PX;
+
   const needsResize =
-    originalWidth  > MAX_IMAGE_DIMENSION_PX ||
-    originalHeight > MAX_IMAGE_DIMENSION_PX;
+    originalWidth  > maxDimension ||
+    originalHeight > maxDimension;
 
   log.info(
     {
@@ -196,7 +199,7 @@ async function loadAndPrepareImage(
 
   if (needsResize) {
     finalBuffer = await image
-      .resize(MAX_IMAGE_DIMENSION_PX, MAX_IMAGE_DIMENSION_PX, {
+      .resize(maxDimension, maxDimension, {
         fit: "inside",
         withoutEnlargement: true,
       })
@@ -238,6 +241,21 @@ async function loadAndPrepareImage(
     },
     "Render input image dimensions after resize",
   );
+
+  if (context.imageRole === "product") {
+    log.info(
+      {
+        event: "product_image_resized_for_gemini",
+        sessionId: context.sessionId,
+        originalWidth,
+        originalHeight,
+        finalWidth: width,
+        finalHeight: height,
+        resized: needsResize,
+      },
+      "Product image prepared for Gemini",
+    );
+  }
 
   return { base64: finalBuffer.toString("base64"), mimeType, width, height, originalWidth, originalHeight };
 }

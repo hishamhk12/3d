@@ -260,12 +260,13 @@ export function useScreenSession({ sessionId }: { sessionId: string }): UseScree
       mergedSession.selectedProduct?.imageUrl &&
       mergedSession.selectedProduct.imageUrl !== previousSession?.selectedProduct?.imageUrl
     ) {
-      console.info("[room-preview] screen_session_updated_after_product_selection", {
+      console.info("[room-preview] screen_product_visible", {
         productId: mergedSession.selectedProduct.id,
         productImageUrl: mergedSession.selectedProduct.imageUrl,
         sessionId,
         status: mergedSession.status,
         transport,
+        t: Date.now(),
       });
     }
 

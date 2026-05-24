@@ -50,6 +50,17 @@ function getErrorMessage(error: unknown, fallbackMessage: string) {
   return error instanceof Error ? error.message : fallbackMessage;
 }
 
+function mergeAbortSignals(a: AbortSignal, b: AbortSignal): AbortSignal {
+  if (typeof AbortSignal.any === "function") {
+    return AbortSignal.any([a, b]);
+  }
+  const controller = new AbortController();
+  if (a.aborted || b.aborted) { controller.abort(); return controller.signal; }
+  a.addEventListener("abort", () => controller.abort(a.reason), { once: true });
+  b.addEventListener("abort", () => controller.abort(b.reason), { once: true });
+  return controller.signal;
+}
+
 function createTimeoutSignal(timeoutMs: number) {
   const controller = new AbortController();
   let timedOut = false;
@@ -110,11 +121,14 @@ export async function requestRoomPreviewJson(
     // Race the fetch against an independent promise-based timer.
     // This ensures timeout fires even when the browser throttles setTimeout
     // (iOS background tabs, some Android WebViews).
+    const fetchSignal = init.signal
+      ? mergeAbortSignals(timeout.signal, init.signal)
+      : timeout.signal;
     response = await Promise.race([
       fetch(input, {
         ...init,
         headers,
-        signal: timeout.signal,
+        signal: fetchSignal,
       }),
       rejectAfter(timeoutMs),
     ]);

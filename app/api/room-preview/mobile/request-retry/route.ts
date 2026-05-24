@@ -101,7 +101,7 @@ export async function POST(request: Request) {
   const previousSession = await getSessionById(body.sessionId);
 
   try {
-    const session = await selectProductForSession(body.sessionId, product);
+    const { session } = await selectProductForSession(body.sessionId, product);
 
     await trackSessionEvent({
       sessionId: body.sessionId,

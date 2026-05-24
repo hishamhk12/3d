@@ -13,9 +13,8 @@ import {
   RoomPreviewSessionTransitionError,
   selectProductForSession,
 } from "@/lib/room-preview/session-service";
-import { getSessionById } from "@/lib/room-preview/session-repository";
 import { trackSessionEvent } from "@/lib/room-preview/session-diagnostics";
-import type { SelectedProduct } from "@/lib/room-preview/types";
+import type { RoomPreviewSession, SelectedProduct } from "@/lib/room-preview/types";
 
 const log = getLogger("product-api");
 
@@ -114,14 +113,15 @@ export async function POST(
     );
   }
 
-  // Snapshot previous product before the write so we can classify the event.
-  const previousSession = await getSessionById(sessionId);
-  const previousProduct = previousSession?.selectedProduct ?? null;
+  const t0 = Date.now();
+  log.info({ sessionId, productId: product.id }, "product_route_received");
 
-  let session = null;
+  let session: RoomPreviewSession | null = null;
+  let previousProduct: SelectedProduct | null = null;
 
   try {
-    session = await selectProductForSession(sessionId, buildSessionProduct(product));
+    ({ session, previousProduct } = await selectProductForSession(sessionId, buildSessionProduct(product)));
+    log.info({ sessionId, productId: product.id, ms: Date.now() - t0 }, "product_db_updated");
   } catch (error) {
     if (isRoomPreviewSessionNotFoundError(error)) {
       log.warn({ sessionId }, "Product save attempted for missing session");
@@ -154,9 +154,9 @@ export async function POST(
     return NextResponse.json({ error: "Failed to save product." }, { status: 500 });
   }
 
-  if (!session.selectedProduct?.id || !session.selectedProduct.imageUrl) {
+  if (!session || !session.selectedProduct?.id || !session.selectedProduct.imageUrl) {
     log.error(
-      { sessionId, productId: product.id, sessionProduct: session.selectedProduct },
+      { sessionId, productId: product.id, sessionProduct: session?.selectedProduct },
       "Missing product state after save",
     );
     return NextResponse.json({ error: "Failed to save product." }, { status: 500 });
@@ -193,7 +193,7 @@ export async function POST(
         newProductId,
         productImageUrl: session.selectedProduct.imageUrl,
         newSku: session.selectedProduct.barcode ?? undefined,
-        ...(hasExistingProduct && {
+        ...(previousProduct !== null && {
           previousProductId: previousProduct.id,
           previousSku: previousProduct.barcode ?? undefined,
         }),

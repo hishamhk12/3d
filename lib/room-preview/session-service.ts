@@ -240,9 +240,10 @@ export async function selectRoomForSession(sessionId: string, room: SelectedRoom
 
 export async function selectProductForSession(sessionId: string, product: SelectedProduct) {
   const session = await getRequiredRoomPreviewSession(sessionId);
+  const previousProduct = session.selectedProduct;
   const productSelectedSession = selectProductTransition(session, product);
   const persistedSession = await persistTransition(productSelectedSession, session.status);
-  return persistedSession;
+  return { session: persistedSession, previousProduct };
 }
 
 export async function startRenderSession(sessionId: string) {

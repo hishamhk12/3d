@@ -39,6 +39,7 @@ export async function saveRoomPreviewSessionProduct(
     | {
         productCode: string;
       },
+  { signal }: { signal?: AbortSignal } = {},
 ) {
   const data = await requestRoomPreviewJson(
     ROOM_PREVIEW_ROUTES.productApi(sessionId),
@@ -49,6 +50,7 @@ export async function saveRoomPreviewSessionProduct(
       headers: {
         "Content-Type": "application/json",
       },
+      ...(signal ? { signal } : {}),
     },
     "Could not save the selected product for this session.",
   );

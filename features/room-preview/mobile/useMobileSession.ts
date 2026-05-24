@@ -142,7 +142,8 @@ export function useMobileSession({
   const [isSavingRoom,        setIsSavingRoom]       = useState(false);
   const [isSavingProduct,     setIsSavingProduct]    = useState(false);
   const [localProductId,      setLocalProductId]     = useState<string | null>(null);
-  const productDebounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const productAbortRef       = useRef<AbortController | null>(null);
+  const productSavePromiseRef = useRef<Promise<RoomPreviewSession | null> | null>(null);
   const [showResult,          setShowResult]         = useState(false);
   const [roomSaveStatusLabel, setRoomSaveStatusLabel]= useState<string | null>(null);
   const [error,               setError]              = useState<string | null>(null);
@@ -216,10 +217,10 @@ export function useMobileSession({
     }
   }, [session?.mobileConnected, session?.status, sessionId, updateStatus]);
 
-  // ── Debounce cleanup ─────────────────────────────────────────────────────────
+  // ── Abort in-flight product save on unmount ──────────────────────────────────
   useEffect(() => {
     return () => {
-      if (productDebounceRef.current) clearTimeout(productDebounceRef.current);
+      productAbortRef.current?.abort();
     };
   }, []);
 
@@ -821,73 +822,98 @@ export function useMobileSession({
   const handleProductSelect = useCallback((productId: string) => {
     if (!session) return;
 
-    // Immediate local update — UI responds instantly, no spinner yet
+    // Abort any in-flight save for a previous product; latest selection wins.
+    productAbortRef.current?.abort();
+    const controller = new AbortController();
+    productAbortRef.current = controller;
+
+    // Immediate local update — UI responds before the network round-trip.
     setLocalProductId(productId);
     setError(null);
     setSuccessMessage(null);
+    setIsSavingProduct(true);
+    setProductSaveStatus("idle");
 
-    // Cancel any pending save from previous navigation
-    if (productDebounceRef.current) clearTimeout(productDebounceRef.current);
+    const t0 = Date.now();
+    console.info("[room-preview] mobile_product_post_start", { sessionId, productId, t: t0 });
 
-    // Save to server 700ms after the user stops navigating
-    productDebounceRef.current = setTimeout(() => {
-      setIsSavingProduct(true);
-      setProductSaveStatus("idle");
+    trackClientSessionEvent(sessionId, {
+      source: "mobile",
+      eventType: "mobile_tap_detected",
+      level: "info",
+      metadata: { target: "product", productId },
+    });
+    debugLog("network", `POST /product  productId: ${productId}`);
 
-      trackClientSessionEvent(sessionId, {
-        source: "mobile",
-        eventType: "mobile_tap_detected",
-        level: "info",
-        metadata: { target: "product", productId },
-      });
-      debugLog("network", `POST /product  productId: ${productId}`);
-
-      saveRoomPreviewSessionProduct(sessionId, { productId })
-        .then((response) => {
-          setSession(response.session);
-          setProductSaveStatus("success");
-          trackClientSessionEvent(sessionId, {
-            source: "mobile",
-            eventType: "product_selected",
-            level: "info",
-            statusAfter: response.session.status,
-            metadata: { productId: response.session.selectedProduct?.id ?? productId },
-          });
-          debugLog("success", `Product saved  id: ${response.session.selectedProduct?.id ?? "?"}`);
-          console.info("[room-preview] Product saved", {
-            sessionId,
-            productId: response.session.selectedProduct?.id ?? null,
-            barcode:   response.session.selectedProduct?.barcode ?? null,
-            status:    response.session.status,
-          });
-        })
-        .catch((saveError) => {
-          const failure = getViewStateFromError(saveError, t);
-          debugLog("error", `Product save failed: ${saveError instanceof Error ? saveError.message : String(saveError)}`);
-          if (failure.state === "expired" || failure.state === "not_found") {
-            setSession(null);
-            setViewState(failure.state);
-            setError(failure.message);
-            debugLog("state", `viewState → ${failure.state}`);
-          } else {
-            console.error("[room-preview] Failed to save product", { sessionId, productId, error: saveError });
-            setError(createActionErrorMessage(saveError, t.roomPreview.mobile.product.saveFailed));
-            setProductSaveStatus("error");
-          }
-        })
-        .finally(() => {
-          setIsSavingProduct(false);
+    const savePromise: Promise<RoomPreviewSession | null> = saveRoomPreviewSessionProduct(
+      sessionId,
+      { productId },
+      { signal: controller.signal },
+    )
+      .then((response) => {
+        if (controller.signal.aborted) return null;
+        setSession(response.session);
+        setProductSaveStatus("success");
+        console.info("[room-preview] mobile_product_response_received", {
+          sessionId,
+          productId: response.session.selectedProduct?.id ?? productId,
+          ms: Date.now() - t0,
         });
-    }, 300);
+        trackClientSessionEvent(sessionId, {
+          source: "mobile",
+          eventType: "product_selected",
+          level: "info",
+          statusAfter: response.session.status,
+          metadata: { productId: response.session.selectedProduct?.id ?? productId },
+        });
+        debugLog("success", `Product saved  id: ${response.session.selectedProduct?.id ?? "?"}`);
+        console.info("[room-preview] Product saved", {
+          sessionId,
+          productId: response.session.selectedProduct?.id ?? null,
+          barcode:   response.session.selectedProduct?.barcode ?? null,
+          status:    response.session.status,
+        });
+        return response.session;
+      })
+      .catch((saveError) => {
+        // Ignore intentional aborts — a newer product selection is already in flight.
+        if (controller.signal.aborted || (saveError instanceof Error && saveError.name === "AbortError")) {
+          return null;
+        }
+        const failure = getViewStateFromError(saveError, t);
+        debugLog("error", `Product save failed: ${saveError instanceof Error ? saveError.message : String(saveError)}`);
+        if (failure.state === "expired" || failure.state === "not_found") {
+          setSession(null);
+          setViewState(failure.state);
+          setError(failure.message);
+          debugLog("state", `viewState → ${failure.state}`);
+        } else {
+          console.error("[room-preview] Failed to save product", { sessionId, productId, error: saveError });
+          setError(createActionErrorMessage(saveError, t.roomPreview.mobile.product.saveFailed));
+          setProductSaveStatus("error");
+        }
+        return null;
+      })
+      .finally(() => {
+        // Only clear saving state if this is still the active request.
+        if (!controller.signal.aborted) {
+          setIsSavingProduct(false);
+          if (productAbortRef.current === controller) productAbortRef.current = null;
+          if (productSavePromiseRef.current === savePromise) productSavePromiseRef.current = null;
+        }
+      });
+
+    productSavePromiseRef.current = savePromise;
   }, [session, sessionId, t, debugLog]);
 
   // Look up a product by scanned/entered value. Tries barcode → id → name substring.
   const handleProductCodeSelect = useCallback(async (productCode: string) => {
     if (!session) return null;
 
-    if (productDebounceRef.current) {
-      clearTimeout(productDebounceRef.current);
-      productDebounceRef.current = null;
+    // Cancel any in-flight product-by-id save; QR scan takes priority.
+    if (productAbortRef.current) {
+      productAbortRef.current.abort();
+      productAbortRef.current = null;
     }
 
     setIsSavingProduct(true);
@@ -945,77 +971,22 @@ export function useMobileSession({
     let activeSession = sessionOverride ?? session;
 
     console.log("[render] handler called", {
-      productDebounce: productDebounceRef.current,
+      productSaveInFlight: productSavePromiseRef.current !== null,
       inFlight: renderRequestInFlightRef.current,
       isSavingProduct,
       sessionStatus: activeSession?.status ?? null,
       sessionId,
     });
 
-    // ── Flush pending product debounce ─────────────────────────────────────────
-    //
-    // productDebounceRef.current holds the timer ID even after the timer fires
-    // (it is never cleared to null in handleProductSelect's callback). Clearing
-    // and checking whether the product is already persisted handles both cases:
-    //   • timer already fired  → product saved, just clear the stale ref and go
-    //   • timer still pending  → cancel it and save the product immediately
-    if (productDebounceRef.current !== null) {
-      clearTimeout(productDebounceRef.current);
-      const pendingProductId = localProductId ?? activeSession?.selectedProduct?.id ?? null;
-      const productAlreadySaved =
-        Boolean(activeSession?.selectedProduct?.imageUrl) &&
-        activeSession?.selectedProduct?.id === pendingProductId;
-      productDebounceRef.current = null;
-
-      console.log("[render] product debounce flushed", { pendingProductId, productAlreadySaved });
-      trackClientSessionEvent(activeSession?.id ?? sessionId, {
-        source: "mobile",
-        eventType: "render_product_debounce_flushed",
-        level: "info",
-        metadata: {
-          pendingProductId,
-          productAlreadySaved,
-          sessionId: activeSession?.id ?? sessionId,
-          currentStatus: activeSession?.status ?? null,
-        },
-      });
-
-      if (!productAlreadySaved && pendingProductId && activeSession) {
-        debugLog("network", `Flushing product save before render  productId: ${pendingProductId}`);
-        try {
-          const saveResponse = await saveRoomPreviewSessionProduct(sessionId, { productId: pendingProductId });
-          activeSession = saveResponse.session;
-          setSession(saveResponse.session);
-          setProductSaveStatus("success");
-          debugLog("success", `Product flushed and saved  id: ${saveResponse.session.selectedProduct?.id ?? "?"}`);
-        } catch (saveError) {
-          const failure = getViewStateFromError(saveError, t);
-          debugLog("error", `Product flush-save failed: ${saveError instanceof Error ? saveError.message : String(saveError)}`);
-          if (failure.state === "expired" || failure.state === "not_found") {
-            setSession(null);
-            setViewState(failure.state);
-            setError(failure.message);
-            debugLog("state", `viewState → ${failure.state}`);
-          } else {
-            setError(createActionErrorMessage(saveError, t.roomPreview.mobile.product.saveFailed));
-            setProductSaveStatus("error");
-          }
-          trackClientSessionEvent(activeSession.id, {
-            source: "mobile",
-            eventType: "render_request_failed",
-            level: "error",
-            code: "PRODUCT_SAVE_FAILED_BEFORE_RENDER",
-            message: saveError instanceof Error ? saveError.message : String(saveError),
-            metadata: {
-              sessionId: activeSession.id,
-              currentStatus: activeSession.status,
-              pendingProductId,
-              errorMessage: saveError instanceof Error ? saveError.message : String(saveError),
-              endpoint: `/api/room-preview/sessions/${activeSession.id}/render`,
-            },
-          });
-          return;
-        }
+    // ── Wait for any in-flight product save ────────────────────────────────────
+    // With immediate-send (no debounce), the product POST is already running by
+    // the time the user taps render. Await it so the session is up-to-date before
+    // checking guard conditions and proceeding with render.
+    if (productSavePromiseRef.current !== null) {
+      debugLog("network", "Waiting for in-flight product save before render");
+      const savedSession = await productSavePromiseRef.current;
+      if (savedSession) {
+        activeSession = savedSession;
       }
     }
 
@@ -1151,7 +1122,7 @@ export function useMobileSession({
       renderRequestInFlightRef.current = false;
       setIsSavingProduct(false);
     }
-  }, [isSavingProduct, localProductId, session, sessionId, t, debugLog]);
+  }, [isSavingProduct, session, sessionId, t, debugLog]);
 
   // ── Derived state ────────────────────────────────────────────────────────────
 

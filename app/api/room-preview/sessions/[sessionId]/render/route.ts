@@ -29,7 +29,7 @@ import {
   saveSessionState,
   tryIncrementRenderCount,
 } from "@/lib/room-preview/session-repository";
-import { executeRenderPipeline } from "@/lib/room-preview/render-service";
+import { executeRenderPipeline, recoverStuckRenderJob } from "@/lib/room-preview/render-service";
 import { openSessionIssue, trackSessionEvent } from "@/lib/room-preview/session-diagnostics";
 import {
   checkAndIncrementScreenBudget,
@@ -284,7 +284,25 @@ export async function POST(
     // getSessionById again — a redundant third SELECT on the same row within
     // this request. We already hold a fresh copy from step 3, so apply the
     // transition directly and persist it — one DB write instead of read + write.
-    const readySession  = markReadyToRenderTransition(session);
+    //
+    // If the session is stuck in "rendering" (a prior Vercel invocation was killed
+    // before the pipeline completed), recover it first. markReadyToRenderTransition
+    // only accepts product_selected / result_ready / failed as source states, so
+    // an unrecovered "rendering" session would throw a transition error.
+    let sessionForTransition = session;
+    if (session.status === "rendering") {
+      const recovered = await recoverStuckRenderJob(sessionId);
+      if (recovered) {
+        const refreshed = await getSessionById(sessionId);
+        if (!refreshed) throw new RoomPreviewSessionNotFoundError();
+        sessionForTransition = refreshed;
+      } else {
+        // No stuck job found — another instance is likely actively rendering.
+        return tooManyRequests({ error: "Render already in progress. Please wait.", code: "RENDER_IN_PROGRESS" }, 30);
+      }
+    }
+
+    const readySession  = markReadyToRenderTransition(sessionForTransition);
     const updatedSession = await saveSessionState({
       id:              readySession.id,
       status:          readySession.status,
@@ -299,13 +317,13 @@ export async function POST(
       session: updatedSession,
     });
 
-    if (session.status !== updatedSession.status) {
+    if (sessionForTransition.status !== updatedSession.status) {
       void trackSessionEvent({
         sessionId: updatedSession.id,
         source: "server",
         eventType: "session_status_changed",
         level: "info",
-        statusBefore: session.status,
+        statusBefore: sessionForTransition.status,
         statusAfter:  updatedSession.status,
       });
     }

@@ -11,7 +11,7 @@ import {
   failRenderingTransition,
   RoomPreviewSessionTransitionError,
 } from "@/lib/room-preview/session-machine";
-import { createRenderJob, updateRenderJob } from "@/lib/room-preview/render-repository";
+import { createRenderJob, findStuckRenderJobForSession, updateRenderJob } from "@/lib/room-preview/render-repository";
 import {
   decrementRenderCount,
   getSessionById,
@@ -302,16 +302,17 @@ async function runRoomPreviewRenderPipeline(sessionId: string) {
       });
     });
   } catch (err) {
+    const failureReason = getFailureReason(err);
+
     if (renderJobId) {
       await updateRenderJob(renderJobId, {
         result: null,
         status: "failed",
+        failureReason: failureReason ?? (err instanceof Error ? err.message.slice(0, 500) : "Unknown render error"),
       }).catch(() => undefined);
     }
 
     await markSessionAsFailed(sessionId).catch(() => undefined);
-
-    const failureReason = getFailureReason(err);
 
     await openSessionIssue({
       sessionId,
@@ -368,18 +369,59 @@ async function runRoomPreviewRenderPipeline(sessionId: string) {
   }
 }
 
+const STUCK_RENDER_THRESHOLD_MS = 8 * 60 * 1_000; // 8 minutes
+
 /**
- * Run the render pipeline for a session and wait for it to finish.
+ * If a render job for this session has been stuck in `pending` or `processing`
+ * for longer than 8 minutes, marks it failed and transitions the session to
+ * `failed` so the user can retry. Returns `true` if recovery was performed.
  *
- * This replaces the previous `startRoomPreviewRenderPipeline` + `setTimeout`
- * pattern, which was silently broken on serverless runtimes (Vercel, AWS
- * Lambda, etc.) where the process is frozen the moment the HTTP response is
- * sent and any pending `setTimeout` callbacks are never executed.
+ * Called from the render route before `markReadyToRenderTransition` so that a
+ * session stuck in `rendering` (from a killed Vercel invocation) can be
+ * retried — `markReadyToRenderTransition` only accepts `product_selected`,
+ * `result_ready`, and `failed` as source states.
+ */
+export async function recoverStuckRenderJob(sessionId: string): Promise<boolean> {
+  const stuckJob = await findStuckRenderJobForSession(sessionId, STUCK_RENDER_THRESHOLD_MS);
+  if (!stuckJob) return false;
+
+  const stuckForMs = Date.now() - stuckJob.updatedAt.getTime();
+
+  await updateRenderJob(stuckJob.id, {
+    result: null,
+    status: "failed",
+    failureReason: "render_timeout_no_update",
+  }).catch(() => undefined);
+
+  await openSessionIssue({
+    sessionId,
+    type: "RENDER_TIMEOUT",
+    metadata: { renderJobId: stuckJob.id, stuckForMs },
+  });
+
+  await trackSessionEvent({
+    sessionId,
+    source: "renderer",
+    eventType: "render_stuck_recovery",
+    level: "warning",
+    metadata: { renderJobId: stuckJob.id, stuckForMs },
+  });
+
+  await markSessionAsFailed(sessionId).catch(() => undefined);
+
+  log.warn({ sessionId, renderJobId: stuckJob.id, stuckForMs }, "Recovered stuck render job");
+
+  return true;
+}
+
+/**
+ * Executes the render pipeline for a session inside the `after()` background hook.
  *
- * Callers must now `await` this function inside their request handler so the
- * runtime keeps the invocation alive for the full duration of the AI render.
- * Set `export const maxDuration = 300` on the corresponding route file to
- * allow up to 5 minutes on Vercel Pro.
+ * Called via `after(async () => { await executeRenderPipeline(sessionId); })`
+ * from the render route, which returns a 202 immediately while this function
+ * runs for up to `maxDuration = 300` seconds on the Vercel invocation.
+ *
+ * All errors are caught and logged internally; callers do not need a try/catch.
  */
 export async function executeRenderPipeline(sessionId: string): Promise<void> {
   try {

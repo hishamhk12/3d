@@ -19,6 +19,7 @@ type CreateRenderJobInput = {
 type UpdateRenderJobInput = {
   result?: RenderJobResult | null;
   status?: RoomPreviewRenderJobStatus;
+  failureReason?: string | null;
 };
 
 function toIsoString(value: Date | string) {
@@ -127,8 +128,24 @@ export async function updateRenderJob(jobId: string, data: UpdateRenderJobInput)
     data: {
       status: data.status,
       result: toJsonValue(data.result),
+      ...(data.failureReason !== undefined ? { failureReason: data.failureReason } : {}),
     },
   });
 
   return mapRenderJob(job);
+}
+
+export async function findStuckRenderJobForSession(
+  sessionId: string,
+  stuckThresholdMs: number,
+): Promise<{ id: string; updatedAt: Date } | null> {
+  return prisma.renderJob.findFirst({
+    where: {
+      sessionId,
+      status: { in: ["pending", "processing"] },
+      updatedAt: { lt: new Date(Date.now() - stuckThresholdMs) },
+    },
+    select: { id: true, updatedAt: true },
+    orderBy: { createdAt: "desc" },
+  });
 }

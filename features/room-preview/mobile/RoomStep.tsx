@@ -162,6 +162,12 @@ export default function RoomStep({
             </p>
           ) : null}
 
+          <p className="mt-3 rounded-2xl border border-[var(--brand-cyan)]/15 bg-[var(--brand-cyan)]/[0.06] px-3 py-2 text-xs leading-6 text-[var(--text-secondary)]">
+            {isAr
+              ? "لأفضل نتيجة، تأكد أن الأرضية ظاهرة بوضوح في الصورة."
+              : "For best results, make sure the floor is clearly visible in the photo."}
+          </p>
+
           {!isSavingRoom ? (
             <AnimatedButton
               type="button"

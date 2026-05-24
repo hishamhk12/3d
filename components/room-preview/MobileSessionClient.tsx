@@ -140,6 +140,14 @@ export default function MobileSessionClient({
     return products.find((p) => p.id === localProductId) ?? session?.selectedProduct ?? null;
   }, [localProductId, products, session?.selectedProduct]);
 
+  const qrProductSaveRef = useRef<{ code: string; promise: Promise<RoomPreviewSession | null> } | null>(null);
+
+  const handleQrProductResolved = useCallback((productCode: string) => {
+    console.info("[room-preview] qr_product_save_start", { sessionId, productCode, t: Date.now() });
+    const savePromise = handleProductCodeSelect(productCode);
+    qrProductSaveRef.current = { code: productCode, promise: savePromise };
+  }, [handleProductCodeSelect, sessionId]);
+
   if (viewState === "loading") {
     return (
       <div className="tour-panel w-full rounded-[32px] p-8 text-center">
@@ -228,14 +236,6 @@ export default function MobileSessionClient({
     (!shouldUseProductList && session.selectedProduct?.imageUrl?.startsWith("/qr-products/")
       ? session.selectedProduct.id
       : null);
-
-  const qrProductSaveRef = useRef<{ code: string; promise: Promise<RoomPreviewSession | null> } | null>(null);
-
-  const handleQrProductResolved = useCallback((productCode: string) => {
-    console.info("[room-preview] qr_product_save_start", { sessionId, productCode, t: Date.now() });
-    const savePromise = handleProductCodeSelect(productCode);
-    qrProductSaveRef.current = { code: productCode, promise: savePromise };
-  }, [handleProductCodeSelect, sessionId]);
 
   const handleQrGenerate = async (productCode: string) => {
     let selectedSession: RoomPreviewSession | null = null;

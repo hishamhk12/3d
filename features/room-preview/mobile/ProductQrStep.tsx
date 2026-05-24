@@ -24,6 +24,7 @@ type ProductQrStepProps = {
   isBusy: boolean;
   canUseProductListFallback: boolean;
   onUseProductListFallback: () => void;
+  onProductResolved?: (productCode: string) => void;
   onGenerateWithProductCode: (productCode: string) => Promise<void>;
 };
 
@@ -46,6 +47,7 @@ export default function ProductQrStep({
   isBusy,
   canUseProductListFallback,
   onUseProductListFallback,
+  onProductResolved,
   onGenerateWithProductCode,
 }: ProductQrStepProps) {
   const { dir, locale } = useI18n();
@@ -80,9 +82,13 @@ export default function ProductQrStep({
       setIsLookingUp(true);
       setError(null);
 
+      console.info("[room-preview] qr_product_detected", { productCode, t: Date.now() });
+
       try {
         const nextProduct = await fetchProductByCode(productCode);
+        console.info("[room-preview] qr_product_resolved", { productCode, productId: nextProduct.id, t: Date.now() });
         setProduct(nextProduct);
+        onProductResolved?.(productCode);
         stopScanner();
       } catch (lookupError) {
         handledScanRef.current = null;
@@ -92,7 +98,7 @@ export default function ProductQrStep({
         setIsLookingUp(false);
       }
     },
-    [stopScanner],
+    [onProductResolved, stopScanner],
   );
 
   useEffect(() => {

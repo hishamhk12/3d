@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { LoaderCircle } from "lucide-react";
 import SessionStatePanel from "@/components/room-preview/SessionStatePanel";
 import { ROOM_PREVIEW_ROUTES } from "@/lib/room-preview/constants";
@@ -11,7 +11,7 @@ import ProductStep from "@/features/room-preview/mobile/ProductStep";
 import ProductQrStep from "@/features/room-preview/mobile/ProductQrStep";
 import ResultStep  from "@/features/room-preview/mobile/ResultStep";
 import { ROOM_PREVIEW_ACTIVE_SESSION_STORAGE_KEY } from "@/lib/room-preview/product-qr";
-import type { RoomPreviewProduct } from "@/lib/room-preview/types";
+import type { RoomPreviewProduct, RoomPreviewSession } from "@/lib/room-preview/types";
 
 type MobileSessionClientProps = {
   sessionId: string;
@@ -229,8 +229,23 @@ export default function MobileSessionClient({
       ? session.selectedProduct.id
       : null);
 
+  const qrProductSaveRef = useRef<{ code: string; promise: Promise<RoomPreviewSession | null> } | null>(null);
+
+  const handleQrProductResolved = useCallback((productCode: string) => {
+    console.info("[room-preview] qr_product_save_start", { sessionId, productCode, t: Date.now() });
+    const savePromise = handleProductCodeSelect(productCode);
+    qrProductSaveRef.current = { code: productCode, promise: savePromise };
+  }, [handleProductCodeSelect, sessionId]);
+
   const handleQrGenerate = async (productCode: string) => {
-    const selectedSession = await handleProductCodeSelect(productCode);
+    let selectedSession: RoomPreviewSession | null = null;
+    if (qrProductSaveRef.current?.code === productCode) {
+      console.info("[room-preview] qr_product_awaiting_save", { sessionId, productCode, t: Date.now() });
+      selectedSession = await qrProductSaveRef.current.promise;
+      qrProductSaveRef.current = null;
+    } else {
+      selectedSession = await handleProductCodeSelect(productCode);
+    }
     if (!selectedSession) return;
     await handleCreateRender(selectedSession);
   };
@@ -271,6 +286,7 @@ export default function MobileSessionClient({
           isBusy={isSavingProduct || isRenderingSession}
           canUseProductListFallback={showProductListFallback}
           onUseProductListFallback={() => setUseProductListFallback(true)}
+          onProductResolved={handleQrProductResolved}
           onGenerateWithProductCode={handleQrGenerate}
         />
       ) : null}

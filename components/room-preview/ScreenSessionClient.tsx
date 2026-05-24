@@ -1,8 +1,10 @@
 "use client";
 
+import { useRef } from "react";
 import { LoaderCircle } from "lucide-react";
 import SessionStatePanel from "@/components/room-preview/SessionStatePanel";
 import { BeforeAfterSlider } from "@/components/room-preview/BeforeAfterSlider";
+import { RenderLoadingAnimation } from "@/features/room-preview/shared/RenderLoadingAnimation";
 import { ROOM_PREVIEW_ROUTES, SCREEN_ERROR_RESET_MS } from "@/lib/room-preview/constants";
 import { useScreenSession } from "@/features/room-preview/screen/useScreenSession";
 import StatusPanel from "@/features/room-preview/screen/StatusPanel";
@@ -37,6 +39,11 @@ export default function ScreenSessionClient({ sessionId }: { sessionId: string }
     hasRenderResult,
     retry,
   } = useScreenSession({ sessionId });
+
+  // Tracks whether we've witnessed a "rendering" status in this page load.
+  // Used to decide whether to play the fade-out transition when result arrives.
+  // A fresh page load with status already result_ready skips the animation.
+  const hasSeenRenderingRef = useRef(false);
 
   // ── Non-ready states ──────────────────────────────────────────────────────
 
@@ -129,29 +136,57 @@ export default function ScreenSessionClient({ sessionId }: { sessionId: string }
     );
   }
 
+  // Track rendering state for the fade-out transition (ref mutation, not a hook)
+  if (session.status === "rendering" || session.status === "ready_to_render") {
+    hasSeenRenderingRef.current = true;
+  }
+
+  // ── Rendering: full-screen loading animation ──────────────────────────────
+
+  if (session.status === "rendering" || session.status === "ready_to_render") {
+    return (
+      <RenderLoadingAnimation
+        variant="screen"
+        session={session}
+        showResult={false}
+      />
+    );
+  }
+
   // ── Ready: full-screen result overlay ─────────────────────────────────────
 
   if (hasRenderResult) {
     return (
-      // key forces a full remount when a new render result arrives, so the
-      // fade-in animation replays and Next.js Image loads fresh (no stale cache).
-      <div key={session.renderResult!.imageUrl!} className="fixed inset-0 z-50 overflow-hidden bg-black animate-in fade-in duration-700">
-        <div className="absolute inset-0 z-0 bg-gradient-to-br from-[#1d1d1f] to-black" />
-        <div className="absolute inset-0 z-10 flex items-center justify-center">
-          <BeforeAfterSlider
-            beforeImageUrl={session.selectedRoom?.imageUrl}
-            afterImageUrl={session.renderResult!.imageUrl!}
-            beforeLabel={locale === "ar" ? "قبل" : "Before"}
-            afterLabel={locale === "ar" ? "بعد" : "After"}
-            alt={t.roomPreview.shared.renderedPreview}
-            className="h-full w-full"
-            sizes="100vw"
-            fit="contain"
-            priority
-            unoptimized
-          />
+      <>
+        {/* key forces a full remount when a new render result arrives */}
+        <div key={session.renderResult!.imageUrl!} className="fixed inset-0 z-50 overflow-hidden bg-black animate-in fade-in duration-700">
+          <div className="absolute inset-0 z-0 bg-gradient-to-br from-[#1d1d1f] to-black" />
+          <div className="absolute inset-0 z-10 flex items-center justify-center">
+            <BeforeAfterSlider
+              beforeImageUrl={session.selectedRoom?.imageUrl}
+              afterImageUrl={session.renderResult!.imageUrl!}
+              beforeLabel={locale === "ar" ? "قبل" : "Before"}
+              afterLabel={locale === "ar" ? "بعد" : "After"}
+              alt={t.roomPreview.shared.renderedPreview}
+              className="h-full w-full"
+              sizes="100vw"
+              fit="contain"
+              priority
+              unoptimized
+            />
+          </div>
         </div>
-      </div>
+        {/* Animation overlay (z-9999) fades out on top of the slider (z-50),
+            revealing it smoothly. Only shown if we witnessed the rendering
+            status during this page load — avoids a flash on fresh loads. */}
+        {hasSeenRenderingRef.current && (
+          <RenderLoadingAnimation
+            variant="screen"
+            session={session}
+            showResult={true}
+          />
+        )}
+      </>
     );
   }
 

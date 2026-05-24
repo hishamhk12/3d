@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { useFormStatus } from "react-dom";
 import { ChevronLeft, ChevronRight } from "lucide-react";
 import { submitGateForm } from "../actions";
 import { trackClientSessionEvent } from "@/lib/room-preview/session-diagnostics-client";
@@ -85,6 +86,33 @@ function ErrorBanner({ message }: { message: string }) {
     <div className="px-4 py-3 rounded-xl bg-red-50 border border-red-200 text-red-700 text-sm dark:bg-red-500/10 dark:border-red-500/25 dark:text-red-300">
       {message}
     </div>
+  );
+}
+
+function SubmitButton({
+  label,
+  pendingLabel,
+  className = "btn-cta w-full mt-2",
+}: {
+  label: React.ReactNode;
+  pendingLabel: string;
+  className?: string;
+}) {
+  const { pending } = useFormStatus();
+  return (
+    <button type="submit" disabled={pending} className={className}>
+      {pending ? (
+        <span className="flex items-center justify-center gap-2">
+          <span
+            className="inline-block h-4 w-4 shrink-0 animate-spin rounded-full border-2 border-current border-t-transparent"
+            aria-hidden="true"
+          />
+          {pendingLabel}
+        </span>
+      ) : (
+        label
+      )}
+    </button>
   );
 }
 
@@ -312,9 +340,10 @@ export function GateForm({
 
           {renderCountryAndPhone(initialPhone)}
 
-          <button type="submit" className="btn-cta w-full mt-2">
-            {t.submitBtn} {isRtl ? "←" : "→"}
-          </button>
+          <SubmitButton
+            label={<>{t.submitBtn} {isRtl ? "←" : "→"}</>}
+            pendingLabel={isRtl ? "جاري بدء التجربة..." : "Starting..."}
+          />
           <p className="text-center text-xs text-[var(--text-muted)] pt-1">{t.privacyNote}</p>
         </form>
       </div>
@@ -355,9 +384,10 @@ export function GateForm({
 
           {renderCountryAndPhone(initialPhone)}
 
-          <button type="submit" className="btn-cta w-full mt-2">
-            {t.lookupBtn} {isRtl ? "←" : "→"}
-          </button>
+          <SubmitButton
+            label={<>{t.lookupBtn} {isRtl ? "←" : "→"}</>}
+            pendingLabel={isRtl ? "جاري..." : "Loading..."}
+          />
           <p className="text-center text-xs text-[var(--text-muted)] pt-1">{t.privacyNote}</p>
         </form>
       </div>
@@ -473,9 +503,11 @@ export function GateForm({
             );
           })()}
 
-          <button type="submit" className="btn-cta w-full">
-            {t.confirmAndStart} {isRtl ? "←" : "→"}
-          </button>
+          <SubmitButton
+            label={<>{t.confirmAndStart} {isRtl ? "←" : "→"}</>}
+            pendingLabel={isRtl ? "جاري بدء التجربة..." : "Starting..."}
+            className="btn-cta w-full"
+          />
         </form>
       </div>
     );
@@ -530,9 +562,10 @@ export function GateForm({
             />
           </div>
 
-          <button type="submit" className="btn-cta w-full mt-2">
-            {t.submitBtn} {isRtl ? "←" : "→"}
-          </button>
+          <SubmitButton
+            label={<>{t.submitBtn} {isRtl ? "←" : "→"}</>}
+            pendingLabel={isRtl ? "جاري بدء التجربة..." : "Starting..."}
+          />
           <p className="text-center text-xs text-[var(--text-muted)] pt-1">{t.privacyNote}</p>
         </form>
       </div>

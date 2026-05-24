@@ -26,7 +26,7 @@ const log = getLogger("gemini-provider");
 const GEMINI_IMAGE_MODELS: readonly string[] =
   process.env.GEMINI_IMAGE_MODELS
     ? process.env.GEMINI_IMAGE_MODELS.split(",").map((m) => m.trim()).filter(Boolean)
-    : ["gemini-2.5-flash-image", "gemini-3.1-flash-image-preview"];
+    : ["gemini-3.1-flash-image-preview"];
 
 const MAX_RETRIES = 3;
 const BASE_DELAY_MS = 3_000;

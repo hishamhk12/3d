@@ -64,8 +64,8 @@ function parsePositiveInt(raw: string | undefined, fallback: number): number {
   return n;
 }
 
-/** How many minutes until a session is considered expired (default: 60). */
+/** How many minutes until a session is considered expired (default: 8). */
 export const SESSION_EXPIRY_MINUTES = parsePositiveInt(
   process.env.SESSION_EXPIRY_MINUTES,
-  60,
+  8,
 );

@@ -61,9 +61,11 @@ export async function detectMobileStale(
  * field was added) — they are permanent orphans and should be closed out.
  */
 export async function expireOldSessions(): Promise<number> {
+  // "rendering" and "ready_to_render" are excluded so an active render is not
+  // expired mid-flight. failStuckRenderingSessions() handles orphaned renders.
   const sessions = await prisma.roomPreviewSession.findMany({
     where: {
-      status: { notIn: ["failed", "expired", "completed"] },
+      status: { notIn: ["failed", "expired", "completed", "rendering", "ready_to_render"] },
       OR: [
         { expiresAt: null },
         { expiresAt: { lte: new Date() } },
@@ -73,7 +75,7 @@ export async function expireOldSessions(): Promise<number> {
   });
   const result = await prisma.roomPreviewSession.updateMany({
     where: {
-      status: { notIn: ["failed", "expired", "completed"] },
+      status: { notIn: ["failed", "expired", "completed", "rendering", "ready_to_render"] },
       OR: [
         { expiresAt: null },
         { expiresAt: { lte: new Date() } },

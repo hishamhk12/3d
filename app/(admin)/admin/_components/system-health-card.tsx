@@ -35,7 +35,10 @@ export function SystemHealthCard() {
     setLoading(true);
     setError(null);
     try {
-      const res = await fetch("/api/admin/system-health", { cache: "no-store" });
+      const res = await fetch("/api/admin/system-health", {
+        cache: "no-store",
+        credentials: "include",
+      });
       if (!res.ok && res.status !== 207) throw new Error(`HTTP ${res.status}`);
       const json = (await res.json()) as SystemHealthResponse;
       setData(json);

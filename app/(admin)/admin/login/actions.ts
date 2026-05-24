@@ -61,7 +61,10 @@ export async function loginAction(formData: FormData) {
     httpOnly: true,
     secure: process.env.NODE_ENV === "production",
     sameSite: "strict",
-    path: "/admin",
+    // path: "/" so the browser sends this cookie for /api/admin/* requests too.
+    // path: "/admin" would prevent cookie delivery to /api/… paths (RFC 6265
+    // path matching fails), causing client-side admin API calls to return 401.
+    path: "/",
     maxAge: 8 * 60 * 60, // 8 hours
   });
 

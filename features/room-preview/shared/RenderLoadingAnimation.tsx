@@ -73,7 +73,6 @@ export function RenderLoadingAnimation({
   if (typeof document === "undefined") return null;
 
   const isScreen = variant === "screen";
-  const roomBg = session.selectedRoom?.imageUrl;
 
   // Sizing tokens — screen is scaled for a 42-inch 16:9 display
   const logoW        = isScreen ? 160 : 96;
@@ -98,7 +97,7 @@ export function RenderLoadingAnimation({
       `}</style>
 
       <div
-        className="fixed inset-0 z-[9999] flex w-full flex-col items-center justify-center overflow-hidden"
+        className="fixed inset-0 z-[9999] flex w-full flex-col items-center justify-center overflow-hidden bg-black"
         style={{
           height: "100dvh",
           transition: "opacity 750ms ease",
@@ -106,28 +105,6 @@ export function RenderLoadingAnimation({
           pointerEvents: fadeOut ? "none" : "auto",
         }}
       >
-        {/* Background */}
-        {roomBg ? (
-          <>
-            {/* eslint-disable-next-line @next/next/no-img-element */}
-            <img
-              src={roomBg}
-              alt=""
-              aria-hidden
-              className="absolute inset-0 h-full w-full scale-110 object-cover opacity-80"
-              style={{ filter: "blur(24px)" }}
-            />
-            <div className="absolute inset-0 bg-black/72" />
-          </>
-        ) : (
-          <div className="absolute inset-0 bg-[#07101E]" />
-        )}
-
-        {/* Radial vignette */}
-        <div
-          className="pointer-events-none absolute inset-0"
-          style={{ background: "radial-gradient(ellipse 70% 60% at 50% 50%, transparent 40%, rgba(0,0,0,0.55) 100%)" }}
-        />
 
         {/* Content */}
         <div className={`relative z-10 flex w-full ${contentMaxW} flex-col items-center ${contentGap} ${contentPad}`}>

@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useRef, useState } from "react";
 import Image from "next/image";
-import { Camera, Keyboard, LoaderCircle, QrCode, RotateCcw } from "lucide-react";
+import { Camera, LoaderCircle, QrCode, RotateCcw } from "lucide-react";
 import { AnimatedButton } from "@/components/ui/AnimatedButton";
 import { parseProductCodeFromQrValue } from "@/lib/room-preview/product-qr";
 import { useI18n } from "@/lib/i18n/provider";
@@ -55,7 +55,6 @@ export default function ProductQrStep({
   const handledScanRef = useRef<string | null>(null);
 
   const [scannerStatus, setScannerStatus] = useState<"idle" | "starting" | "scanning">("idle");
-  const [manualValue, setManualValue] = useState("");
   const [product, setProduct] = useState<RoomPreviewProduct | null>(null);
   const [isLookingUp, setIsLookingUp] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -84,7 +83,6 @@ export default function ProductQrStep({
       try {
         const nextProduct = await fetchProductByCode(productCode);
         setProduct(nextProduct);
-        setManualValue(productCode);
         stopScanner();
       } catch (lookupError) {
         handledScanRef.current = null;
@@ -146,14 +144,9 @@ export default function ProductQrStep({
     }
   };
 
-  const submitManualValue = () => {
-    void handleScannedValue(manualValue);
-  };
-
   const resetProduct = () => {
     handledScanRef.current = null;
     setProduct(null);
-    setManualValue("");
     setError(null);
   };
 
@@ -215,29 +208,6 @@ export default function ProductQrStep({
               </button>
             ) : null}
 
-          </div>
-
-          <div className="mt-5 rounded-[22px] border border-[var(--border)] bg-[var(--bg-surface-2)] p-4">
-            <label className="flex items-center gap-2 text-xs font-semibold uppercase tracking-[0.12em] text-[var(--text-muted)]">
-              <Keyboard className="size-4" />
-              {isAr ? "إدخال يدوي" : "Manual fallback"}
-            </label>
-            <div className="mt-3 flex gap-2">
-              <input
-                value={manualValue}
-                onChange={(event) => setManualValue(event.target.value)}
-                placeholder="PQC201.132"
-                className="min-w-0 flex-1 rounded-[16px] border border-[var(--border)] bg-[var(--input-bg)] px-4 py-3 font-mono text-sm text-[var(--input-text)] outline-none focus:border-[var(--brand-cyan)]"
-              />
-              <button
-                type="button"
-                onClick={submitManualValue}
-                disabled={isBusy || isLookingUp || !manualValue.trim()}
-                className="rounded-[16px] bg-[var(--brand-gold)] px-4 py-3 text-sm font-bold text-[var(--text-on-gold)] disabled:opacity-50"
-              >
-                {isAr ? "تأكيد" : "Find"}
-              </button>
-            </div>
           </div>
         </>
       ) : (

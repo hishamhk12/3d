@@ -7,6 +7,7 @@ import { getRoomPreviewPublicAssetPath } from "@/lib/room-preview/local-assets";
 import {
   buildRenderPrompt,
   PROMPT_VERSION,
+  PROMPT_VERSION_FAST,
   SENTINEL_FLOOR_NOT_VISIBLE,
   SENTINEL_MATERIAL_UNCLEAR,
 } from "@/lib/room-preview/prompt-template-v2";
@@ -23,15 +24,19 @@ const log = getLogger("gemini-provider");
 
 // ─── Config ───────────────────────────────────────────────────────────────────
 
-const GEMINI_IMAGE_MODELS: readonly string[] =
-  process.env.GEMINI_IMAGE_MODELS
-    ? process.env.GEMINI_IMAGE_MODELS.split(",").map((m) => m.trim()).filter(Boolean)
-    : ["gemini-3.1-flash-image-preview"];
+// ROOM_PREVIEW_GEMINI_IMAGE_MODEL (single) takes precedence over GEMINI_IMAGE_MODELS (comma list).
+const GEMINI_IMAGE_MODELS: readonly string[] = (() => {
+  const single = process.env.ROOM_PREVIEW_GEMINI_IMAGE_MODEL?.trim();
+  if (single) return [single];
+  const multi = process.env.GEMINI_IMAGE_MODELS;
+  if (multi) return multi.split(",").map((m) => m.trim()).filter(Boolean);
+  return ["gemini-3.1-flash-image-preview"];
+})();
 
 const MAX_RETRIES = 3;
 const BASE_DELAY_MS = 3_000;
 
-// Phase 3: configurable via env, default 150 s, clamped to 60–240 s.
+// Configurable via env, default 150 s, clamped to 60–240 s.
 const GEMINI_CALL_TIMEOUT_MS = (() => {
   const raw = Number(process.env.GEMINI_CALL_TIMEOUT_MS);
   if (!Number.isFinite(raw) || raw <= 0) return 150_000;
@@ -43,17 +48,55 @@ const MIN_OUTPUT_DIMENSION_PX = 400;
 const MAX_ASPECT_RATIO_DRIFT = 0.02;
 const REJECT_ASPECT_RATIO_DRIFT = 0.05;
 
-/**
- * Maximum pixel length on either dimension before resizing.
- * Keeps base64 payload small and Gemini latency predictable.
- * 1280 px keeps Gemini payloads smaller and noticeably reduces latency while
- * preserving enough detail for the mobile room-preview flow. The output is
- * still strictly validated against the prepared input aspect ratio.
- */
-const MAX_IMAGE_DIMENSION_PX = 1280;
-const MAX_PRODUCT_IMAGE_DIMENSION_PX = 768;
+// ─── Render quality mode ──────────────────────────────────────────────────────
+//
+// ROOM_PREVIEW_RENDER_QUALITY=fast|balanced|quality
+//   fast:     1024 px long edge, short prompt — fastest, good for testing
+//   balanced: 1280 px long edge, full prompt  — default
+//   quality:  1600 px long edge, full prompt  — best detail, slower
+//
+// ROOM_PREVIEW_RENDER_LONG_EDGE=<px> — explicit long-edge override; takes
+//   precedence over quality mode. Product long edge scales at 60% of room.
 
-// Phase 4: smaller fallback dimensions used on the one-shot timeout retry.
+type RenderQuality = "fast" | "balanced" | "quality";
+
+const RENDER_QUALITY: RenderQuality = (() => {
+  const raw = process.env.ROOM_PREVIEW_RENDER_QUALITY;
+  if (raw === "fast" || raw === "balanced" || raw === "quality") return raw;
+  return "balanced";
+})();
+
+const LONG_EDGE_OVERRIDE: number | null = (() => {
+  const raw = parseInt(process.env.ROOM_PREVIEW_RENDER_LONG_EDGE ?? "", 10);
+  return Number.isFinite(raw) && raw >= 512 ? Math.min(raw, 2048) : null;
+})();
+
+const QUALITY_ROOM_LONG_EDGE: Record<RenderQuality, number> = {
+  fast:     1024,
+  balanced: 1280,
+  quality:  1600,
+};
+
+const QUALITY_PRODUCT_LONG_EDGE: Record<RenderQuality, number> = {
+  fast:    640,
+  balanced: 768,
+  quality:  960,
+};
+
+/** Long edge (px) for room images sent to Gemini — fit: "inside", no crop. */
+const MAX_IMAGE_DIMENSION_PX: number =
+  LONG_EDGE_OVERRIDE ?? QUALITY_ROOM_LONG_EDGE[RENDER_QUALITY];
+
+/** Long edge (px) for product images sent to Gemini. */
+const MAX_PRODUCT_IMAGE_DIMENSION_PX: number = LONG_EDGE_OVERRIDE !== null
+  ? Math.round(LONG_EDGE_OVERRIDE * 0.6)
+  : QUALITY_PRODUCT_LONG_EDGE[RENDER_QUALITY];
+
+/** Prompt variant driven by quality mode: fast uses the shorter fast-v1 prompt. */
+const PROMPT_VARIANT: "fast" | "v4" = RENDER_QUALITY === "fast" ? "fast" : "v4";
+const ACTIVE_PROMPT_VERSION = PROMPT_VARIANT === "fast" ? PROMPT_VERSION_FAST : PROMPT_VERSION;
+
+// Smaller fallback dimensions used on the one-shot timeout retry.
 const TIMEOUT_RETRY_ROOM_MAX_PX    = 1024;
 const TIMEOUT_RETRY_PRODUCT_MAX_PX = 640;
 
@@ -544,6 +587,7 @@ export const geminiRoomPreviewRenderProvider = {
       product.name ?? null,
       room.floorQuad ?? null,
       inputDimensions,
+      PROMPT_VARIANT,
     );
 
     // Warn when rendering without a floor polygon — the model will estimate the floor
@@ -604,16 +648,18 @@ export const geminiRoomPreviewRenderProvider = {
 
         let tGeminiStart = 0;
         try {
-          // Phase 1: log payload size and timeout before each attempt.
           log.info(
             {
               event: "gemini_call_starting",
               sessionId,
               modelName,
               attempt,
+              qualityMode: RENDER_QUALITY,
+              promptVersion: ACTIVE_PROMPT_VERSION,
+              promptLength: activePrompt.length,
+              inputPixelCount: currentRoomImage.width * currentRoomImage.height,
               payloadPartCount: imageParts.length + 1,
               timeoutMs: GEMINI_CALL_TIMEOUT_MS,
-              promptVersion: PROMPT_VERSION,
               roomBytes: currentRoomImage.finalBytes,
               productBytes: currentProductImage.finalBytes,
               roomDimensions: `${currentRoomImage.width}x${currentRoomImage.height}`,
@@ -730,7 +776,8 @@ export const geminiRoomPreviewRenderProvider = {
               modelName,
               attempt,
               sessionId,
-              promptVersion: PROMPT_VERSION,
+              qualityMode: RENDER_QUALITY,
+              promptVersion: ACTIVE_PROMPT_VERSION,
               outputDimensions: `${width}x${height}`,
               outputBytes: uploadBuffer.length,
               geminiMs,
@@ -758,7 +805,10 @@ export const geminiRoomPreviewRenderProvider = {
             coverApplied:          false,
             exifOrientationApplied: true,
             savedRaw:              true,
-            promptVersion:         PROMPT_VERSION,
+            qualityMode:           RENDER_QUALITY,
+            promptVersion:         ACTIVE_PROMPT_VERSION,
+            promptLength:          prompt.length,
+            inputPixelCount:       inputDimensions.width * inputDimensions.height,
             modelName,
             productName:           product.name ?? null,
             floorPolygon:          room.floorQuad ?? null,
@@ -833,7 +883,11 @@ export const geminiRoomPreviewRenderProvider = {
               retried: attemptTimings.length > 1,
               retryReason: lastRetryReason,
               debugArtifactsEnabled: DEBUG_ARTIFACTS_ENABLED,
+              qualityMode: RENDER_QUALITY,
+              promptVersion: ACTIVE_PROMPT_VERSION,
+              promptLength: prompt.length,
               inputDimensions,
+              inputPixelCount: inputDimensions.width * inputDimensions.height,
               outputDimensions: { width, height },
               modelName,
               attemptTimings,
@@ -964,6 +1018,7 @@ export const geminiRoomPreviewRenderProvider = {
               product.name ?? null,
               room.floorQuad ?? null,
               retryDimensions,
+              PROMPT_VARIANT,
             );
             continue;
           }

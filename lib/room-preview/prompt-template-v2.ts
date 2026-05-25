@@ -7,7 +7,8 @@ import type { FloorQuad } from "@/lib/room-preview/types";
  * old and new render outputs incompatible. Stored on each render job so
  * A/B comparisons and rollbacks are auditable.
  */
-export const PROMPT_VERSION = "gemini-floor-v4";
+export const PROMPT_VERSION      = "gemini-floor-v4";
+export const PROMPT_VERSION_FAST = "gemini-floor-fast-v1";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -154,22 +155,71 @@ If no floor is visible, return exactly: ${SENTINEL_FLOOR_NOT_VISIBLE}`;
 }
 
 /**
+ * Short, low-latency floor-replacement prompt for fast render mode.
+ *
+ * Preserves all safety constraints from v4 (aspect ratio, floor-only edit,
+ * parquet planks, sentinels) while cutting token count ~3× to reduce Gemini
+ * processing time.
+ */
+export function buildFloorRenderPromptFastV1(input: FloorRenderPromptV2Input): string {
+  const { productName, floorPolygon, dimensions } = input;
+
+  const productLine = productName
+    ? `"${productName}" — match color, grain, tone, and finish shown in the second image.`
+    : "the flooring product in the second image — match its color, grain, tone, and finish exactly.";
+
+  const dimensionLine = dimensions
+    ? `Output must be exactly ${dimensions.width}×${dimensions.height} px. Same aspect ratio as input. No padding, no black bars.\n`
+    : "";
+
+  const polygonLine = floorPolygon
+    ? `Apply flooring only inside this floor boundary (pixel coords, top-left origin): TL(${Math.round(floorPolygon[0].x)},${Math.round(floorPolygon[0].y)}) TR(${Math.round(floorPolygon[1].x)},${Math.round(floorPolygon[1].y)}) BR(${Math.round(floorPolygon[2].x)},${Math.round(floorPolygon[2].y)}) BL(${Math.round(floorPolygon[3].x)},${Math.round(floorPolygon[3].y)}). Do not edit outside this region.\n`
+    : "";
+
+  return `TASK: Photo editing only — replace the visible floor in the room image with the flooring product shown in the second image.
+
+PRODUCT: ${productLine}
+
+${dimensionLine}${polygonLine}RULES:
+- Replace ONLY the floor surface. Preserve walls, ceiling, doors, windows, furniture, lighting, shadows, and reflections exactly as in the original.
+- Keep the exact camera angle, perspective, and framing. No crop, zoom, rotate, or reframe.
+- Output must match input resolution and aspect ratio exactly.
+- Apply the product as realistic long parquet planks running in one consistent direction following room perspective.
+- Planks must be much longer than wide. Keep seams subtle and natural — not tile grout.
+- Match product color, grain, tone, and finish from the reference image.
+- Result must look like a real showroom installation photo, not a CGI render.
+
+DO NOT create square tiles, ceramics, checkerboard, mosaic, grout lines, or any non-parquet flooring. Do not alter any non-floor pixels.
+
+If no floor is visible, return exactly: ${SENTINEL_FLOOR_NOT_VISIBLE}
+If the product material is unclear, return exactly: ${SENTINEL_MATERIAL_UNCLEAR}`;
+}
+
+/**
  * Central render-prompt dispatch. This file is the single prompt source for
  * room-preview rendering.
+ *
+ * @param variant  "fast" uses the shorter gemini-floor-fast-v1 prompt;
+ *                 "v4" (default) uses the full gemini-floor-v4 prompt.
  */
 export function buildRenderPrompt(
   productType: string | null,
   productName: string | null,
   floorQuad?: FloorQuad | null,
   dimensions?: { width: number; height: number } | null,
+  variant?: "fast" | "v4",
 ): string {
   if (productType === "floor_material") {
     const cleanedName = productName ? sanitizeProductName(productName) : null;
-    return buildFloorRenderPromptV2({
+    const input: FloorRenderPromptV2Input = {
       productName: cleanedName && cleanedName.length > 0 ? cleanedName : null,
       floorPolygon: floorQuad ?? null,
       dimensions: dimensions ?? null,
-    });
+    };
+    if (variant === "fast") {
+      return buildFloorRenderPromptFastV1(input);
+    }
+    return buildFloorRenderPromptV2(input);
   }
 
   throw new Error(`Unsupported product type: ${String(productType)}`);

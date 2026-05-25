@@ -15,9 +15,11 @@ import { createRenderJob, findStuckRenderJobForSession, updateRenderJob } from "
 import {
   decrementRenderCount,
   getSessionById,
+  getSessionScreenFields,
   saveSessionState,
   tryClaimRenderingSlot,
 } from "@/lib/room-preview/session-repository";
+import { decrementScreenBudget } from "@/lib/room-preview/screen-repository";
 import type {
   RenderJobInput,
   RenderJobResult,
@@ -134,10 +136,14 @@ async function runRoomPreviewRenderPipeline(sessionId: string) {
   let tSaved        = 0;   // session state persisted + SSE published
 
   let renderJobId: string | null = null;
+  let screenId: string | null = null;
 
   try {
-    // Fetch the session — it is now in "rendering" state in the DB.
-    const session = await getSessionById(sessionId);
+    const [session, screenFields] = await Promise.all([
+      getSessionById(sessionId),
+      getSessionScreenFields(sessionId),
+    ]);
+    screenId = screenFields?.screenId ?? null;
 
     if (!session) {
       return;
@@ -351,6 +357,12 @@ async function runRoomPreviewRenderPipeline(sessionId: string) {
     await decrementRenderCount(sessionId).catch((error) => {
       log.error({ err: error, sessionId }, "Failed to roll back render count after pipeline failure");
     });
+
+    if (screenId) {
+      await decrementScreenBudget(screenId).catch((error) => {
+        log.error({ err: error, sessionId, screenId }, "Failed to roll back screen budget after pipeline failure");
+      });
+    }
 
     after(async () => {
       const userSessionId = await getUserSessionIdForSession(sessionId);

@@ -190,7 +190,7 @@ const en = {
         "This session link is invalid. Start a new session from the QR test screen.",
       expiredTitle: "Session expired",
       expiredDescription:
-        "Your session ended due to inactivity. Please scan a new QR code from the screen.",
+        "Your session has expired. Please scan a new QR code from the screen.",
       failedTitle: "Failed to load session",
       failedDescription: "The session could not be loaded right now. Please try again.",
       invalidLink:
@@ -611,9 +611,9 @@ const ar: TranslationDictionary = {
       loadingLabel: "جارٍ تحميل الجلسة...",
       notFoundTitle: "الجلسة غير موجودة",
       notFoundDescription: "رابط هذه الجلسة غير صالح. ابدأ جلسة جديدة من شاشة اختبار QR.",
-      expiredTitle: "انتهت الجلسة",
+      expiredTitle: "انتهت صلاحية الجلسة",
       expiredDescription:
-        "انتهت الجلسة بسبب عدم النشاط، يرجى مسح رمز QR جديد من الشاشة.",
+        "انتهت صلاحية الجلسة. يرجى مسح رمز QR جديد من الشاشة.",
       failedTitle: "تعذر تحميل الجلسة",
       failedDescription: "تعذر تحميل الجلسة حالياً. حاول مرة أخرى.",
       invalidLink: "رابط هذه الجلسة غير صالح. ابدأ جلسة جديدة من شاشة QR الرئيسية.",

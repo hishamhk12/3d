@@ -264,6 +264,6 @@ export async function updateSessionPresence(
 export async function getSessionPresence(sessionId: string) {
   return prisma.roomPreviewSession.findUnique({
     where: { id: sessionId },
-    select: { id: true, status: true, lastMobileSeenAt: true, lastScreenSeenAt: true },
+    select: { id: true, status: true, expiresAt: true, lastMobileSeenAt: true, lastScreenSeenAt: true },
   });
 }

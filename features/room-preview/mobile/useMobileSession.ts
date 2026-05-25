@@ -555,6 +555,31 @@ export function useMobileSession({
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [session?.id, showResult]);
 
+  // ── Client-side expiry timer ─────────────────────────────────────────────────
+  // Safety net: if the server hasn't notified about expiry yet (no SSE on
+  // mobile), force the UI into expired state the moment wall-clock time is
+  // reached so the customer sees the right message immediately.
+  useEffect(() => {
+    if (viewState !== "ready" || !session?.expiresAt) return;
+
+    const msUntilExpiry = new Date(session.expiresAt).getTime() - Date.now();
+
+    if (msUntilExpiry <= 0) {
+      setSession(null);
+      setError(null);
+      setViewState("expired");
+      return;
+    }
+
+    const timer = setTimeout(() => {
+      setSession(null);
+      setError(null);
+      setViewState("expired");
+    }, msUntilExpiry);
+
+    return () => clearTimeout(timer);
+  }, [session?.expiresAt, viewState]);
+
   // ── Handlers ─────────────────────────────────────────────────────────────────
 
   const handleConnect = useCallback(async () => {

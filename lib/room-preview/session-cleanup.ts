@@ -1,7 +1,21 @@
 import "server-only";
 
 import { openSessionIssue, trackSessionEvent } from "@/lib/room-preview/session-diagnostics";
+import { getSessionById } from "@/lib/room-preview/session-repository";
+import { publishRoomPreviewSessionEvent } from "@/lib/room-preview/session-events";
 import { prisma } from "@/lib/server/prisma";
+
+/**
+ * Fetches the updated session and pushes a real-time SSE event to connected
+ * screen and mobile clients. Called after every cleanup status change so
+ * clients don't have to wait for the next poll or SSE reconnect.
+ */
+async function publishCleanupEvent(sessionId: string): Promise<void> {
+  const updated = await getSessionById(sessionId);
+  if (updated) {
+    publishRoomPreviewSessionEvent(updated.id, { type: "session_updated", session: updated });
+  }
+}
 
 /**
  * Emits `mobile_stale_detected` for live sessions whose mobile client has
@@ -59,28 +73,29 @@ export async function detectMobileStale(
  * Marks all non-terminal sessions past their expiresAt as `expired`.
  * Also catches legacy sessions with null expiresAt (created before the expiry
  * field was added) — they are permanent orphans and should be closed out.
+ *
+ * `result_ready` is excluded: those sessions have a successful render that
+ * completeResultReadySessions() will advance to `completed`. Expiring them
+ * here would race with that function and could lose the completed signal.
  */
 export async function expireOldSessions(): Promise<number> {
-  // "rendering" and "ready_to_render" are excluded so an active render is not
-  // expired mid-flight. failStuckRenderingSessions() handles orphaned renders.
+  // "rendering", "ready_to_render", and "result_ready" are excluded so an
+  // active render is not expired mid-flight. failStuckRenderingSessions()
+  // handles orphaned renders; completeResultReadySessions() handles result_ready.
+  const where = {
+    status: { notIn: ["failed", "expired", "completed", "rendering", "ready_to_render", "result_ready"] as string[] },
+    OR: [
+      { expiresAt: null },
+      { expiresAt: { lte: new Date() } },
+    ],
+  };
+
   const sessions = await prisma.roomPreviewSession.findMany({
-    where: {
-      status: { notIn: ["failed", "expired", "completed", "rendering", "ready_to_render"] },
-      OR: [
-        { expiresAt: null },
-        { expiresAt: { lte: new Date() } },
-      ],
-    },
+    where,
     select: { id: true, status: true },
   });
   const result = await prisma.roomPreviewSession.updateMany({
-    where: {
-      status: { notIn: ["failed", "expired", "completed", "rendering", "ready_to_render"] },
-      OR: [
-        { expiresAt: null },
-        { expiresAt: { lte: new Date() } },
-      ],
-    },
+    where,
     data: { status: "expired" },
   });
   await Promise.all(sessions.map((session) =>
@@ -94,6 +109,7 @@ export async function expireOldSessions(): Promise<number> {
       metadata: { reason: "expires_at" },
     }),
   ));
+  await Promise.all(sessions.map((session) => publishCleanupEvent(session.id)));
   return result.count;
 }
 
@@ -139,6 +155,7 @@ export async function expireIdleWaitingSessions(
       metadata: { reason: "idle_waiting_for_mobile", idleAfterMs },
     });
   }));
+  await Promise.all(sessions.map((session) => publishCleanupEvent(session.id)));
   return result.count;
 }
 
@@ -184,6 +201,7 @@ export async function failStuckRenderingSessions(
       metadata: { stuckAfterMs },
     });
   }));
+  await Promise.all(sessions.map((session) => publishCleanupEvent(session.id)));
   return result.count;
 }
 
@@ -233,5 +251,6 @@ export async function completeResultReadySessions(
       }),
     ),
   );
+  await Promise.all(sessions.map((session) => publishCleanupEvent(session.id)));
   return result.count;
 }

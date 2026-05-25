@@ -63,8 +63,12 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
     );
   }
 
-  if (TERMINAL_STATUSES.has(presence.status)) {
-    return NextResponse.json({ ok: false, terminal: true, status: presence.status });
+  const isWallClockExpired =
+    presence.expiresAt === null || presence.expiresAt <= new Date();
+
+  if (TERMINAL_STATUSES.has(presence.status) || isWallClockExpired) {
+    const status = TERMINAL_STATUSES.has(presence.status) ? presence.status : "expired";
+    return NextResponse.json({ ok: false, terminal: true, status });
   }
 
   const lastSeenAt =

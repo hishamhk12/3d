@@ -522,6 +522,20 @@ export const geminiRoomPreviewRenderProvider = {
       loadAndPrepareImage(product.imageUrl, { imageRole: "product", sessionId }),
     ]);
     const tImagesLoaded = Date.now();
+    log.info(
+      {
+        event: "render_timing",
+        sessionId,
+        renderJobId: request.jobId,
+        stage: "image_load_and_preprocess",
+        durationMs: tImagesLoaded - tProviderStart,
+        roomFinalBytes: roomImage.finalBytes,
+        productFinalBytes: productImage.finalBytes,
+        roomDimensions: `${roomImage.width}x${roomImage.height}`,
+        productDimensions: `${productImage.width}x${productImage.height}`,
+      },
+      "render_timing",
+    );
 
     const inputDimensions = { width: roomImage.width, height: roomImage.height };
 
@@ -559,6 +573,15 @@ export const geminiRoomPreviewRenderProvider = {
     let currentRoomImage    = roomImage;
     let currentProductImage = productImage;
 
+    const attemptTimings: Array<{
+      attempt: number;
+      modelName: string;
+      durationMs: number;
+      status: string;
+      retryReason?: string;
+    }> = [];
+    let lastRetryReason: string | undefined;
+
     for (const modelName of GEMINI_IMAGE_MODELS) {
       for (let attempt = 1; attempt <= MAX_RETRIES; attempt++) {
         // imageParts is rebuilt each attempt so timeout retry uses updated images.
@@ -579,6 +602,7 @@ export const geminiRoomPreviewRenderProvider = {
           },
         };
 
+        let tGeminiStart = 0;
         try {
           // Phase 1: log payload size and timeout before each attempt.
           log.info(
@@ -598,10 +622,22 @@ export const geminiRoomPreviewRenderProvider = {
             "Starting Gemini render attempt",
           );
 
-          const tGeminiStart = Date.now();
+          tGeminiStart = Date.now();
           const response = await generateContentWithTimeout(ai, modelName, contentRequest);
           const tGeminiDone = Date.now();
           const geminiMs = tGeminiDone - tGeminiStart;
+          log.info(
+            {
+              event: "render_timing",
+              sessionId,
+              renderJobId: request.jobId,
+              stage: `gemini_attempt_${attempt}`,
+              durationMs: geminiMs,
+              modelName,
+              attempt,
+            },
+            "render_timing",
+          );
 
           const parts = response.candidates?.[0]?.content?.parts ?? [];
           const imagePart = parts.find(
@@ -642,6 +678,17 @@ export const geminiRoomPreviewRenderProvider = {
             inputDimensions,
             { sessionId, modelName },
           );
+          const tValidationDone = Date.now();
+          log.info(
+            {
+              event: "render_timing",
+              sessionId,
+              renderJobId: request.jobId,
+              stage: "output_validation",
+              durationMs: tValidationDone - tGeminiDone,
+            },
+            "render_timing",
+          );
 
           const storageKey = buildRenderStorageKey({ jobId: request.jobId, sessionId });
           const tUploadStart = Date.now();
@@ -651,6 +698,18 @@ export const geminiRoomPreviewRenderProvider = {
             : await (await import("sharp")).default(imageBuffer).png().toBuffer();
           const uploadResult = await storageUpload(storageKey, uploadBuffer, "image/png");
           const tUploadDone = Date.now();
+          log.info(
+            {
+              event: "render_timing",
+              sessionId,
+              renderJobId: request.jobId,
+              stage: "final_upload",
+              durationMs: tUploadDone - tUploadStart,
+              outputBytes: uploadBuffer.length,
+            },
+            "render_timing",
+          );
+          attemptTimings.push({ attempt, modelName, durationMs: geminiMs, status: "succeeded" });
 
           if (timeoutRetried) {
             log.info(
@@ -718,26 +777,70 @@ export const geminiRoomPreviewRenderProvider = {
           };
 
           if (DEBUG_ARTIFACTS_ENABLED) {
-            try {
-              const geminiInputBuffer = Buffer.from(currentRoomImage.base64, "base64");
-              const artifactUrls = await saveDebugArtifacts({
+            const geminiInputBuffer = Buffer.from(currentRoomImage.base64, "base64");
+            const tDebugFired = Date.now();
+            log.info(
+              {
+                event: "render_timing",
                 sessionId,
-                jobId: request.jobId,
-                geminiInputBuffer,
-                rawOutputBuffer: imageBuffer,
-                mimeType: currentRoomImage.mimeType,
-                prompt,
-                snapshotMeta: { ...snapshotMeta, artifactUrls: undefined },
-              });
-              artifactUrls["01-original-upload"] = room.imageUrl ?? "";
-              snapshotMeta["artifactUrls"] = artifactUrls;
-            } catch (debugErr) {
+                renderJobId: request.jobId,
+                stage: "debug_artifact_upload",
+                async: true,
+                note: "fire-and-forget — not on critical path",
+              },
+              "render_timing",
+            );
+            saveDebugArtifacts({
+              sessionId,
+              jobId: request.jobId,
+              geminiInputBuffer,
+              rawOutputBuffer: imageBuffer,
+              mimeType: currentRoomImage.mimeType,
+              prompt,
+              snapshotMeta: { ...snapshotMeta, artifactUrls: undefined },
+            }).then(() => {
+              log.info(
+                {
+                  event: "render_timing",
+                  sessionId,
+                  renderJobId: request.jobId,
+                  stage: "debug_artifact_upload_done",
+                  durationMs: Date.now() - tDebugFired,
+                },
+                "render_timing",
+              );
+            }).catch((debugErr) => {
               log.warn(
                 { debugErr, sessionId, jobId: request.jobId },
                 "Debug artifact saving failed (non-fatal)",
               );
-            }
+            });
           }
+
+          trackSessionEvent({
+            sessionId,
+            source: "renderer",
+            eventType: "render_timing_summary",
+            level: "info",
+            metadata: {
+              renderJobId: request.jobId,
+              totalProviderMs: tUploadDone - tProviderStart,
+              imageLoadMs: tImagesLoaded - tProviderStart,
+              geminiMs,
+              uploadMs: tUploadDone - tUploadStart,
+              validationMs: tValidationDone - tGeminiDone,
+              attemptCount: attemptTimings.length,
+              retried: attemptTimings.length > 1,
+              retryReason: lastRetryReason,
+              debugArtifactsEnabled: DEBUG_ARTIFACTS_ENABLED,
+              inputDimensions,
+              outputDimensions: { width, height },
+              modelName,
+              attemptTimings,
+            },
+          }).catch((evtErr) => {
+            log.warn({ evtErr, sessionId }, "render_timing_summary event failed (non-fatal)");
+          });
 
           trackSessionEvent({
             sessionId,
@@ -760,6 +863,14 @@ export const geminiRoomPreviewRenderProvider = {
 
           if (err instanceof AspectRatioMismatchError && !aspectRatioRetried) {
             aspectRatioRetried = true;
+            lastRetryReason = "aspect_ratio_mismatch";
+            attemptTimings.push({
+              attempt,
+              modelName,
+              durationMs: tGeminiStart > 0 ? Date.now() - tGeminiStart : 0,
+              status: "aspect_ratio_mismatch",
+              retryReason: "aspect_ratio_mismatch",
+            });
             activePrompt =
               `${prompt}\n\nCRITICAL CORRECTION: Your previous output had the wrong aspect ratio ` +
               `(${err.outputWidth}×${err.outputHeight} instead of ${err.inputWidth}×${err.inputHeight}). ` +
@@ -782,6 +893,12 @@ export const geminiRoomPreviewRenderProvider = {
           }
 
           if (err instanceof AspectRatioMismatchError) {
+            attemptTimings.push({
+              attempt,
+              modelName,
+              durationMs: tGeminiStart > 0 ? Date.now() - tGeminiStart : 0,
+              status: "aspect_ratio_mismatch_fatal",
+            });
             log.error(
               {
                 event: "output_aspect_ratio_mismatch_rejected",
@@ -799,6 +916,14 @@ export const geminiRoomPreviewRenderProvider = {
           // Phase 4: on first timeout, reload images at reduced dimensions and retry once.
           if (err instanceof GeminiTimeoutError && !timeoutRetried) {
             timeoutRetried = true;
+            lastRetryReason = "gemini_timeout";
+            attemptTimings.push({
+              attempt,
+              modelName,
+              durationMs: GEMINI_CALL_TIMEOUT_MS,
+              status: "timeout",
+              retryReason: "gemini_timeout",
+            });
             log.warn(
               {
                 event: "gemini_call_timeout",
@@ -844,6 +969,12 @@ export const geminiRoomPreviewRenderProvider = {
           }
 
           if (err instanceof GeminiTimeoutError) {
+            attemptTimings.push({
+              attempt,
+              modelName,
+              durationMs: GEMINI_CALL_TIMEOUT_MS,
+              status: "timeout_fatal",
+            });
             log.error(
               {
                 event: "gemini_retry_failed",
@@ -859,16 +990,36 @@ export const geminiRoomPreviewRenderProvider = {
 
           if (isRetryableError(err) && attempt < MAX_RETRIES) {
             const delay = BASE_DELAY_MS * Math.pow(2, attempt - 1);
+            attemptTimings.push({
+              attempt,
+              modelName,
+              durationMs: tGeminiStart > 0 ? Date.now() - tGeminiStart : 0,
+              status: "retryable_error",
+              retryReason: "api_error",
+            });
+            if (!lastRetryReason) lastRetryReason = "api_error";
             log.warn({ err, modelName, attempt, delayMs: delay }, "Retryable error — retrying");
             await sleep(delay);
             continue;
           }
 
           if (!isRetryableError(err)) {
+            attemptTimings.push({
+              attempt,
+              modelName,
+              durationMs: tGeminiStart > 0 ? Date.now() - tGeminiStart : 0,
+              status: "non_retryable_error",
+            });
             log.warn({ err, modelName, attempt }, "Non-retryable error — moving to next model");
             break;
           }
 
+          attemptTimings.push({
+            attempt,
+            modelName,
+            durationMs: tGeminiStart > 0 ? Date.now() - tGeminiStart : 0,
+            status: "exhausted_retries",
+          });
           log.warn({ modelName, maxRetries: MAX_RETRIES }, "Exhausted retries for model — trying next");
           break;
         }

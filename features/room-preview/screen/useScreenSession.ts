@@ -625,6 +625,33 @@ export function useScreenSession({ sessionId }: { sessionId: string }): UseScree
     };
   }, [viewState, router]);
 
+  // ── Client-side expiry timer ───────────────────────────────────────────────
+  // Safety net: if the SSE stream is open but the cron has not yet pushed an
+  // expiry event, force the UI into expired state the moment wall-clock time
+  // is reached. This triggers the existing 10-second countdown + redirect.
+  useEffect(() => {
+    if (viewState !== "ready" || !session?.expiresAt) return;
+
+    const msUntilExpiry = new Date(session.expiresAt).getTime() - Date.now();
+
+    if (msUntilExpiry <= 0) {
+      sessionRef.current = null;
+      setSession(null);
+      setError(null);
+      setViewState("expired");
+      return;
+    }
+
+    const timer = setTimeout(() => {
+      sessionRef.current = null;
+      setSession(null);
+      setError(null);
+      setViewState("expired");
+    }, msUntilExpiry);
+
+    return () => clearTimeout(timer);
+  }, [session?.expiresAt, viewState]);
+
   return {
     t,
     locale,

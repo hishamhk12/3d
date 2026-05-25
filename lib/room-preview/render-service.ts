@@ -227,21 +227,24 @@ async function runRoomPreviewRenderPipeline(sessionId: string) {
       modelName: composedPreview.modelName,
     } satisfies RenderJobResult;
 
+    const tDbUpdatesStart = Date.now();
     await updateRenderJob(createdJob.id, {
       result,
       status: "completed",
     });
 
-    await resolveSessionIssue({
-      sessionId,
-      type: "RENDER_FAILED",
-      metadata: { renderJobId: createdJob.id },
-    });
-    await resolveSessionIssue({
-      sessionId,
-      type: "RENDER_TIMEOUT",
-      metadata: { renderJobId: createdJob.id },
-    });
+    await Promise.all([
+      resolveSessionIssue({
+        sessionId,
+        type: "RENDER_FAILED",
+        metadata: { renderJobId: createdJob.id },
+      }),
+      resolveSessionIssue({
+        sessionId,
+        type: "RENDER_TIMEOUT",
+        metadata: { renderJobId: createdJob.id },
+      }),
+    ]);
     await trackSessionEvent({
       sessionId,
       source: "renderer",
@@ -253,6 +256,17 @@ async function runRoomPreviewRenderPipeline(sessionId: string) {
         modelName: composedPreview.modelName,
       },
     });
+    const tDbUpdatesDone = Date.now();
+    log.info(
+      {
+        event: "render_timing",
+        sessionId,
+        renderJobId: createdJob.id,
+        stage: "db_updates",
+        durationMs: tDbUpdatesDone - tDbUpdatesStart,
+      },
+      "render_timing",
+    );
 
     after(async () => {
       const userSessionId = await getUserSessionIdForSession(sessionId);

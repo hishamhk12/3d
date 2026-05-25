@@ -31,7 +31,12 @@ const GEMINI_IMAGE_MODELS: readonly string[] =
 const MAX_RETRIES = 3;
 const BASE_DELAY_MS = 3_000;
 
-const GEMINI_CALL_TIMEOUT_MS = 100_000;
+// Phase 3: configurable via env, default 150 s, clamped to 60–240 s.
+const GEMINI_CALL_TIMEOUT_MS = (() => {
+  const raw = Number(process.env.GEMINI_CALL_TIMEOUT_MS);
+  if (!Number.isFinite(raw) || raw <= 0) return 150_000;
+  return Math.max(60_000, Math.min(raw, 240_000));
+})();
 
 const MIN_OUTPUT_BYTES = 10_000;
 const MIN_OUTPUT_DIMENSION_PX = 400;
@@ -47,6 +52,10 @@ const REJECT_ASPECT_RATIO_DRIFT = 0.05;
  */
 const MAX_IMAGE_DIMENSION_PX = 1280;
 const MAX_PRODUCT_IMAGE_DIMENSION_PX = 768;
+
+// Phase 4: smaller fallback dimensions used on the one-shot timeout retry.
+const TIMEOUT_RETRY_ROOM_MAX_PX    = 1024;
+const TIMEOUT_RETRY_PRODUCT_MAX_PX = 640;
 
 /** When true, raw buffers are saved under debug/render-jobs/{sessionId}/{jobId}/. */
 const DEBUG_ARTIFACTS_ENABLED = process.env.ROOM_PREVIEW_DEBUG_RENDER_ARTIFACTS === "true";
@@ -78,11 +87,11 @@ async function saveDebugArtifacts(params: {
   const urls: Record<string, string> = {};
 
   const tasks: Array<{ key: string; filename: string; data: Buffer; ct: string }> = [
-    { key: "02-gemini-input",      filename: `02-gemini-input.${ext}`,       data: params.geminiInputBuffer, ct: mimeType },
-    { key: "03-gemini-raw-output", filename: "03-gemini-raw-output.png",     data: params.rawOutputBuffer,   ct: "image/png" },
-    { key: "04-final-saved-output",filename: "04-final-saved-output.png",    data: params.rawOutputBuffer,   ct: "image/png" },
-    { key: "prompt",               filename: "prompt.txt",                   data: Buffer.from(params.prompt, "utf-8"),                           ct: "text/plain" },
-    { key: "metadata",             filename: "metadata.json",                data: Buffer.from(JSON.stringify(params.snapshotMeta, null, 2), "utf-8"), ct: "application/json" },
+    { key: "02-gemini-input",       filename: `02-gemini-input.${ext}`,    data: params.geminiInputBuffer, ct: mimeType },
+    { key: "03-gemini-raw-output",  filename: "03-gemini-raw-output.png",  data: params.rawOutputBuffer,   ct: "image/png" },
+    { key: "04-final-saved-output", filename: "04-final-saved-output.png", data: params.rawOutputBuffer,   ct: "image/png" },
+    { key: "prompt",                filename: "prompt.txt",                data: Buffer.from(params.prompt, "utf-8"),                               ct: "text/plain" },
+    { key: "metadata",              filename: "metadata.json",             data: Buffer.from(JSON.stringify(params.snapshotMeta, null, 2), "utf-8"), ct: "application/json" },
   ];
 
   await Promise.allSettled(
@@ -122,29 +131,41 @@ type PreparedImage = {
   /** Dimensions after EXIF rotation but before any pixel resize — the "original upload" size. */
   originalWidth: number;
   originalHeight: number;
+  /** Raw byte size before sharp processing — used for diagnostics only. */
+  originalBytes: number;
+  /** Byte size of the final JPEG sent to Gemini — used for diagnostics only. */
+  finalBytes: number;
 };
 
 /**
- * Load an image from a local path or remote URL, resize it if it exceeds
- * MAX_IMAGE_DIMENSION_PX on either axis, and return the base64-encoded result
- * together with final dimensions.
+ * Load an image from a local path or remote URL, apply EXIF rotation, resize
+ * if it exceeds the dimension limit, re-encode as JPEG, and return the
+ * base64-encoded result together with final dimensions.
  *
- * Single sharp decode — avoids the old pattern of loading to base64 then
- * re-decoding to Buffer just to read metadata, which held two copies of the
- * image in memory simultaneously.
+ * Always outputs image/jpeg regardless of input format (PNG, WebP, JPEG) so
+ * Gemini receives a compact payload. EXIF rotation is applied even when no
+ * pixel resize is needed (fixes the prior bug where rawBuffer was returned
+ * unmodified for small images).
+ *
+ * @param context.maxDimensionOverride  Override the role-based max dimension —
+ *   used on timeout retry to send a smaller payload.
  */
 async function loadAndPrepareImage(
   url: string,
-  context: { imageRole: "room" | "product"; sessionId: string },
+  context: {
+    imageRole: "room" | "product";
+    sessionId: string;
+    maxDimensionOverride?: number;
+  },
 ): Promise<PreparedImage> {
   const { default: sharp } = await import("sharp");
 
   let rawBuffer: Buffer;
-  let mimeType: string;
+  let sourceMimeType: string;
 
   if (url.startsWith("/")) {
     const absolutePath = getRoomPreviewPublicAssetPath(url);
-    mimeType = extensionToMimeType(path.extname(absolutePath).toLowerCase());
+    sourceMimeType = extensionToMimeType(path.extname(absolutePath).toLowerCase());
     rawBuffer = await fs.readFile(absolutePath);
   } else {
     const controller = new AbortController();
@@ -159,26 +180,29 @@ async function loadAndPrepareImage(
       if (!(ALLOWED as readonly string[]).includes(raw)) {
         throw new Error(`Unsupported image content-type "${raw}" for URL "${url}".`);
       }
-      mimeType = raw;
+      sourceMimeType = raw;
       rawBuffer = Buffer.from(await res.arrayBuffer());
     } finally {
       clearTimeout(timer);
     }
   }
 
-  // Single sharp pipeline: read metadata → resize if needed → encode.
-  // This replaces the old pattern of toString("base64") then
-  // Buffer.from(base64, "base64") just to call sharp again for metadata.
-  const image = sharp(rawBuffer).rotate(); // auto-orient from EXIF
-  const meta = await image.metadata();
+  // Phase 1: log raw bytes and source MIME before any processing.
+  log.info(
+    {
+      event: "render_input_image_loaded",
+      imageRole: context.imageRole,
+      sessionId: context.sessionId,
+      originalBytes: rawBuffer.length,
+      sourceMimeType,
+    },
+    "Render input image loaded from source",
+  );
+
+  // Read physical dimensions before the output pipeline runs.
+  const meta = await sharp(rawBuffer).metadata();
   const originalWidth  = meta.width  ?? 0;
   const originalHeight = meta.height ?? 0;
-
-  const maxDimension = context.imageRole === "product" ? MAX_PRODUCT_IMAGE_DIMENSION_PX : MAX_IMAGE_DIMENSION_PX;
-
-  const needsResize =
-    originalWidth  > maxDimension ||
-    originalHeight > maxDimension;
 
   log.info(
     {
@@ -193,16 +217,26 @@ async function loadAndPrepareImage(
     "Render input image dimensions before resize",
   );
 
+  const roleMax    = context.imageRole === "product" ? MAX_PRODUCT_IMAGE_DIMENSION_PX : MAX_IMAGE_DIMENSION_PX;
+  const maxDimension = context.maxDimensionOverride ?? roleMax;
+
+  const needsResize =
+    originalWidth  > maxDimension ||
+    originalHeight > maxDimension;
+
   let finalBuffer: Buffer;
   let width: number;
   let height: number;
 
   if (needsResize) {
-    const { data, info } = await image
+    // Phase 2: apply EXIF rotation, resize to fit within maxDimension, re-encode as JPEG.
+    const { data, info } = await sharp(rawBuffer)
+      .rotate()
       .resize(maxDimension, maxDimension, {
         fit: "inside",
         withoutEnlargement: true,
       })
+      .jpeg({ quality: 85 })
       .toBuffer({ resolveWithObject: true });
     finalBuffer = data;
     width  = info.width;
@@ -223,22 +257,33 @@ async function loadAndPrepareImage(
       "Image resized before Gemini upload",
     );
   } else {
-    finalBuffer = rawBuffer;
-    width  = originalWidth;
-    height = originalHeight;
+    // Phase 2: no resize needed, but still apply EXIF rotation and re-encode as JPEG.
+    // (Previously this path returned rawBuffer directly, skipping both rotation and
+    // format conversion — that sent PNG or an un-rotated image to Gemini.)
+    const { data: rotated, info: rotInfo } = await sharp(rawBuffer)
+      .rotate()
+      .jpeg({ quality: 85 })
+      .toBuffer({ resolveWithObject: true });
+    finalBuffer = rotated;
+    width  = rotInfo.width;
+    height = rotInfo.height;
   }
 
+  // Phase 1: log final bytes and confirmed MIME after processing.
   log.info(
     {
-      event: "render_input_image_dimensions_after_resize",
+      event: "render_input_image_prepared",
       imageRole: context.imageRole,
-      resized: needsResize,
-      resizeFit: "inside",
       sessionId: context.sessionId,
+      originalBytes: rawBuffer.length,
+      finalBytes: finalBuffer.length,
       width,
       height,
+      mimeType: "image/jpeg",
+      resized: needsResize,
+      maxDimension,
     },
-    "Render input image dimensions after resize",
+    "Render input image prepared for Gemini",
   );
 
   if (context.imageRole === "product") {
@@ -256,28 +301,44 @@ async function loadAndPrepareImage(
     );
   }
 
-  return { base64: finalBuffer.toString("base64"), mimeType, width, height, originalWidth, originalHeight };
+  return {
+    base64: finalBuffer.toString("base64"),
+    mimeType: "image/jpeg",
+    width,
+    height,
+    originalWidth,
+    originalHeight,
+    originalBytes: rawBuffer.length,
+    finalBytes: finalBuffer.length,
+  };
 }
 
 // ─── Per-call timeout wrapper ─────────────────────────────────────────────────
 
+// Phase 5: use AbortController so the SDK HTTP connection is cleaned up on
+// timeout rather than leaking as a live request.
+// Note: AbortSignal is a client-side operation only (@google/genai v1.49.0) —
+// the Gemini service continues processing after abort; billing is not affected.
 async function generateContentWithTimeout(
   ai: GoogleGenAI,
   modelName: string,
   contentRequest: Record<string, unknown>,
 ) {
-  const timeoutError = new Error(
-    `Gemini call timed out after ${GEMINI_CALL_TIMEOUT_MS / 1000}s (model: ${modelName})`,
-  );
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), GEMINI_CALL_TIMEOUT_MS);
 
-  const timeout = new Promise<never>((_, reject) =>
-    setTimeout(() => reject(timeoutError), GEMINI_CALL_TIMEOUT_MS),
-  );
-
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const params = { model: modelName, ...contentRequest } as any;
-
-  return Promise.race([ai.models.generateContent(params), timeout]);
+  try {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const params = { model: modelName, ...contentRequest, abortSignal: controller.signal } as any;
+    return await ai.models.generateContent(params);
+  } catch (err) {
+    if (controller.signal.aborted) {
+      throw new GeminiTimeoutError(modelName, GEMINI_CALL_TIMEOUT_MS);
+    }
+    throw err;
+  } finally {
+    clearTimeout(timer);
+  }
 }
 
 // ─── Typed render errors ──────────────────────────────────────────────────────
@@ -298,10 +359,20 @@ class AspectRatioMismatchError extends Error {
   }
 }
 
+// Phase 4: typed timeout error — carries failureReason so render-service.ts
+// stores "gemini_timeout" on the failed render job automatically via
+// getFailureReason(), without any changes to render-service.ts.
+class GeminiTimeoutError extends Error {
+  readonly failureReason = "gemini_timeout" as const;
+  constructor(modelName: string, timeoutMs: number) {
+    super(`Gemini call timed out after ${timeoutMs / 1000}s (model: ${modelName})`);
+    this.name = "GeminiTimeoutError";
+  }
+}
+
 // ─── Output validation + normalization ───────────────────────────────────────
 
 const MAX_ASPECT_DRIFT = MAX_ASPECT_RATIO_DRIFT;
-
 
 async function validateAndNormalizeOutputImage(
   outputBase64: string,
@@ -309,7 +380,7 @@ async function validateAndNormalizeOutputImage(
   inputDimensions: { width: number; height: number },
   context: { sessionId: string; modelName: string },
 ): Promise<{ width: number; height: number; buffer: Buffer<ArrayBuffer> }> {
-  let buffer = Buffer.from(outputBase64, "base64") as Buffer<ArrayBuffer>;
+  const buffer = Buffer.from(outputBase64, "base64") as Buffer<ArrayBuffer>;
 
   if (buffer.length < MIN_OUTPUT_BYTES) {
     throw new Error(
@@ -444,9 +515,8 @@ export const geminiRoomPreviewRenderProvider = {
     const ai = getGeminiClient();
     const tProviderStart = Date.now();
 
-    // Load, decode, and resize (if needed) in a single sharp pipeline each.
-    // Dimensions are returned directly — no second decode needed for metadata.
-    // Prompt is built after loading so we can include exact pixel dimensions.
+    // Load, EXIF-rotate, resize (if needed), and re-encode both images as JPEG
+    // in parallel. Dimensions are returned directly — no second decode needed.
     const [roomImage, productImage] = await Promise.all([
       loadAndPrepareImage(room.imageUrl, { imageRole: "room", sessionId }),
       loadAndPrepareImage(product.imageUrl, { imageRole: "product", sessionId }),
@@ -461,11 +531,6 @@ export const geminiRoomPreviewRenderProvider = {
       room.floorQuad ?? null,
       inputDimensions,
     );
-
-    const imageParts = [
-      { inlineData: { mimeType: roomImage.mimeType,    data: roomImage.base64    } },
-      { inlineData: { mimeType: productImage.mimeType, data: productImage.base64 } },
-    ];
 
     // Warn when rendering without a floor polygon — the model will estimate the floor
     // region from the image content alone, which increases the risk of wrong-aspect
@@ -488,10 +553,20 @@ export const geminiRoomPreviewRenderProvider = {
 
     let lastError: unknown = null;
     let aspectRatioRetried = false;
+    let timeoutRetried = false;
     let activePrompt = prompt;
+    // Phase 4: may be replaced with smaller-dimension versions on timeout retry.
+    let currentRoomImage    = roomImage;
+    let currentProductImage = productImage;
 
     for (const modelName of GEMINI_IMAGE_MODELS) {
       for (let attempt = 1; attempt <= MAX_RETRIES; attempt++) {
+        // imageParts is rebuilt each attempt so timeout retry uses updated images.
+        const imageParts = [
+          { inlineData: { mimeType: currentRoomImage.mimeType,    data: currentRoomImage.base64    } },
+          { inlineData: { mimeType: currentProductImage.mimeType, data: currentProductImage.base64 } },
+        ];
+
         const contentRequest: Record<string, unknown> = {
           contents: [
             {
@@ -505,14 +580,28 @@ export const geminiRoomPreviewRenderProvider = {
         };
 
         try {
+          // Phase 1: log payload size and timeout before each attempt.
           log.info(
-            { modelName, attempt, sessionId, promptVersion: PROMPT_VERSION },
-            "Starting render attempt",
+            {
+              event: "gemini_call_starting",
+              sessionId,
+              modelName,
+              attempt,
+              payloadPartCount: imageParts.length + 1,
+              timeoutMs: GEMINI_CALL_TIMEOUT_MS,
+              promptVersion: PROMPT_VERSION,
+              roomBytes: currentRoomImage.finalBytes,
+              productBytes: currentProductImage.finalBytes,
+              roomDimensions: `${currentRoomImage.width}x${currentRoomImage.height}`,
+              productDimensions: `${currentProductImage.width}x${currentProductImage.height}`,
+            },
+            "Starting Gemini render attempt",
           );
 
           const tGeminiStart = Date.now();
           const response = await generateContentWithTimeout(ai, modelName, contentRequest);
           const tGeminiDone = Date.now();
+          const geminiMs = tGeminiDone - tGeminiStart;
 
           const parts = response.candidates?.[0]?.content?.parts ?? [];
           const imagePart = parts.find(
@@ -549,7 +638,7 @@ export const geminiRoomPreviewRenderProvider = {
 
           const { width, height, buffer: imageBuffer } = await validateAndNormalizeOutputImage(
             imagePart.inlineData.data,
-            roomImage.base64,
+            currentRoomImage.base64,
             inputDimensions,
             { sessionId, modelName },
           );
@@ -563,6 +652,20 @@ export const geminiRoomPreviewRenderProvider = {
           const uploadResult = await storageUpload(storageKey, uploadBuffer, "image/png");
           const tUploadDone = Date.now();
 
+          if (timeoutRetried) {
+            log.info(
+              {
+                event: "gemini_retry_succeeded",
+                sessionId,
+                modelName,
+                attempt,
+                geminiMs,
+                roomDimensions: `${currentRoomImage.width}x${currentRoomImage.height}`,
+              },
+              "Gemini render succeeded on timeout retry",
+            );
+          }
+
           log.info(
             {
               modelName,
@@ -571,56 +674,58 @@ export const geminiRoomPreviewRenderProvider = {
               promptVersion: PROMPT_VERSION,
               outputDimensions: `${width}x${height}`,
               outputBytes: uploadBuffer.length,
+              geminiMs,
             },
             "Render succeeded",
           );
 
           // ── Diagnostics snapshot ───────────────────────────────────────────
           const resizedApplied =
-            roomImage.width !== roomImage.originalWidth ||
-            roomImage.height !== roomImage.originalHeight;
+            currentRoomImage.width !== currentRoomImage.originalWidth ||
+            currentRoomImage.height !== currentRoomImage.originalHeight;
 
           const snapshotMeta: Record<string, unknown> = {
-            renderJobId: request.jobId,
-            originalDimensions:      { width: roomImage.originalWidth, height: roomImage.originalHeight },
-            geminiInputDimensions:   { width: roomImage.width,         height: roomImage.height },
-            rawOutputDimensions:     { width, height },
-            finalOutputDimensions:   { width, height },
+            renderJobId:           request.jobId,
+            originalDimensions:    { width: currentRoomImage.originalWidth, height: currentRoomImage.originalHeight },
+            geminiInputDimensions: { width: currentRoomImage.width,         height: currentRoomImage.height },
+            rawOutputDimensions:   { width, height },
+            finalOutputDimensions: { width, height },
             resizedApplied,
-            cropApplied:             false,
-            paddingApplied:          false,
-            normalizedApplied:       false,
-            fillApplied:             false,
-            containApplied:          false,
-            coverApplied:            false,
-            exifOrientationApplied:  true,
-            savedRaw:                true,
-            promptVersion:           PROMPT_VERSION,
+            cropApplied:           false,
+            paddingApplied:        false,
+            normalizedApplied:     false,
+            fillApplied:           false,
+            containApplied:        false,
+            coverApplied:          false,
+            exifOrientationApplied: true,
+            savedRaw:              true,
+            promptVersion:         PROMPT_VERSION,
             modelName,
-            productName:             product.name ?? null,
-            floorPolygon:            room.floorQuad ?? null,
-            promptText:              prompt,
-            outputImageUrl:          uploadResult.publicUrl,
-            artifactUrls:            {} as Record<string, string>,
+            productName:           product.name ?? null,
+            floorPolygon:          room.floorQuad ?? null,
+            promptText:            prompt,
+            outputImageUrl:        uploadResult.publicUrl,
+            artifactUrls:          {} as Record<string, string>,
             timings: {
               imageLoadMs:     tImagesLoaded - tProviderStart,
-              geminiMs:        tGeminiDone - tGeminiStart,
+              geminiMs,
               uploadMs:        tUploadDone - tUploadStart,
               totalProviderMs: tUploadDone - tProviderStart,
               attempt,
               modelName,
+              timeoutMs:       GEMINI_CALL_TIMEOUT_MS,
             },
           };
 
           if (DEBUG_ARTIFACTS_ENABLED) {
             try {
-              const geminiInputBuffer = Buffer.from(roomImage.base64, "base64");
+              const geminiInputBuffer = Buffer.from(currentRoomImage.base64, "base64");
               const artifactUrls = await saveDebugArtifacts({
                 sessionId,
                 jobId: request.jobId,
                 geminiInputBuffer,
                 rawOutputBuffer: imageBuffer,
-                mimeType: roomImage.mimeType,
+                mimeType: currentRoomImage.mimeType,
                 prompt,
                 snapshotMeta: { ...snapshotMeta, artifactUrls: undefined },
               });
@@ -687,6 +792,67 @@ export const geminiRoomPreviewRenderProvider = {
                 action: "giving_up",
               },
               "Aspect ratio mismatch persists after strict-prompt retry — failing render",
+            );
+            break;
+          }
+
+          // Phase 4: on first timeout, reload images at reduced dimensions and retry once.
+          if (err instanceof GeminiTimeoutError && !timeoutRetried) {
+            timeoutRetried = true;
+            log.warn(
+              {
+                event: "gemini_call_timeout",
+                sessionId,
+                modelName,
+                attempt,
+                timeoutMs: GEMINI_CALL_TIMEOUT_MS,
+                action: "retrying_with_reduced_dimensions",
+              },
+              "Gemini timed out — retrying once with reduced image dimensions",
+            );
+            log.info(
+              {
+                event: "gemini_retry_started",
+                sessionId,
+                modelName,
+                roomMaxPx: TIMEOUT_RETRY_ROOM_MAX_PX,
+                productMaxPx: TIMEOUT_RETRY_PRODUCT_MAX_PX,
+              },
+              "Gemini timeout retry: reloading images at reduced dimensions",
+            );
+            [currentRoomImage, currentProductImage] = await Promise.all([
+              loadAndPrepareImage(room.imageUrl, {
+                imageRole: "room",
+                sessionId,
+                maxDimensionOverride: TIMEOUT_RETRY_ROOM_MAX_PX,
+              }),
+              loadAndPrepareImage(product.imageUrl, {
+                imageRole: "product",
+                sessionId,
+                maxDimensionOverride: TIMEOUT_RETRY_PRODUCT_MAX_PX,
+              }),
+            ]);
+            // Rebuild prompt with the new (smaller) room dimensions.
+            const retryDimensions = { width: currentRoomImage.width, height: currentRoomImage.height };
+            activePrompt = buildRenderPrompt(
+              product.productType ?? null,
+              product.name ?? null,
+              room.floorQuad ?? null,
+              retryDimensions,
+            );
+            continue;
+          }
+
+          if (err instanceof GeminiTimeoutError) {
+            log.error(
+              {
+                event: "gemini_retry_failed",
+                sessionId,
+                modelName,
+                attempt,
+                timeoutMs: GEMINI_CALL_TIMEOUT_MS,
+              },
+              "Gemini timeout retry also timed out — failing render",
             );
             break;
           }

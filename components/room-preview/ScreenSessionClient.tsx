@@ -34,6 +34,7 @@ export default function ScreenSessionClient({ sessionId }: { sessionId: string }
     resetCountdown,
     idleCountdown,
     errorCountdown,
+    completionCountdown,
     hasSelectedProduct,
     hasSelectedRoom,
     hasRenderResult,
@@ -121,6 +122,38 @@ export default function ScreenSessionClient({ sessionId }: { sessionId: string }
           title={t.roomPreview.screen.failedTitle}
           description={t.roomPreview.shared.noSessionData}
         />
+      </div>
+    );
+  }
+
+  // ── Completion message: full-screen thank-you state after result display ────
+  if (viewState === "completion_message") {
+    return (
+      <div className="fixed inset-0 z-50 flex items-center justify-center bg-gradient-to-br from-stone-900 via-[#1a1714] to-stone-950 animate-in fade-in duration-700">
+        <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(ellipse_80%_50%_at_50%_40%,rgba(251,243,233,0.04),transparent)]" />
+        <div className="relative w-full max-w-xl rounded-3xl border border-stone-700/30 bg-stone-900/70 px-12 py-14 text-center shadow-[0_40px_80px_rgba(0,0,0,0.6)] backdrop-blur-2xl mx-6">
+          <div className="mx-auto mb-8 flex h-20 w-20 items-center justify-center rounded-full border border-emerald-700/30 bg-emerald-900/40">
+            <svg className="h-10 w-10 text-emerald-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
+              <path strokeLinecap="round" strokeLinejoin="round" d="M4.5 12.75l6 6 9-13.5" />
+            </svg>
+          </div>
+          <h1 className="text-4xl font-bold tracking-tight text-stone-100" dir="rtl">
+            تم إنشاء التصميم بنجاح
+          </h1>
+          <p className="mt-5 text-lg leading-relaxed text-stone-400" dir="rtl">
+            شكراً لتجربتك. يمكنك مراجعة النتيجة مع فريقنا أو بدء تجربة جديدة من الصفحة الرئيسية.
+          </p>
+          {completionCountdown !== null && (
+            <div className="mt-10 flex flex-col items-center gap-3">
+              <div className="flex h-14 w-14 items-center justify-center rounded-full border border-stone-600/50 bg-stone-800/60 text-2xl font-bold tabular-nums text-stone-300">
+                {completionCountdown}
+              </div>
+              <p className="text-sm text-stone-500" dir="rtl">
+                سيتم الرجوع إلى الصفحة الرئيسية خلال {completionCountdown} ثوانٍ
+              </p>
+            </div>
+          )}
+        </div>
       </div>
     );
   }

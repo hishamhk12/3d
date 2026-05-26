@@ -24,7 +24,7 @@ import type { RoomPreviewSession, RoomPreviewSessionStatus } from "@/lib/room-pr
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
-export type ScreenSessionViewState = "loading" | "ready" | "not_found" | "expired" | "failed";
+export type ScreenSessionViewState = "loading" | "ready" | "not_found" | "expired" | "failed" | "completion_message";
 
 export interface UseScreenSessionReturn {
   // i18n
@@ -42,6 +42,7 @@ export interface UseScreenSessionReturn {
   resetCountdown: number | null;
   idleCountdown: number | null;
   errorCountdown: number | null;
+  completionCountdown: number | null;
 
   // Derived
   hasSelectedProduct: boolean;
@@ -62,7 +63,7 @@ export interface UseScreenSessionReturn {
 function getViewStateFromError(
   error: unknown,
   t: TranslationDictionary,
-): { message: string; state: Exclude<ScreenSessionViewState, "loading" | "ready"> } {
+): { message: string; state: Exclude<ScreenSessionViewState, "loading" | "ready" | "completion_message"> } {
   if (isRoomPreviewRequestError(error)) {
     if (error.code === "not_found") {
       return { state: "not_found", message: t.roomPreview.screen.invalidLink };
@@ -81,6 +82,7 @@ function shouldStopPolling(error: RoomPreviewRequestError | Error) {
 
 const FALLBACK_NOTICE_DELAY_MS = 10_000;
 const SSE_RECONNECT_POLLING_GRACE_MS = 4_000;
+const COMPLETION_COUNTDOWN_S = 5;
 const SOFT_FALLBACK_NOTICE = {
   ar: "جارٍ متابعة التحديثات...",
   en: "Following updates...",
@@ -171,6 +173,7 @@ export function useScreenSession({ sessionId }: { sessionId: string }): UseScree
   const [resetCountdown,        setResetCountdown]       = useState<number | null>(null);
   const [idleCountdown,         setIdleCountdown]        = useState<number | null>(null);
   const [errorCountdown,        setErrorCountdown]       = useState<number | null>(null);
+  const [completionCountdown,   setCompletionCountdown]  = useState<number | null>(null);
   const sessionRef = useRef<RoomPreviewSession | null>(null);
   const fallbackStartedRef = useRef(false);
   const fallbackNoticeTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -565,7 +568,11 @@ export function useScreenSession({ sessionId }: { sessionId: string }): UseScree
     }, 1000);
 
     const redirect = setTimeout(() => {
-      router.replace(ROOM_PREVIEW_ROUTES.screenLauncher);
+      if (status === "result_ready") {
+        setViewState("completion_message");
+      } else {
+        router.replace(ROOM_PREVIEW_ROUTES.screenLauncher);
+      }
     }, delayMs);
 
     return () => {
@@ -574,6 +581,46 @@ export function useScreenSession({ sessionId }: { sessionId: string }): UseScree
       setResetCountdown(null);
     };
   }, [session?.status, router]);
+
+  // ── Completion message: 5-second countdown then redirect to landing ────────
+  // Fires once when viewState transitions to "completion_message" (set by the
+  // result_ready auto-reset effect above after SCREEN_RESULT_RESET_MS).
+  useEffect(() => {
+    if (viewState !== "completion_message") {
+      setCompletionCountdown(null);
+      return;
+    }
+
+    setCompletionCountdown(COMPLETION_COUNTDOWN_S);
+
+    trackClientSessionEvent(sessionId, {
+      source: "screen",
+      eventType: "screen_completion_message_displayed",
+      level: "info",
+      statusBefore: "result_ready",
+      metadata: { countdownSeconds: COMPLETION_COUNTDOWN_S },
+    });
+
+    const interval = setInterval(() => {
+      setCompletionCountdown((prev) => (prev === null || prev <= 1 ? null : prev - 1));
+    }, 1000);
+
+    const redirect = setTimeout(() => {
+      trackClientSessionEvent(sessionId, {
+        source: "screen",
+        eventType: "screen_completed_redirect_to_home",
+        level: "info",
+        statusBefore: "result_ready",
+        metadata: { reason: "result_display_completed" },
+      });
+      router.replace(ROOM_PREVIEW_ROUTES.landing);
+    }, COMPLETION_COUNTDOWN_S * 1000);
+
+    return () => {
+      clearInterval(interval);
+      clearTimeout(redirect);
+    };
+  }, [viewState, sessionId, router]);
 
   // ── Auto-reset: idle (no mobile connected) ────────────────────────────────
   useEffect(() => {
@@ -665,6 +712,7 @@ export function useScreenSession({ sessionId }: { sessionId: string }): UseScree
     resetCountdown,
     idleCountdown,
     errorCountdown,
+    completionCountdown,
     hasSelectedProduct,
     hasSelectedRoom,
     hasRenderResult,

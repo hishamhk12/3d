@@ -72,6 +72,9 @@ const UNTHROTTLED_EVENTS = new Set([
   // Result display — one per unique render result
   "result_displayed_screen",
   "result_seen_mobile",
+  // Post-result navigation — one-shot per session
+  "screen_completion_message_displayed",
+  "screen_completed_redirect_to_home",
 ]);
 
 // ─── Public API ───────────────────────────────────────────────────────────────

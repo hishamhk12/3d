@@ -36,11 +36,28 @@ const GEMINI_IMAGE_MODELS: readonly string[] = (() => {
 const MAX_RETRIES = 3;
 const BASE_DELAY_MS = 3_000;
 
-// Configurable via env, default 150 s, clamped to 60–240 s.
+// Legacy single timeout — kept for backward compat in diagnostics, but no longer
+// used to gate individual attempts. Superseded by the two per-attempt constants below.
 const GEMINI_CALL_TIMEOUT_MS = (() => {
   const raw = Number(process.env.GEMINI_CALL_TIMEOUT_MS);
   if (!Number.isFinite(raw) || raw <= 0) return 150_000;
   return Math.max(60_000, Math.min(raw, 240_000));
+})();
+
+// Per-attempt timeouts for showroom UX.
+// First attempt uses a tight window so a stuck Gemini call doesn't make the customer
+// wait before we retry. Retry gets a longer budget for the smaller-image second pass.
+// Clamped: first 5–120 s, retry 30–240 s.
+const GEMINI_FIRST_ATTEMPT_TIMEOUT_MS = (() => {
+  const raw = Number(process.env.ROOM_PREVIEW_GEMINI_FIRST_ATTEMPT_TIMEOUT_MS);
+  if (!Number.isFinite(raw) || raw <= 0) return 25_000;
+  return Math.max(5_000, Math.min(raw, 120_000));
+})();
+
+const GEMINI_RETRY_ATTEMPT_TIMEOUT_MS = (() => {
+  const raw = Number(process.env.ROOM_PREVIEW_GEMINI_RETRY_ATTEMPT_TIMEOUT_MS);
+  if (!Number.isFinite(raw) || raw <= 0) return 90_000;
+  return Math.max(30_000, Math.min(raw, 240_000));
 })();
 
 const MIN_OUTPUT_BYTES = 10_000;
@@ -111,20 +128,24 @@ const DEBUG_ARTIFACTS_ENABLED = process.env.ROOM_PREVIEW_DEBUG_RENDER_ARTIFACTS 
 // the resolved constants and detect whitespace/case issues.
 
 const RESOLVED_CONFIG = {
-  raw_ROOM_PREVIEW_RENDER_QUALITY:    process.env.ROOM_PREVIEW_RENDER_QUALITY ?? null,
-  raw_ROOM_PREVIEW_RENDER_LONG_EDGE:  process.env.ROOM_PREVIEW_RENDER_LONG_EDGE ?? null,
-  raw_GEMINI_CALL_TIMEOUT_MS:         process.env.GEMINI_CALL_TIMEOUT_MS ?? null,
-  resolvedRenderQuality:              RENDER_QUALITY,
-  resolvedLongEdgeOverride:           LONG_EDGE_OVERRIDE,
-  resolvedMaxImageDimensionPx:        MAX_IMAGE_DIMENSION_PX,
-  resolvedMaxProductImageDimensionPx: MAX_PRODUCT_IMAGE_DIMENSION_PX,
-  resolvedPromptVariant:              PROMPT_VARIANT,
-  resolvedActivePromptVersion:        ACTIVE_PROMPT_VERSION,
-  resolvedGeminiCallTimeoutMs:        GEMINI_CALL_TIMEOUT_MS,
-  resolvedGeminiModels:               GEMINI_IMAGE_MODELS,
-  nodeEnv:                            process.env.NODE_ENV ?? null,
-  vercelEnv:                          process.env.VERCEL_ENV ?? null,
-  vercelRegion:                       process.env.VERCEL_REGION ?? null,
+  raw_ROOM_PREVIEW_RENDER_QUALITY:                       process.env.ROOM_PREVIEW_RENDER_QUALITY ?? null,
+  raw_ROOM_PREVIEW_RENDER_LONG_EDGE:                     process.env.ROOM_PREVIEW_RENDER_LONG_EDGE ?? null,
+  raw_GEMINI_CALL_TIMEOUT_MS:                            process.env.GEMINI_CALL_TIMEOUT_MS ?? null,
+  raw_ROOM_PREVIEW_GEMINI_FIRST_ATTEMPT_TIMEOUT_MS:      process.env.ROOM_PREVIEW_GEMINI_FIRST_ATTEMPT_TIMEOUT_MS ?? null,
+  raw_ROOM_PREVIEW_GEMINI_RETRY_ATTEMPT_TIMEOUT_MS:      process.env.ROOM_PREVIEW_GEMINI_RETRY_ATTEMPT_TIMEOUT_MS ?? null,
+  resolvedRenderQuality:                                 RENDER_QUALITY,
+  resolvedLongEdgeOverride:                              LONG_EDGE_OVERRIDE,
+  resolvedMaxImageDimensionPx:                           MAX_IMAGE_DIMENSION_PX,
+  resolvedMaxProductImageDimensionPx:                    MAX_PRODUCT_IMAGE_DIMENSION_PX,
+  resolvedPromptVariant:                                 PROMPT_VARIANT,
+  resolvedActivePromptVersion:                           ACTIVE_PROMPT_VERSION,
+  resolvedGeminiCallTimeoutMs:                           GEMINI_CALL_TIMEOUT_MS,
+  resolvedFirstAttemptTimeoutMs:                         GEMINI_FIRST_ATTEMPT_TIMEOUT_MS,
+  resolvedRetryAttemptTimeoutMs:                         GEMINI_RETRY_ATTEMPT_TIMEOUT_MS,
+  resolvedGeminiModels:                                  GEMINI_IMAGE_MODELS,
+  nodeEnv:                                               process.env.NODE_ENV ?? null,
+  vercelEnv:                                             process.env.VERCEL_ENV ?? null,
+  vercelRegion:                                          process.env.VERCEL_REGION ?? null,
 } as const;
 
 log.info(
@@ -411,9 +432,10 @@ async function generateContentWithTimeout(
   ai: GoogleGenAI,
   modelName: string,
   contentRequest: Record<string, unknown>,
+  timeoutMs: number,
 ) {
   const controller = new AbortController();
-  const timer = setTimeout(() => controller.abort(), GEMINI_CALL_TIMEOUT_MS);
+  const timer = setTimeout(() => controller.abort(), timeoutMs);
 
   try {
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -421,7 +443,7 @@ async function generateContentWithTimeout(
     return await ai.models.generateContent(params);
   } catch (err) {
     if (controller.signal.aborted) {
-      throw new GeminiTimeoutError(modelName, GEMINI_CALL_TIMEOUT_MS);
+      throw new GeminiTimeoutError(modelName, timeoutMs);
     }
     throw err;
   } finally {
@@ -707,11 +729,19 @@ export const geminiRoomPreviewRenderProvider = {
       durationMs: number;
       status: string;
       retryReason?: string;
+      attemptTimeoutMs: number;
+      abortedByTimeout: boolean;
     }> = [];
     let lastRetryReason: string | undefined;
 
     for (const modelName of GEMINI_IMAGE_MODELS) {
       for (let attempt = 1; attempt <= MAX_RETRIES; attempt++) {
+        // First attempt uses a tight timeout so a stuck Gemini call fails fast.
+        // All subsequent attempts use the longer retry budget.
+        const attemptTimeoutMs = attempt === 1
+          ? GEMINI_FIRST_ATTEMPT_TIMEOUT_MS
+          : GEMINI_RETRY_ATTEMPT_TIMEOUT_MS;
+
         // imageParts is rebuilt each attempt so timeout retry uses updated images.
         const imageParts = [
           { inlineData: { mimeType: currentRoomImage.mimeType,    data: currentRoomImage.base64    } },
@@ -743,7 +773,7 @@ export const geminiRoomPreviewRenderProvider = {
               promptLength: activePrompt.length,
               inputPixelCount: currentRoomImage.width * currentRoomImage.height,
               payloadPartCount: imageParts.length + 1,
-              timeoutMs: GEMINI_CALL_TIMEOUT_MS,
+              timeoutMs: attemptTimeoutMs,
               roomBytes: currentRoomImage.finalBytes,
               productBytes: currentProductImage.finalBytes,
               roomDimensions: `${currentRoomImage.width}x${currentRoomImage.height}`,
@@ -764,7 +794,7 @@ export const geminiRoomPreviewRenderProvider = {
           );
 
           tGeminiStart = Date.now();
-          const response = await generateContentWithTimeout(ai, modelName, contentRequest);
+          const response = await generateContentWithTimeout(ai, modelName, contentRequest, attemptTimeoutMs);
           const tGeminiDone = Date.now();
           const geminiMs = tGeminiDone - tGeminiStart;
           log.info(
@@ -850,7 +880,7 @@ export const geminiRoomPreviewRenderProvider = {
             },
             "render_timing",
           );
-          attemptTimings.push({ attempt, modelName, durationMs: geminiMs, status: "succeeded" });
+          attemptTimings.push({ attempt, modelName, durationMs: geminiMs, status: "succeeded", attemptTimeoutMs, abortedByTimeout: false });
 
           if (timeoutRetried) {
             log.info(
@@ -1049,6 +1079,8 @@ export const geminiRoomPreviewRenderProvider = {
               durationMs: tGeminiStart > 0 ? Date.now() - tGeminiStart : 0,
               status: "aspect_ratio_mismatch",
               retryReason: "aspect_ratio_mismatch",
+              attemptTimeoutMs,
+              abortedByTimeout: false,
             });
             activePrompt =
               `${prompt}\n\nCRITICAL CORRECTION: Your previous output had the wrong aspect ratio ` +
@@ -1077,6 +1109,8 @@ export const geminiRoomPreviewRenderProvider = {
               modelName,
               durationMs: tGeminiStart > 0 ? Date.now() - tGeminiStart : 0,
               status: "aspect_ratio_mismatch_fatal",
+              attemptTimeoutMs,
+              abortedByTimeout: false,
             });
             log.error(
               {
@@ -1099,9 +1133,11 @@ export const geminiRoomPreviewRenderProvider = {
             attemptTimings.push({
               attempt,
               modelName,
-              durationMs: GEMINI_CALL_TIMEOUT_MS,
+              durationMs: attemptTimeoutMs,
               status: "timeout",
               retryReason: "gemini_timeout",
+              attemptTimeoutMs,
+              abortedByTimeout: true,
             });
             log.warn(
               {
@@ -1109,7 +1145,7 @@ export const geminiRoomPreviewRenderProvider = {
                 sessionId,
                 modelName,
                 attempt,
-                timeoutMs: GEMINI_CALL_TIMEOUT_MS,
+                timeoutMs: attemptTimeoutMs,
                 action: "retrying_with_reduced_dimensions",
               },
               "Gemini timed out — retrying once with reduced image dimensions",
@@ -1152,8 +1188,10 @@ export const geminiRoomPreviewRenderProvider = {
             attemptTimings.push({
               attempt,
               modelName,
-              durationMs: GEMINI_CALL_TIMEOUT_MS,
+              durationMs: attemptTimeoutMs,
               status: "timeout_fatal",
+              attemptTimeoutMs,
+              abortedByTimeout: true,
             });
             log.error(
               {
@@ -1161,7 +1199,7 @@ export const geminiRoomPreviewRenderProvider = {
                 sessionId,
                 modelName,
                 attempt,
-                timeoutMs: GEMINI_CALL_TIMEOUT_MS,
+                timeoutMs: attemptTimeoutMs,
               },
               "Gemini timeout retry also timed out — failing render",
             );
@@ -1176,6 +1214,8 @@ export const geminiRoomPreviewRenderProvider = {
               durationMs: tGeminiStart > 0 ? Date.now() - tGeminiStart : 0,
               status: "retryable_error",
               retryReason: "api_error",
+              attemptTimeoutMs,
+              abortedByTimeout: false,
             });
             if (!lastRetryReason) lastRetryReason = "api_error";
             log.warn({ err, modelName, attempt, delayMs: delay }, "Retryable error — retrying");
@@ -1189,6 +1229,8 @@ export const geminiRoomPreviewRenderProvider = {
               modelName,
               durationMs: tGeminiStart > 0 ? Date.now() - tGeminiStart : 0,
               status: "non_retryable_error",
+              attemptTimeoutMs,
+              abortedByTimeout: false,
             });
             log.warn({ err, modelName, attempt }, "Non-retryable error — moving to next model");
             break;
@@ -1199,6 +1241,8 @@ export const geminiRoomPreviewRenderProvider = {
             modelName,
             durationMs: tGeminiStart > 0 ? Date.now() - tGeminiStart : 0,
             status: "exhausted_retries",
+            attemptTimeoutMs,
+            abortedByTimeout: false,
           });
           log.warn({ modelName, maxRetries: MAX_RETRIES }, "Exhausted retries for model — trying next");
           break;

@@ -103,6 +103,51 @@ const TIMEOUT_RETRY_PRODUCT_MAX_PX = 640;
 /** When true, raw buffers are saved under debug/render-jobs/{sessionId}/{jobId}/. */
 const DEBUG_ARTIFACTS_ENABLED = process.env.ROOM_PREVIEW_DEBUG_RENDER_ARTIFACTS === "true";
 
+// ─── Resolved config snapshot (safe to log — no secrets) ─────────────────────
+//
+// Captured once at module load so every cold start emits a single structured
+// log entry that shows exactly what the Lambda resolved from its env vars.
+// Read raw values again here (outside the IIFEs) so we can compare them to
+// the resolved constants and detect whitespace/case issues.
+
+const RESOLVED_CONFIG = {
+  raw_ROOM_PREVIEW_RENDER_QUALITY:    process.env.ROOM_PREVIEW_RENDER_QUALITY ?? null,
+  raw_ROOM_PREVIEW_RENDER_LONG_EDGE:  process.env.ROOM_PREVIEW_RENDER_LONG_EDGE ?? null,
+  raw_GEMINI_CALL_TIMEOUT_MS:         process.env.GEMINI_CALL_TIMEOUT_MS ?? null,
+  resolvedRenderQuality:              RENDER_QUALITY,
+  resolvedLongEdgeOverride:           LONG_EDGE_OVERRIDE,
+  resolvedMaxImageDimensionPx:        MAX_IMAGE_DIMENSION_PX,
+  resolvedMaxProductImageDimensionPx: MAX_PRODUCT_IMAGE_DIMENSION_PX,
+  resolvedPromptVariant:              PROMPT_VARIANT,
+  resolvedActivePromptVersion:        ACTIVE_PROMPT_VERSION,
+  resolvedGeminiCallTimeoutMs:        GEMINI_CALL_TIMEOUT_MS,
+  resolvedGeminiModels:               GEMINI_IMAGE_MODELS,
+  nodeEnv:                            process.env.NODE_ENV ?? null,
+  vercelEnv:                          process.env.VERCEL_ENV ?? null,
+  vercelRegion:                       process.env.VERCEL_REGION ?? null,
+} as const;
+
+log.info(
+  { event: "render_config_resolved", ...RESOLVED_CONFIG },
+  "Gemini provider config resolved at module load (cold start)",
+);
+
+// Safety check: if the env var says "fast" but the resolved prompt is not fast-v1,
+// something is wrong (whitespace, stale cache, env mismatch).
+if (
+  process.env.ROOM_PREVIEW_RENDER_QUALITY === "fast" &&
+  ACTIVE_PROMPT_VERSION !== PROMPT_VERSION_FAST
+) {
+  log.warn(
+    {
+      event: "render_config_mismatch",
+      ...RESOLVED_CONFIG,
+      expectedPromptVersion: PROMPT_VERSION_FAST,
+    },
+    "render_config_mismatch: ROOM_PREVIEW_RENDER_QUALITY=fast but ACTIVE_PROMPT_VERSION is not fast-v1",
+  );
+}
+
 // ─── Storage key builder ──────────────────────────────────────────────────────
 
 const RENDER_OUTPUT_KEY_PREFIX = "uploads/room-preview/renders";
@@ -609,6 +654,45 @@ export const geminiRoomPreviewRenderProvider = {
       });
     }
 
+    // Per-render config mismatch: read raw env value at request time so we can
+    // compare it to the module-level resolved constant and detect warm-Lambda
+    // caching or env-var-set-without-redeploy scenarios.
+    const perRenderRawQuality = process.env.ROOM_PREVIEW_RENDER_QUALITY ?? null;
+    const perRenderRawLongEdge = process.env.ROOM_PREVIEW_RENDER_LONG_EDGE ?? null;
+
+    if (perRenderRawQuality === "fast" && ACTIVE_PROMPT_VERSION !== PROMPT_VERSION_FAST) {
+      log.warn(
+        {
+          event: "render_config_mismatch",
+          sessionId,
+          perRenderRawQuality,
+          resolvedRenderQuality: RENDER_QUALITY,
+          resolvedPromptVariant: PROMPT_VARIANT,
+          resolvedActivePromptVersion: ACTIVE_PROMPT_VERSION,
+          expectedPromptVersion: PROMPT_VERSION_FAST,
+          note: "env var says fast but module resolved balanced — likely set without redeployment or whitespace issue",
+        },
+        "render_config_mismatch",
+      );
+      trackSessionEvent({
+        sessionId,
+        source: "renderer",
+        eventType: "render_config_mismatch",
+        level: "warning",
+        message: "ROOM_PREVIEW_RENDER_QUALITY=fast but prompt version is not gemini-floor-fast-v1 — config mismatch detected",
+        metadata: {
+          perRenderRawQuality,
+          perRenderRawLongEdge,
+          resolvedRenderQuality: RENDER_QUALITY,
+          resolvedPromptVariant: PROMPT_VARIANT,
+          resolvedActivePromptVersion: ACTIVE_PROMPT_VERSION,
+          expectedPromptVersion: PROMPT_VERSION_FAST,
+        },
+      }).catch((evtErr) => {
+        log.warn({ evtErr, sessionId }, "render_config_mismatch event failed (non-fatal)");
+      });
+    }
+
     let lastError: unknown = null;
     let aspectRatioRetried = false;
     let timeoutRetried = false;
@@ -664,6 +748,17 @@ export const geminiRoomPreviewRenderProvider = {
               productBytes: currentProductImage.finalBytes,
               roomDimensions: `${currentRoomImage.width}x${currentRoomImage.height}`,
               productDimensions: `${currentProductImage.width}x${currentProductImage.height}`,
+              // Raw env values read per-request — compare to resolved constants to detect
+              // warm-Lambda caching or env vars set without redeployment.
+              raw_ROOM_PREVIEW_RENDER_QUALITY:   perRenderRawQuality,
+              raw_ROOM_PREVIEW_RENDER_LONG_EDGE: perRenderRawLongEdge,
+              resolvedRenderQuality:             RENDER_QUALITY,
+              resolvedLongEdgeOverride:          LONG_EDGE_OVERRIDE,
+              resolvedMaxImageDimensionPx:       MAX_IMAGE_DIMENSION_PX,
+              resolvedPromptVariant:             PROMPT_VARIANT,
+              nodeEnv:                           process.env.NODE_ENV ?? null,
+              vercelEnv:                         process.env.VERCEL_ENV ?? null,
+              vercelRegion:                      process.env.VERCEL_REGION ?? null,
             },
             "Starting Gemini render attempt",
           );
@@ -824,6 +919,21 @@ export const geminiRoomPreviewRenderProvider = {
               modelName,
               timeoutMs:       GEMINI_CALL_TIMEOUT_MS,
             },
+            // Raw + resolved config — visible in admin diagnostics snapshot.
+            envConfig: {
+              raw_ROOM_PREVIEW_RENDER_QUALITY:    perRenderRawQuality,
+              raw_ROOM_PREVIEW_RENDER_LONG_EDGE:  perRenderRawLongEdge,
+              resolvedRenderQuality:              RENDER_QUALITY,
+              resolvedLongEdgeOverride:           LONG_EDGE_OVERRIDE,
+              resolvedMaxImageDimensionPx:        MAX_IMAGE_DIMENSION_PX,
+              resolvedMaxProductImageDimensionPx: MAX_PRODUCT_IMAGE_DIMENSION_PX,
+              resolvedPromptVariant:              PROMPT_VARIANT,
+              resolvedActivePromptVersion:        ACTIVE_PROMPT_VERSION,
+              resolvedGeminiCallTimeoutMs:        GEMINI_CALL_TIMEOUT_MS,
+              nodeEnv:                            process.env.NODE_ENV ?? null,
+              vercelEnv:                          process.env.VERCEL_ENV ?? null,
+              vercelRegion:                       process.env.VERCEL_REGION ?? null,
+            },
           };
 
           if (DEBUG_ARTIFACTS_ENABLED) {
@@ -891,6 +1001,21 @@ export const geminiRoomPreviewRenderProvider = {
               outputDimensions: { width, height },
               modelName,
               attemptTimings,
+              // Raw + resolved config — key for diagnosing env var propagation issues.
+              envConfig: {
+                raw_ROOM_PREVIEW_RENDER_QUALITY:    perRenderRawQuality,
+                raw_ROOM_PREVIEW_RENDER_LONG_EDGE:  perRenderRawLongEdge,
+                resolvedRenderQuality:              RENDER_QUALITY,
+                resolvedLongEdgeOverride:           LONG_EDGE_OVERRIDE,
+                resolvedMaxImageDimensionPx:        MAX_IMAGE_DIMENSION_PX,
+                resolvedMaxProductImageDimensionPx: MAX_PRODUCT_IMAGE_DIMENSION_PX,
+                resolvedPromptVariant:              PROMPT_VARIANT,
+                resolvedActivePromptVersion:        ACTIVE_PROMPT_VERSION,
+                resolvedGeminiCallTimeoutMs:        GEMINI_CALL_TIMEOUT_MS,
+                nodeEnv:                            process.env.NODE_ENV ?? null,
+                vercelEnv:                          process.env.VERCEL_ENV ?? null,
+                vercelRegion:                       process.env.VERCEL_REGION ?? null,
+              },
             },
           }).catch((evtErr) => {
             log.warn({ evtErr, sessionId }, "render_timing_summary event failed (non-fatal)");

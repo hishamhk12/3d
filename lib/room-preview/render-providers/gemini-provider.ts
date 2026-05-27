@@ -1029,11 +1029,86 @@ export const geminiRoomPreviewRenderProvider = {
       });
     }
 
-    // Per-render config mismatch: read raw env value at request time so we can
-    // compare it to the module-level resolved constant and detect warm-Lambda
-    // caching or env-var-set-without-redeploy scenarios.
-    const perRenderRawQuality = process.env.ROOM_PREVIEW_RENDER_QUALITY ?? null;
+    // ── Per-render config reads ───────────────────────────────────────────────
+    // Re-read ALL env vars that drive render behavior at request time (not just at
+    // cold-start module load). This prevents stale values from:
+    //   • Next.js webpack bundler inlining process.env.* at build time
+    //   • Env vars set in Vercel after the last deployment (before a new cold start)
+    //   • Warm-Lambda scenarios where module constants are frozen from a prior eval
+    const perRenderRawQuality  = process.env.ROOM_PREVIEW_RENDER_QUALITY ?? null;
     const perRenderRawLongEdge = process.env.ROOM_PREVIEW_RENDER_LONG_EDGE ?? null;
+
+    const perRenderEnableParallel =
+      process.env.ROOM_PREVIEW_ENABLE_PARALLEL_GEMINI_ATTEMPTS === "true";
+
+    const perRenderParallelAttempts = (() => {
+      const raw = Number(process.env.ROOM_PREVIEW_PARALLEL_GEMINI_ATTEMPTS);
+      if (!Number.isFinite(raw) || raw < 1) return 2;
+      return Math.min(Math.max(Math.round(raw), 1), 2);
+    })();
+
+    const resolvedBranch: "parallel" | "serial" =
+      perRenderEnableParallel && perRenderParallelAttempts >= 2 ? "parallel" : "serial";
+
+    // Warn when the per-render read disagrees with the module-level constant —
+    // this is a strong signal that the bundle has a stale inlined value and a
+    // redeploy is needed.
+    if (
+      perRenderEnableParallel !== ENABLE_PARALLEL_GEMINI_ATTEMPTS ||
+      perRenderParallelAttempts !== PARALLEL_GEMINI_ATTEMPTS
+    ) {
+      log.warn(
+        {
+          event: "render_config_stale_module_constant",
+          sessionId,
+          moduleEnableParallel:    ENABLE_PARALLEL_GEMINI_ATTEMPTS,
+          moduleParallelAttempts:  PARALLEL_GEMINI_ATTEMPTS,
+          perRenderEnableParallel,
+          perRenderParallelAttempts,
+        },
+        "render_config_stale_module_constant: per-render env read differs from module-level constant — possible build-time inlining or missing redeploy",
+      );
+    }
+
+    // This session event is the authoritative record of which branch was chosen.
+    // It is written to the session events table (not just server logs) so it
+    // appears in the admin diagnostics view next to render timing events.
+    trackSessionEvent({
+      sessionId,
+      source: "renderer",
+      eventType: "render_branch_resolved",
+      level: "info",
+      metadata: {
+        branch:                  resolvedBranch,
+        parallelGeminiEnabled:   perRenderEnableParallel,
+        parallelGeminiAttempts:  perRenderParallelAttempts,
+        // Include module-level constants so diagnostics can detect staleness.
+        moduleEnableParallel:    ENABLE_PARALLEL_GEMINI_ATTEMPTS,
+        moduleParallelAttempts:  PARALLEL_GEMINI_ATTEMPTS,
+        raw_ROOM_PREVIEW_ENABLE_PARALLEL_GEMINI_ATTEMPTS: process.env.ROOM_PREVIEW_ENABLE_PARALLEL_GEMINI_ATTEMPTS ?? null,
+        raw_ROOM_PREVIEW_PARALLEL_GEMINI_ATTEMPTS:        process.env.ROOM_PREVIEW_PARALLEL_GEMINI_ATTEMPTS ?? null,
+        raw_ROOM_PREVIEW_GEMINI_FIRST_ATTEMPT_TIMEOUT_MS: process.env.ROOM_PREVIEW_GEMINI_FIRST_ATTEMPT_TIMEOUT_MS ?? null,
+        renderJobId: request.jobId,
+        vercelEnv:   process.env.VERCEL_ENV ?? null,
+        vercelRegion: process.env.VERCEL_REGION ?? null,
+      },
+    }).catch(() => {});
+
+    log.info(
+      {
+        event:                   "render_branch_resolved",
+        sessionId,
+        renderJobId:             request.jobId,
+        branch:                  resolvedBranch,
+        parallelGeminiEnabled:   perRenderEnableParallel,
+        parallelGeminiAttempts:  perRenderParallelAttempts,
+        moduleEnableParallel:    ENABLE_PARALLEL_GEMINI_ATTEMPTS,
+        moduleParallelAttempts:  PARALLEL_GEMINI_ATTEMPTS,
+        firstAttemptTimeoutMs:   GEMINI_FIRST_ATTEMPT_TIMEOUT_MS,
+        raw_ROOM_PREVIEW_ENABLE_PARALLEL_GEMINI_ATTEMPTS: process.env.ROOM_PREVIEW_ENABLE_PARALLEL_GEMINI_ATTEMPTS ?? null,
+      },
+      "render_branch_resolved",
+    );
 
     if (perRenderRawQuality === "fast" && ACTIVE_PROMPT_VERSION !== PROMPT_VERSION_FAST) {
       log.warn(
@@ -1069,7 +1144,7 @@ export const geminiRoomPreviewRenderProvider = {
     }
 
     // ── Parallel-attempt path ─────────────────────────────────────────────────
-    if (ENABLE_PARALLEL_GEMINI_ATTEMPTS && PARALLEL_GEMINI_ATTEMPTS >= 2) {
+    if (perRenderEnableParallel && perRenderParallelAttempts >= 2) {
       const modelName = GEMINI_IMAGE_MODELS[0];
       log.info(
         {
@@ -1077,7 +1152,7 @@ export const geminiRoomPreviewRenderProvider = {
           sessionId,
           renderJobId: request.jobId,
           mode: "parallel",
-          numAttempts: PARALLEL_GEMINI_ATTEMPTS,
+          numAttempts: perRenderParallelAttempts,
           modelName,
           timeoutMs: GEMINI_FIRST_ATTEMPT_TIMEOUT_MS,
         },
@@ -1091,7 +1166,7 @@ export const geminiRoomPreviewRenderProvider = {
         productImage,
         prompt,
         inputDimensions,
-        numAttempts: PARALLEL_GEMINI_ATTEMPTS,
+        numAttempts: perRenderParallelAttempts,
         sessionId,
         jobId: request.jobId,
         tProviderStart,

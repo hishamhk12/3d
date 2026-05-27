@@ -96,6 +96,56 @@ type ServiceTiming = {
   saveMs?: number;
 };
 
+// ─── Render branch extraction ─────────────────────────────────────────────────
+
+type RenderBranchMeta = {
+  branch?: string;
+  parallelGeminiEnabled?: boolean;
+  parallelGeminiAttempts?: number;
+  moduleEnableParallel?: boolean;
+  moduleParallelAttempts?: number;
+  raw_ROOM_PREVIEW_ENABLE_PARALLEL_GEMINI_ATTEMPTS?: string | null;
+  raw_ROOM_PREVIEW_PARALLEL_GEMINI_ATTEMPTS?: string | null;
+  raw_ROOM_PREVIEW_GEMINI_FIRST_ATTEMPT_TIMEOUT_MS?: string | null;
+  renderJobId?: string;
+  vercelEnv?: string | null;
+  vercelRegion?: string | null;
+  winnerAttemptId?: string | null;
+  attemptCount?: number | null;
+};
+
+function extractRenderBranch(timeline: TEvent[]): RenderBranchMeta | null {
+  const branchEvents = timeline.filter(
+    (e) => e.eventType === "render_branch_resolved" && isRecord(e.metadata),
+  );
+  if (branchEvents.length === 0) return null;
+  const latest = branchEvents[branchEvents.length - 1];
+  const meta = latest.metadata as RenderBranchMeta;
+
+  // Supplement with winner + attempt count from the parallel render_timing_summary.
+  const parallelSummary = [...timeline]
+    .reverse()
+    .find(
+      (e) =>
+        e.eventType === "render_timing_summary" &&
+        isRecord(e.metadata) &&
+        (e.metadata as Record<string, unknown>)["mode"] === "parallel",
+    );
+
+  if (parallelSummary && isRecord(parallelSummary.metadata)) {
+    const sm = parallelSummary.metadata as Record<string, unknown>;
+    return {
+      ...meta,
+      winnerAttemptId:
+        typeof sm["winnerAttemptId"] === "string" ? sm["winnerAttemptId"] : (meta.winnerAttemptId ?? null),
+      attemptCount:
+        typeof sm["attemptCount"] === "number" ? sm["attemptCount"] : (meta.attemptCount ?? null),
+    };
+  }
+
+  return meta;
+}
+
 function extractTimings(timeline: TEvent[]): { provider: ProviderTiming | null; service: ServiceTiming | null } {
   const summaries = timeline.filter((e) => e.eventType === "render_timing_summary" && isRecord(e.metadata));
   const providerEvent = [...summaries].reverse().find((e) => isRecord(e.metadata) && "totalProviderMs" in e.metadata);
@@ -617,6 +667,117 @@ function WhySlowCard({ insights }: { insights: SlowInsight[] }) {
   );
 }
 
+// ─── RenderBranchCard ────────────────────────────────────────────────────────
+
+function BranchRow({
+  label,
+  value,
+  mono,
+  highlight,
+}: {
+  label: string;
+  value: string;
+  mono?: boolean;
+  highlight?: boolean;
+}) {
+  return (
+    <div className="flex items-center justify-between gap-2">
+      <span className="text-slate-500">{label}</span>
+      <span
+        className={`text-right ${mono ? "font-mono" : ""} ${
+          highlight ? "font-semibold text-emerald-700" : "text-slate-800"
+        }`}
+      >
+        {value}
+      </span>
+    </div>
+  );
+}
+
+function RenderBranchCard({ data }: { data: RenderBranchMeta | null }) {
+  if (!data) {
+    return (
+      <div className="rounded-xl border border-slate-200 bg-white p-5 shadow-sm">
+        <h2 className="mb-3 text-sm font-semibold text-slate-950">Render Branch</h2>
+        <p className="text-sm text-slate-400">No render_branch_resolved event recorded yet.</p>
+      </div>
+    );
+  }
+
+  const isParallel = data.branch === "parallel";
+  const envSaysParallel = data.raw_ROOM_PREVIEW_ENABLE_PARALLEL_GEMINI_ATTEMPTS === "true";
+  const mismatch = envSaysParallel && !isParallel;
+
+  return (
+    <div className="rounded-xl border border-slate-200 bg-white p-5 shadow-sm">
+      <div className="mb-4 flex items-center justify-between gap-3">
+        <h2 className="text-sm font-semibold text-slate-950">Render Branch</h2>
+        <span
+          className={`rounded-full px-3 py-1 text-xs font-semibold ${
+            isParallel
+              ? "bg-emerald-100 text-emerald-700"
+              : "bg-slate-100 text-slate-600"
+          }`}
+        >
+          {data.branch ?? "—"}
+        </span>
+      </div>
+
+      {mismatch && (
+        <div className="mb-4 flex gap-2 rounded-lg border border-amber-200 bg-amber-50 px-3 py-2.5">
+          <span className="text-amber-500 shrink-0">⚠</span>
+          <p className="text-xs font-medium text-amber-800">
+            Parallel env is enabled but serial branch was used.
+          </p>
+        </div>
+      )}
+
+      <div className="space-y-1.5 text-xs">
+        <BranchRow
+          label="Branch"
+          value={data.branch ?? "—"}
+          highlight={isParallel}
+        />
+        <BranchRow
+          label="Parallel enabled"
+          value={
+            data.parallelGeminiEnabled === true
+              ? "true"
+              : data.parallelGeminiEnabled === false
+                ? "false"
+                : "—"
+          }
+          highlight={data.parallelGeminiEnabled === true}
+        />
+        <BranchRow
+          label="Parallel attempts"
+          value={data.parallelGeminiAttempts != null ? String(data.parallelGeminiAttempts) : "—"}
+        />
+        <BranchRow
+          label="ENABLE_PARALLEL (raw env)"
+          value={data.raw_ROOM_PREVIEW_ENABLE_PARALLEL_GEMINI_ATTEMPTS ?? "—"}
+          mono
+          highlight={data.raw_ROOM_PREVIEW_ENABLE_PARALLEL_GEMINI_ATTEMPTS === "true"}
+        />
+        <BranchRow
+          label="PARALLEL_ATTEMPTS (raw env)"
+          value={data.raw_ROOM_PREVIEW_PARALLEL_GEMINI_ATTEMPTS ?? "—"}
+          mono
+        />
+        {data.winnerAttemptId != null && (
+          <BranchRow label="Winning attempt" value={data.winnerAttemptId} highlight />
+        )}
+        {data.attemptCount != null && (
+          <BranchRow label="Attempt count" value={String(data.attemptCount)} />
+        )}
+        {data.vercelRegion != null && (
+          <BranchRow label="Vercel region" value={data.vercelRegion} mono />
+        )}
+      </div>
+    </div>
+  );
+}
+
 // ─── ScreenUxCard ─────────────────────────────────────────────────────────────
 
 function ScreenUxCard({ timeline }: { timeline: TEvent[] }) {
@@ -823,6 +984,7 @@ export default async function SessionDiagnosticsPage({ params }: SessionDiagnost
   const timingRows   = buildTimingRows(summary, timeline);
   const { provider, service } = extractTimings(timeline);
   const slowInsights = deriveSlowInsights(provider, timeline);
+  const renderBranch = extractRenderBranch(timeline);
 
   // Timeline events cast for the client component
   const timelineEvents = timeline as TimelineEvent[];
@@ -868,12 +1030,15 @@ export default async function SessionDiagnosticsPage({ params }: SessionDiagnost
 
         {/* ── Render Performance ────────────────────────────────────────────── */}
         {summary.renderStarted && (
-          <div className="grid gap-5 lg:grid-cols-3">
-            <div className="lg:col-span-2">
-              <RenderPerformanceCard provider={provider} service={service} />
+          <>
+            <div className="grid gap-5 lg:grid-cols-3">
+              <div className="lg:col-span-2">
+                <RenderPerformanceCard provider={provider} service={service} />
+              </div>
+              <WhySlowCard insights={slowInsights} />
             </div>
-            <WhySlowCard insights={slowInsights} />
-          </div>
+            <RenderBranchCard data={renderBranch} />
+          </>
         )}
 
         {/* ── Issues ────────────────────────────────────────────────────────── */}

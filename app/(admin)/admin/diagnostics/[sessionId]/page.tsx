@@ -168,7 +168,7 @@ function buildJourneySteps(
   const productSel   = findEvent(timeline, "product_selected");
   const renderReq    = findEvent(timeline, "render_start_clicked") ?? findEvent(timeline, "render_request_started");
   const renderStart  = findStatusChange(timeline, "rendering") ?? findEvent(timeline, "render_started");
-  const renderDone   = findEvent(timeline, "render_request_success") ?? findStatusChange(timeline, "result_ready");
+  const renderDone   = findEvent(timeline, "render_request_accepted") ?? findEvent(timeline, "render_request_success") ?? findStatusChange(timeline, "result_ready");
   const resultScreen = findEvent(timeline, "result_displayed_screen");
   const resultMobile = findEvent(timeline, "result_seen_mobile");
   const completion   = findEvent(timeline, "screen_completion_message_displayed");

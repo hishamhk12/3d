@@ -62,6 +62,7 @@ const UNTHROTTLED_EVENTS = new Set([
   "render_start_clicked",
   "render_product_debounce_flushed",
   "render_request_started",
+  "render_request_accepted",
   "render_request_success",
   "render_request_failed",
   "render_started",

@@ -226,12 +226,15 @@ export default function MobileSessionClient({
     !shouldUseProductList &&
     !isRenderingSession &&
     !showResult &&
-    session.status !== "result_ready";
+    session.status !== "result_ready" &&
+    session.status !== "failed";
   const shouldShowLegacyProductStep = hasSavedRoom && shouldUseProductList;
   const shouldShowResultStep =
     hasSavedRoom &&
     hasSavedProduct &&
-    (shouldUseProductList || isRenderingSession || showResult || session.status === "result_ready");
+    (shouldUseProductList || isRenderingSession || showResult ||
+     session.status === "result_ready" ||
+     session.status === "failed");
   const initialQrProductCode =
     initialProductCode ??
     (!shouldUseProductList && session.selectedProduct?.imageUrl?.startsWith("/qr-products/")

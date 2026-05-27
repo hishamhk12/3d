@@ -273,7 +273,10 @@ export function useMobileSession({
             setViewState("expired");
             setError(null);
           } else if (status === "failed") {
-            setViewState("failed");
+            setViewState("ready");
+            const recovery = getCustomerRecoveryMessage("retry_render");
+            setRecoveryMessage(recovery);
+            setError(recovery?.text ?? t.roomPreview.mobile.loadFailed);
           } else {
             setViewState("ready");
             if (status === "result_ready" && fresh.renderResult?.imageUrl) {
@@ -1081,7 +1084,7 @@ export function useMobileSession({
 
       trackClientSessionEvent(renderSession.id, {
         source: "mobile",
-        eventType: "render_request_success",
+        eventType: "render_request_accepted",
         level: "info",
         metadata: { ...renderMetadataBase, statusAfter: renderingSession.status },
       });
@@ -1122,8 +1125,9 @@ export function useMobileSession({
       });
 
       if (isRoomPreviewRequestError(renderError) && renderError.code === "render_limit_reached") {
-        setError("وصلت إلى عدد المحاولات المتاحة لهذه التجربة.");
-        setRecoveryMessage(null);
+        const recovery = getCustomerRecoveryMessage("retake_room_photo");
+        setError("فشل التصميم مرتين. يرجى رفع صورة غرفة أوضح أو اختيار منتج آخر.");
+        setRecoveryMessage(recovery);
       } else if (isRoomPreviewRequestError(renderError) && renderError.code === "render_device_cooldown") {
         setError("يمكنك طلب معاينة جديدة بعد ٥ دقائق.");
         setRecoveryMessage(null);

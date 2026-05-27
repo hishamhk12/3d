@@ -4,6 +4,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { LoaderCircle } from "lucide-react";
 import SessionStatePanel from "@/components/room-preview/SessionStatePanel";
 import { ROOM_PREVIEW_ROUTES } from "@/lib/room-preview/constants";
+import { abandonSession } from "@/lib/room-preview/session-client";
 import { trackClientSessionEvent } from "@/lib/room-preview/session-diagnostics-client";
 import { useMobileSession } from "@/features/room-preview/mobile/useMobileSession";
 import RoomStep    from "@/features/room-preview/mobile/RoomStep";
@@ -99,6 +100,8 @@ export default function MobileSessionClient({
 }: MobileSessionClientProps) {
   useMobileBrowserLifecycle(sessionId);
   const [useProductListFallback, setUseProductListFallback] = useState(false);
+  const [isAbandoning, setIsAbandoning] = useState(false);
+  const [abandonDone, setAbandonDone] = useState(false);
 
   const {
     t,
@@ -363,26 +366,40 @@ export default function MobileSessionClient({
             ) : null}
 
             {/* Secondary action — تجربة مرة أخرى (always present when there is any error) */}
-            <a
-              href={ROOM_PREVIEW_ROUTES.landing}
-              onClick={() => {
-                trackClientSessionEvent(sessionId, {
-                  source: "mobile",
-                  eventType: "recovery_restart_clicked",
-                  level: "info",
-                  metadata: { status: session.status, hasRecoveryMessage: recoveryMessage !== null },
-                });
-                trackClientSessionEvent(sessionId, {
-                  source: "mobile",
-                  eventType: "new_session_requested_after_failure",
-                  level: "info",
-                  metadata: { status: session.status },
-                });
-              }}
-              className="block w-full rounded-[18px] border border-[var(--border-subtle,var(--border-strong))] bg-transparent px-4 py-2.5 text-center text-sm font-semibold text-[var(--text-secondary)] hover:bg-[var(--bg-surface)] transition-colors"
-            >
-              تجربة مرة أخرى
-            </a>
+            {abandonDone ? (
+              <p className="text-center text-xs leading-5 text-[var(--text-secondary)] px-1">
+                تم إنهاء الجلسة. انتقل إلى الشاشة وامسح رمز QR الجديد للبدء من جديد.
+              </p>
+            ) : (
+              <button
+                type="button"
+                disabled={isAbandoning}
+                onClick={() => {
+                  trackClientSessionEvent(sessionId, {
+                    source: "mobile",
+                    eventType: "recovery_restart_clicked",
+                    level: "info",
+                    metadata: { status: session.status, hasRecoveryMessage: recoveryMessage !== null },
+                  });
+                  trackClientSessionEvent(sessionId, {
+                    source: "mobile",
+                    eventType: "new_session_requested_after_failure",
+                    level: "info",
+                    metadata: { status: session.status },
+                  });
+                  setIsAbandoning(true);
+                  void abandonSession(sessionId)
+                    .catch(() => undefined)
+                    .finally(() => {
+                      setIsAbandoning(false);
+                      setAbandonDone(true);
+                    });
+                }}
+                className="block w-full rounded-[18px] border border-[var(--border-subtle,var(--border-strong))] bg-transparent px-4 py-2.5 text-center text-sm font-semibold text-[var(--text-secondary)] hover:bg-[var(--bg-surface)] transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                {isAbandoning ? "..." : "تجربة مرة أخرى"}
+              </button>
+            )}
           </div>
         </div>
       ) : null}

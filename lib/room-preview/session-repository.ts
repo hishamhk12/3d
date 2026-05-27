@@ -250,6 +250,14 @@ export async function expireSessionById(id: string) {
   return updateSession(id, { status: "expired" });
 }
 
+export async function abandonSessionById(id: string) {
+  const session = await prisma.roomPreviewSession.update({
+    where: { id },
+    data: { status: "expired", expiresAt: new Date(), updatedAt: new Date() },
+  });
+  return mapSession(session);
+}
+
 export async function updateSessionPresence(
   sessionId: string,
   source: "mobile" | "screen",

@@ -15,6 +15,7 @@ export const ROOM_PREVIEW_ROUTES = {
   renderApi: (sessionId: string) => `/api/room-preview/sessions/${sessionId}/render`,
   screenTokenApi: (sessionId: string) => `/api/room-preview/sessions/${sessionId}/screen-token`,
   cleanupApi: "/api/room-preview/cleanup",
+  abandonApi: (sessionId: string) => `/api/room-preview/sessions/${sessionId}/abandon`,
 } as const;
 
 // ─── Showroom screen auto-reset timings ──────────────────────────────────────

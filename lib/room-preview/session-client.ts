@@ -325,6 +325,17 @@ export async function connectRoomPreviewSession(sessionId: string) {
   );
 }
 
+export async function abandonSession(sessionId: string) {
+  await requestRoomPreviewJson(
+    ROOM_PREVIEW_ROUTES.abandonApi(sessionId),
+    {
+      method: "POST",
+      cache: "no-store",
+    },
+    "Could not abandon this session.",
+  );
+}
+
 export async function createRenderForSession(sessionId: string) {
   const data = await requestRoomPreviewJson(
     ROOM_PREVIEW_ROUTES.renderApi(sessionId),

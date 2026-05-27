@@ -10,6 +10,7 @@ import {
   selectRoomTransition,
 } from "@/lib/room-preview/session-machine";
 import {
+  abandonSessionById,
   createSession,
   expireSessionById,
   findActiveLiveSessions,
@@ -250,6 +251,32 @@ export async function startRenderSession(sessionId: string) {
   const session = await getRequiredRoomPreviewSession(sessionId);
   const readyToRenderSession = markReadyToRenderTransition(session);
   return persistTransition(readyToRenderSession, session.status);
+}
+
+export async function abandonRoomPreviewSession(sessionId: string) {
+  const session = await getSessionById(sessionId);
+
+  if (!session) {
+    throw new RoomPreviewSessionNotFoundError();
+  }
+
+  const updatedSession = await abandonSessionById(sessionId);
+
+  publishRoomPreviewSessionEvent(updatedSession.id, {
+    type: "session_updated",
+    session: updatedSession,
+  });
+
+  void trackSessionEvent({
+    sessionId: updatedSession.id,
+    source: "mobile",
+    eventType: "session_abandoned",
+    level: "info",
+    statusBefore: session.status,
+    statusAfter: "expired",
+  });
+
+  return updatedSession;
 }
 
 export {

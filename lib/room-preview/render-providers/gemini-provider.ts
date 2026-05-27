@@ -539,6 +539,38 @@ class GeminiTimeoutError extends Error {
   }
 }
 
+// Thrown when every parallel attempt fails (all timed out, all errored, etc.).
+// Carries the per-attempt timing data so the caller can emit rich diagnostics
+// before rethrowing. failureReason is "gemini_timeout" when all timed out so
+// render-service.ts stores the correct failure code without any changes.
+class ParallelGeminiAllFailedError extends Error {
+  readonly failureReason: "gemini_timeout" | "gemini_error";
+  readonly code = "PARALLEL_ALL_FAILED" as const;
+  readonly attemptTimings: ParallelAttemptTiming[];
+  readonly numAttempts: number;
+  readonly allTimedOut: boolean;
+
+  constructor(
+    lastError: unknown,
+    attemptTimings: ParallelAttemptTiming[],
+    numAttempts: number,
+    allTimedOut: boolean,
+    timeoutMs: number,
+  ) {
+    const message = allTimedOut
+      ? `Both parallel Gemini attempts timed out after ${timeoutMs / 1000}s`
+      : lastError instanceof Error
+        ? lastError.message
+        : "All parallel Gemini attempts failed";
+    super(message);
+    this.name = "ParallelGeminiAllFailedError";
+    this.failureReason = allTimedOut ? "gemini_timeout" : "gemini_error";
+    this.attemptTimings = attemptTimings;
+    this.numAttempts = numAttempts;
+    this.allTimedOut = allTimedOut;
+  }
+}
+
 // ─── Output validation + normalization ───────────────────────────────────────
 
 const MAX_ASPECT_DRIFT = MAX_ASPECT_RATIO_DRIFT;
@@ -945,9 +977,14 @@ async function runParallelGeminiAttempts(params: {
   }
 
   const attemptPromises = Array.from({ length: numAttempts }, (_, i) => runAttempt(i));
-  const winner = await raceToFirstSuccess(attemptPromises);
-
-  return { ...winner, attemptTimings, lateResultIgnored };
+  try {
+    const winner = await raceToFirstSuccess(attemptPromises);
+    return { ...winner, attemptTimings, lateResultIgnored };
+  } catch (err) {
+    const allTimedOut = attemptTimings.length > 0 && attemptTimings.every((t) => t.status === "timeout");
+    const timeoutMs = attemptTimings[0]?.timeoutMs ?? GEMINI_FIRST_ATTEMPT_TIMEOUT_MS;
+    throw new ParallelGeminiAllFailedError(err, attemptTimings, numAttempts, allTimedOut, timeoutMs);
+  }
 }
 
 // ─── Provider ─────────────────────────────────────────────────────────────────
@@ -1170,6 +1207,82 @@ export const geminiRoomPreviewRenderProvider = {
         sessionId,
         jobId: request.jobId,
         tProviderStart,
+      }).catch((parallelError: unknown) => {
+        // ── Failure diagnostics ──────────────────────────────────────────────
+        // Emit render_timing_summary + render_diagnostics_snapshot even on
+        // failure so the diagnostics view shows per-attempt detail rather than
+        // only the top-level "gemini_timeout" from render_failed.
+        const totalFailedMs = Date.now() - tProviderStart;
+        if (parallelError instanceof ParallelGeminiAllFailedError) {
+          const normalizedTimings = parallelError.attemptTimings.map((t, i) => ({
+            attempt: i + 1,
+            modelName,
+            durationMs: t.durationMs,
+            status: t.status === "timeout" ? "timed_out" : t.status,
+            attemptTimeoutMs: t.timeoutMs,
+            abortedByTimeout: t.status === "timeout",
+          }));
+          trackSessionEvent({
+            sessionId,
+            source: "renderer",
+            eventType: "render_timing_summary",
+            level: "warning",
+            metadata: {
+              renderJobId: request.jobId,
+              mode: "parallel",
+              totalProviderMs: totalFailedMs,
+              imageLoadMs: tImagesLoaded - tProviderStart,
+              geminiMs: totalFailedMs - (tImagesLoaded - tProviderStart),
+              attemptCount: parallelError.numAttempts,
+              winnerAttemptId: null,
+              allFailed: true,
+              allTimedOut: parallelError.allTimedOut,
+              lateResultIgnored: false,
+              modelName,
+              timeoutBudgetMs: GEMINI_FIRST_ATTEMPT_TIMEOUT_MS,
+              attemptTimings: normalizedTimings,
+              firstAttemptTimeoutMs: GEMINI_FIRST_ATTEMPT_TIMEOUT_MS,
+              retryAttemptTimeoutMs: GEMINI_RETRY_ATTEMPT_TIMEOUT_MS,
+              qualityMode: RENDER_QUALITY,
+              promptVersion: ACTIVE_PROMPT_VERSION,
+              inputDimensions,
+              envConfig: {
+                raw_ROOM_PREVIEW_ENABLE_PARALLEL_GEMINI_ATTEMPTS: process.env.ROOM_PREVIEW_ENABLE_PARALLEL_GEMINI_ATTEMPTS ?? null,
+                raw_ROOM_PREVIEW_PARALLEL_GEMINI_ATTEMPTS: process.env.ROOM_PREVIEW_PARALLEL_GEMINI_ATTEMPTS ?? null,
+                resolvedEnableParallelGeminiAttempts: perRenderEnableParallel,
+                resolvedParallelGeminiAttempts: perRenderParallelAttempts,
+                resolvedFirstAttemptTimeoutMs: GEMINI_FIRST_ATTEMPT_TIMEOUT_MS,
+              },
+            },
+          }).catch(() => {});
+          trackSessionEvent({
+            sessionId,
+            source: "renderer",
+            eventType: "render_diagnostics_snapshot",
+            level: "warning",
+            metadata: {
+              renderJobId: request.jobId,
+              originalDimensions: { width: roomImage.originalWidth, height: roomImage.originalHeight },
+              geminiInputDimensions: { width: roomImage.width, height: roomImage.height },
+              resizedApplied:
+                roomImage.width !== roomImage.originalWidth ||
+                roomImage.height !== roomImage.originalHeight,
+              exifOrientationApplied: true,
+              savedRaw: false,
+              qualityMode: RENDER_QUALITY,
+              promptVersion: ACTIVE_PROMPT_VERSION,
+              promptLength: prompt.length,
+              inputPixelCount: inputDimensions.width * inputDimensions.height,
+              modelName,
+              productName: product.name ?? null,
+              floorPolygon: room.floorQuad ?? null,
+              promptText: prompt,
+              outputImageUrl: null,
+              artifactUrls: {},
+            },
+          }).catch(() => {});
+        }
+        throw parallelError;
       });
 
       const totalProviderMs = Date.now() - tProviderStart;
@@ -1177,6 +1290,16 @@ export const geminiRoomPreviewRenderProvider = {
       // ── Diagnostics summary ─────────────────────────────────────────────
       const winnerTiming = parallelResult.attemptTimings.find((t) => t.status === "won");
       const loserTimings = parallelResult.attemptTimings.filter((t) => t.status !== "won");
+
+      // Normalize parallel timings to serial-compatible format for the UI attempt table.
+      const normalizedAttemptTimings = parallelResult.attemptTimings.map((t, i) => ({
+        attempt: i + 1,
+        modelName,
+        durationMs: t.durationMs,
+        status: t.status === "won" ? "succeeded" : t.status === "timeout" ? "timed_out" : t.status,
+        attemptTimeoutMs: t.timeoutMs,
+        abortedByTimeout: t.status === "timeout",
+      }));
 
       trackSessionEvent({
         sessionId,
@@ -1195,7 +1318,7 @@ export const geminiRoomPreviewRenderProvider = {
           lateResultIgnored: parallelResult.lateResultIgnored,
           modelName,
           timeoutBudgetMs: GEMINI_FIRST_ATTEMPT_TIMEOUT_MS,
-          attemptTimings: parallelResult.attemptTimings,
+          attemptTimings: normalizedAttemptTimings,
           firstAttemptTimeoutMs: GEMINI_FIRST_ATTEMPT_TIMEOUT_MS,
           retryAttemptTimeoutMs: GEMINI_RETRY_ATTEMPT_TIMEOUT_MS,
           qualityMode: RENDER_QUALITY,

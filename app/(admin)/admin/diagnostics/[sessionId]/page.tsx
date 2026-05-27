@@ -85,6 +85,10 @@ type ProviderTiming = {
   firstAttemptTimeoutMs?: number;
   retryAttemptTimeoutMs?: number;
   envConfig?: Record<string, unknown>;
+  mode?: string;
+  winnerAttemptId?: string | null;
+  allFailed?: boolean;
+  allTimedOut?: boolean;
 };
 
 type ServiceTiming = {
@@ -511,7 +515,7 @@ function RenderPerformanceCard({
   const stages: { label: string; ms: number | null | undefined; note?: string }[] = [
     { label: "Setup (DB + slot claim)",  ms: service?.setupMs },
     { label: "Image load + encode",      ms: provider?.imageLoadMs },
-    { label: "Gemini API call",          ms: provider?.geminiMs,    note: provider?.attemptCount && provider.attemptCount > 1 ? `${provider.attemptCount} attempts` : undefined },
+    { label: "Gemini API call",          ms: provider?.geminiMs,    note: provider?.mode === "parallel" ? `${provider.attemptCount ?? 0} parallel attempts` : provider?.attemptCount && provider.attemptCount > 1 ? `${provider.attemptCount} attempts` : undefined },
     { label: "Output validation",        ms: provider?.validationMs },
     { label: "Provider upload (PNG→R2)", ms: provider?.uploadMs },
     { label: "Save + SSE publish",       ms: service?.saveMs },
@@ -568,15 +572,16 @@ function RenderPerformanceCard({
               </thead>
               <tbody className="divide-y divide-slate-100 bg-white">
                 {provider.attemptTimings.map((t) => {
+                  const isTimedOut = t.abortedByTimeout || t.status === "timed_out";
                   const rowColor =
                     t.status === "succeeded"              ? ""
-                    : t.abortedByTimeout                    ? "bg-red-50"
+                    : isTimedOut                            ? "bg-red-50"
                     : t.status === "aspect_ratio_mismatch"  ? "bg-amber-50"
                     : t.status.includes("error")            ? "bg-amber-50"
                     :                                         "";
                   const statusColor =
                     t.status === "succeeded"              ? "text-emerald-700 bg-emerald-50"
-                    : t.abortedByTimeout                    ? "text-red-700 bg-red-100"
+                    : isTimedOut                            ? "text-red-700 bg-red-100"
                     : t.status === "aspect_ratio_mismatch"  ? "text-amber-700 bg-amber-50"
                     :                                         "text-slate-600 bg-slate-100";
                   return (
@@ -589,7 +594,7 @@ function RenderPerformanceCard({
                       </td>
                       <td className="px-3 py-2">
                         <span className={`rounded-full px-2 py-0.5 text-[10px] font-medium ${statusColor}`}>
-                          {t.abortedByTimeout ? "timed out" : t.status}
+                          {isTimedOut ? "timed out" : t.status}
                         </span>
                       </td>
                     </tr>
@@ -598,6 +603,18 @@ function RenderPerformanceCard({
               </tbody>
             </table>
           </div>
+          {provider?.mode === "parallel" && (
+            <div className="mt-2 flex items-center justify-between rounded-lg bg-slate-50 px-3 py-1.5 text-xs">
+              <span className="text-slate-500">Winner</span>
+              <span className={
+                provider.winnerAttemptId
+                  ? "font-medium text-emerald-700"
+                  : "font-medium text-red-600"
+              }>
+                {provider.winnerAttemptId ?? "none"}
+              </span>
+            </div>
+          )}
         </div>
       )}
 

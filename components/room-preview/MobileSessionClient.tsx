@@ -41,6 +41,20 @@ function RetryAfterDelay({ delayMs, onRetry }: { delayMs: number; onRetry: () =>
   );
 }
 
+/** Shown after the customer successfully triggers a new-session restart. */
+function RestartedPanel() {
+  return (
+    <div className="mt-6 rounded-[24px] border border-emerald-400/30 bg-emerald-50 px-5 py-5 text-center dark:bg-emerald-500/08 dark:border-emerald-500/20">
+      <p className="text-sm font-semibold text-emerald-700 dark:text-emerald-300">
+        تم إنهاء الجلسة
+      </p>
+      <p className="mt-2 text-xs leading-5 text-emerald-700/70 dark:text-emerald-300/70 px-1">
+        انتقل إلى الشاشة وامسح رمز QR الجديد للبدء من جديد.
+      </p>
+    </div>
+  );
+}
+
 function useMobileBrowserLifecycle(sessionId: string) {
   useEffect(() => {
     let lastVisibility = document.visibilityState;
@@ -100,8 +114,8 @@ export default function MobileSessionClient({
 }: MobileSessionClientProps) {
   useMobileBrowserLifecycle(sessionId);
   const [useProductListFallback, setUseProductListFallback] = useState(false);
+  // Local loading state while the abandon API call is in flight.
   const [isAbandoning, setIsAbandoning] = useState(false);
-  const [abandonDone, setAbandonDone] = useState(false);
 
   const {
     t,
@@ -129,6 +143,8 @@ export default function MobileSessionClient({
     handleRetakeRoomPhoto,
     localProductId,
     heartbeatConnected,
+    restartDone,
+    markRestartDone,
   } = useMobileSession({ sessionId });
 
   useEffect(() => {
@@ -197,7 +213,20 @@ export default function MobileSessionClient({
     );
   }
 
+  // When the session expires (naturally or from abandon), if the customer has
+  // already been shown the restart instruction keep showing it — the
+  // SessionStatePanel would be confusing at this point.
   if (viewState === "expired") {
+    if (restartDone) {
+      return (
+        <div className="tour-panel w-full rounded-[32px] p-8 text-center">
+          <p className="mb-6 text-xs font-semibold tracking-[0.22em] text-[var(--brand-cyan)] uppercase whitespace-nowrap">
+            {t.roomPreview.shared.eyebrow}
+          </p>
+          <RestartedPanel />
+        </div>
+      );
+    }
     return (
       <SessionStatePanel
         title={t.roomPreview.mobile.expiredTitle}
@@ -312,7 +341,11 @@ export default function MobileSessionClient({
         />
       ) : null}
 
-      {error ? (
+      {/* Restart-done banner: replaces the error block once the customer has
+          requested a new session. No retry or render buttons are shown. */}
+      {restartDone ? (
+        <RestartedPanel />
+      ) : error ? (
         <div className="mt-6 rounded-[24px] border border-red-400/25 bg-red-50 px-5 py-4 text-sm text-red-700 dark:bg-red-500/08 dark:border-red-500/20 dark:text-red-300">
           {error}
           <div className="mt-3 flex flex-col gap-2">
@@ -365,41 +398,41 @@ export default function MobileSessionClient({
               </button>
             ) : null}
 
-            {/* Secondary action — تجربة مرة أخرى (always present when there is any error) */}
-            {abandonDone ? (
-              <p className="text-center text-xs leading-5 text-[var(--text-secondary)] px-1">
-                تم إنهاء الجلسة. انتقل إلى الشاشة وامسح رمز QR الجديد للبدء من جديد.
-              </p>
-            ) : (
-              <button
-                type="button"
-                disabled={isAbandoning}
-                onClick={() => {
-                  trackClientSessionEvent(sessionId, {
-                    source: "mobile",
-                    eventType: "recovery_restart_clicked",
-                    level: "info",
-                    metadata: { status: session.status, hasRecoveryMessage: recoveryMessage !== null },
-                  });
-                  trackClientSessionEvent(sessionId, {
-                    source: "mobile",
-                    eventType: "new_session_requested_after_failure",
-                    level: "info",
-                    metadata: { status: session.status },
-                  });
-                  setIsAbandoning(true);
-                  void abandonSession(sessionId)
-                    .catch(() => undefined)
-                    .finally(() => {
-                      setIsAbandoning(false);
-                      setAbandonDone(true);
+            {/* Secondary action — تجربة مرة أخرى */}
+            <button
+              type="button"
+              disabled={isAbandoning}
+              onClick={() => {
+                trackClientSessionEvent(sessionId, {
+                  source: "mobile",
+                  eventType: "recovery_restart_clicked",
+                  level: "info",
+                  metadata: { status: session.status, hasRecoveryMessage: recoveryMessage !== null },
+                });
+                trackClientSessionEvent(sessionId, {
+                  source: "mobile",
+                  eventType: "new_session_requested_after_failure",
+                  level: "info",
+                  metadata: { status: session.status },
+                });
+                setIsAbandoning(true);
+                void abandonSession(sessionId)
+                  .catch(() => undefined)
+                  .finally(() => {
+                    setIsAbandoning(false);
+                    markRestartDone();
+                    trackClientSessionEvent(sessionId, {
+                      source: "mobile",
+                      eventType: "recovery_restart_completed",
+                      level: "info",
+                      metadata: { status: session.status },
                     });
-                }}
-                className="block w-full rounded-[18px] border border-[var(--border-subtle,var(--border-strong))] bg-transparent px-4 py-2.5 text-center text-sm font-semibold text-[var(--text-secondary)] hover:bg-[var(--bg-surface)] transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-              >
-                {isAbandoning ? "..." : "تجربة مرة أخرى"}
-              </button>
-            )}
+                  });
+              }}
+              className="block w-full rounded-[18px] border border-[var(--border-subtle,var(--border-strong))] bg-transparent px-4 py-2.5 text-center text-sm font-semibold text-[var(--text-secondary)] hover:bg-[var(--bg-surface)] transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+            >
+              {isAbandoning ? "..." : "تجربة مرة أخرى"}
+            </button>
           </div>
         </div>
       ) : null}
@@ -414,7 +447,7 @@ export default function MobileSessionClient({
           isSavingProduct={isRenderingSession}
           showResult={showResult}
           onCreateRender={handleCreateRender}
-          hasRenderError={error !== null}
+          hasRenderError={error !== null || restartDone}
           onModify={() => {
             void trackClientSessionEvent(sessionId, {
               source: "mobile",

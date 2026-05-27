@@ -62,6 +62,10 @@ export interface UseMobileSessionReturn {
   productSaveStatus: SaveStatus;
   recoveryMessage: CustomerRecoveryMessage | null;
   clearRecoveryMessage: () => void;
+  /** True once the customer confirms they want a brand-new session (restart flow). */
+  restartDone: boolean;
+  /** Call after the abandon API succeeds to lock out further render requests. */
+  markRestartDone: () => void;
 
   // Derived
   isConnected: boolean;
@@ -155,6 +159,10 @@ export function useMobileSession({
   const [productSaveStatus,   setProductSaveStatus]  = useState<SaveStatus>("idle");
   const [recoveryMessage,     setRecoveryMessage]    = useState<CustomerRecoveryMessage | null>(null);
   const renderRequestInFlightRef = useRef(false);
+  // Latched to true once the customer triggers the "new session" restart flow.
+  // Blocks any further render requests from the current mobile page.
+  const restartDoneRef = useRef(false);
+  const [restartDone, setRestartDone] = useState(false);
   // Always-current ref so the popstate handler reads fresh session state
   // without being re-registered on every render.
   const sessionRef = useRef<RoomPreviewSession | null>(null);
@@ -1008,6 +1016,18 @@ export function useMobileSession({
   }, [session, sessionId, t, debugLog]);
 
   const handleCreateRender = useCallback(async (sessionOverride?: RoomPreviewSession) => {
+    // Block all render attempts once the customer has started a new-session restart.
+    if (restartDoneRef.current) {
+      debugLog("warn", "Render blocked — session restart already requested");
+      trackClientSessionEvent(sessionId, {
+        source: "mobile",
+        eventType: "render_retry_blocked_after_restart",
+        level: "warning",
+        metadata: { sessionStatus: (sessionOverride ?? session)?.status ?? null },
+      });
+      return;
+    }
+
     let activeSession = sessionOverride ?? session;
 
     console.log("[render] handler called", {
@@ -1138,6 +1158,16 @@ export function useMobileSession({
         },
       });
 
+      // Expired / not-found sessions cannot be retried — transition viewState
+      // so the UI shows the appropriate panel rather than a retry button.
+      if (isRoomPreviewRequestError(renderError) && (renderError.code === "expired" || renderError.code === "not_found")) {
+        setSession(null);
+        setViewState(failure.state);
+        setError(failure.message);
+        setRecoveryMessage(null);
+        return;
+      }
+
       if (isRoomPreviewRequestError(renderError) && renderError.code === "render_limit_reached") {
         // Both buttons must always appear; use retry_render so the primary CTA retries the render.
         setError("فشل التصميم أكثر من مرة.");
@@ -1208,6 +1238,11 @@ export function useMobileSession({
     setRecoveryMessage(null);
   }, [session]);
 
+  const markRestartDone = useCallback(() => {
+    restartDoneRef.current = true;
+    setRestartDone(true);
+  }, []);
+
   // ── Derived state ────────────────────────────────────────────────────────────
 
   const isConnected    = session ? isSessionConnected(session) : false;
@@ -1240,6 +1275,8 @@ export function useMobileSession({
     productSaveStatus,
     recoveryMessage,
     clearRecoveryMessage: () => setRecoveryMessage(null),
+    restartDone,
+    markRestartDone,
     isConnected,
     hasSavedRoom,
     hasSavedProduct,

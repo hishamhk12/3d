@@ -424,10 +424,10 @@ async function loadAndPrepareImage(
 
 // ─── Per-call timeout wrapper ─────────────────────────────────────────────────
 
-// Phase 5: use AbortController so the SDK HTTP connection is cleaned up on
-// timeout rather than leaking as a live request.
-// Note: AbortSignal is a client-side operation only (@google/genai v1.49.0) —
-// the Gemini service continues processing after abort; billing is not affected.
+// Promise.race() is the authoritative timeout gate — it fires after timeoutMs
+// regardless of whether the SDK honours the AbortSignal. AbortController is
+// still passed so the SDK can clean up its HTTP connection on a best-effort
+// basis, but the caller is never blocked beyond timeoutMs.
 async function generateContentWithTimeout(
   ai: GoogleGenAI,
   modelName: string,
@@ -435,17 +435,21 @@ async function generateContentWithTimeout(
   timeoutMs: number,
 ) {
   const controller = new AbortController();
-  const timer = setTimeout(() => controller.abort(), timeoutMs);
+
+  let timer: ReturnType<typeof setTimeout> | undefined;
+  const timeoutPromise = new Promise<never>((_, reject) => {
+    timer = setTimeout(() => {
+      controller.abort();
+      reject(new GeminiTimeoutError(modelName, timeoutMs));
+    }, timeoutMs);
+  });
+
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const params = { model: modelName, ...contentRequest, abortSignal: controller.signal } as any;
+  const geminiPromise = ai.models.generateContent(params);
 
   try {
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const params = { model: modelName, ...contentRequest, abortSignal: controller.signal } as any;
-    return await ai.models.generateContent(params);
-  } catch (err) {
-    if (controller.signal.aborted) {
-      throw new GeminiTimeoutError(modelName, timeoutMs);
-    }
-    throw err;
+    return await Promise.race([geminiPromise, timeoutPromise]);
   } finally {
     clearTimeout(timer);
   }
@@ -474,6 +478,8 @@ class AspectRatioMismatchError extends Error {
 // getFailureReason(), without any changes to render-service.ts.
 class GeminiTimeoutError extends Error {
   readonly failureReason = "gemini_timeout" as const;
+  readonly code = "GEMINI_TIMEOUT" as const;
+  readonly retryable = true as const;
   constructor(modelName: string, timeoutMs: number) {
     super(`Gemini call timed out after ${timeoutMs / 1000}s (model: ${modelName})`);
     this.name = "GeminiTimeoutError";
@@ -794,9 +800,17 @@ export const geminiRoomPreviewRenderProvider = {
           );
 
           tGeminiStart = Date.now();
+          log.info(
+            { event: "gemini_attempt_started", sessionId, modelName, attempt, timeoutMs: attemptTimeoutMs },
+            "gemini_attempt_started",
+          );
           const response = await generateContentWithTimeout(ai, modelName, contentRequest, attemptTimeoutMs);
           const tGeminiDone = Date.now();
           const geminiMs = tGeminiDone - tGeminiStart;
+          log.info(
+            { event: "gemini_attempt_completed", sessionId, modelName, attempt, timeoutMs: attemptTimeoutMs, actualDurationMs: geminiMs },
+            "gemini_attempt_completed",
+          );
           log.info(
             {
               event: "render_timing",
@@ -1153,14 +1167,15 @@ export const geminiRoomPreviewRenderProvider = {
             });
             log.warn(
               {
-                event: "gemini_call_timeout",
+                event: "gemini_attempt_timeout",
                 sessionId,
                 modelName,
                 attempt,
                 timeoutMs: attemptTimeoutMs,
+                actualDurationMs: attemptTimeoutMs,
                 action: "retrying_with_reduced_dimensions",
               },
-              "Gemini timed out — retrying once with reduced image dimensions",
+              "gemini_attempt_timeout",
             );
             log.info(
               {
@@ -1205,6 +1220,18 @@ export const geminiRoomPreviewRenderProvider = {
               attemptTimeoutMs,
               abortedByTimeout: true,
             });
+            log.warn(
+              {
+                event: "gemini_attempt_timeout",
+                sessionId,
+                modelName,
+                attempt,
+                timeoutMs: attemptTimeoutMs,
+                actualDurationMs: attemptTimeoutMs,
+                action: "giving_up",
+              },
+              "gemini_attempt_timeout",
+            );
             log.error(
               {
                 event: "gemini_retry_failed",

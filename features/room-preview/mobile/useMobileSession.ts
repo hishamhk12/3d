@@ -538,7 +538,15 @@ export function useMobileSession({
           debugLog("success", "Render complete after resume");
         } else {
           debugLog("error", "Render pipeline failed after resume");
-          setError(t.roomPreview.mobile.loadFailed);
+          const resumeRecovery = getCustomerRecoveryMessage("retry_render");
+          setRecoveryMessage(resumeRecovery);
+          setError("فشل إنشاء التصميم. يرجى المحاولة مرة أخرى.");
+          trackClientSessionEvent(session.id, {
+            source: "mobile",
+            eventType: "failure_recovery_ui_shown",
+            level: "warning",
+            metadata: { reason: "render_pipeline_failed_after_resume", status: finalSession.status },
+          });
         }
       })
       .catch((renderError) => {
@@ -1105,7 +1113,13 @@ export function useMobileSession({
         debugLog("error", "Render pipeline failed — session marked failed");
         const recovery = getCustomerRecoveryMessage("retry_render");
         setRecoveryMessage(recovery);
-        setError(recovery?.text ?? t.roomPreview.mobile.loadFailed);
+        setError("فشل إنشاء التصميم. يرجى المحاولة مرة أخرى.");
+        trackClientSessionEvent(renderSession.id, {
+          source: "mobile",
+          eventType: "failure_recovery_ui_shown",
+          level: "warning",
+          metadata: { reason: "render_pipeline_failed", status: finalSession.status },
+        });
       }
     } catch (renderError) {
       const failure = getViewStateFromError(renderError, t);
@@ -1125,23 +1139,50 @@ export function useMobileSession({
       });
 
       if (isRoomPreviewRequestError(renderError) && renderError.code === "render_limit_reached") {
-        const recovery = getCustomerRecoveryMessage("retake_room_photo");
-        setError("فشل التصميم مرتين. يرجى رفع صورة غرفة أوضح أو اختيار منتج آخر.");
-        setRecoveryMessage(recovery);
+        // Both buttons must always appear; use retry_render so the primary CTA retries the render.
+        setError("فشل التصميم أكثر من مرة.");
+        setRecoveryMessage(getCustomerRecoveryMessage("retry_render"));
+        trackClientSessionEvent(renderSession.id, {
+          source: "mobile",
+          eventType: "failure_recovery_ui_shown",
+          level: "warning",
+          metadata: { reason: "render_limit_reached", status: renderSession.status },
+        });
       } else if (isRoomPreviewRequestError(renderError) && renderError.code === "render_device_cooldown") {
+        // Show retry button even on cooldown — user decides when to tap again.
         setError("يمكنك طلب معاينة جديدة بعد ٥ دقائق.");
-        setRecoveryMessage(null);
+        setRecoveryMessage(getCustomerRecoveryMessage("retry_render"));
+        trackClientSessionEvent(renderSession.id, {
+          source: "mobile",
+          eventType: "failure_recovery_ui_shown",
+          level: "warning",
+          metadata: { reason: "render_device_cooldown", status: renderSession.status },
+        });
       } else if (isRoomPreviewRequestError(renderError) && renderError.code === "screen_budget_exhausted") {
+        // Daily screen budget is truly exhausted — retry would fail too; only new session helps.
         setError("انتهى الحد اليومي لهذه الشاشة. يرجى التواصل مع الموظف المختص.");
         setRecoveryMessage(null);
+        trackClientSessionEvent(renderSession.id, {
+          source: "mobile",
+          eventType: "failure_recovery_ui_shown",
+          level: "warning",
+          metadata: { reason: "screen_budget_exhausted", status: renderSession.status },
+        });
       } else {
-        const recovery = getCustomerRecoveryMessage(
-          isRoomPreviewRequestError(renderError) && renderError.code === "timeout"
-            ? "retry_render"
-            : "reload_page",
+        // Timeout and all other render errors — always use retry_render for a consistent two-button UI.
+        const isTimeout = isRoomPreviewRequestError(renderError) && renderError.code === "timeout";
+        setRecoveryMessage(getCustomerRecoveryMessage("retry_render"));
+        setError(
+          isTimeout
+            ? "فشل إنشاء التصميم أو استغرق وقتًا طويلًا."
+            : "فشل إنشاء التصميم. يرجى المحاولة مرة أخرى.",
         );
-        setRecoveryMessage(recovery);
-        setError(recovery?.text ?? failure.message);
+        trackClientSessionEvent(renderSession.id, {
+          source: "mobile",
+          eventType: "failure_recovery_ui_shown",
+          level: "warning",
+          metadata: { reason: isTimeout ? "render_timeout" : "render_failed", status: renderSession.status },
+        });
       }
       trackClientSessionEvent(renderSession.id, {
         source: "mobile",

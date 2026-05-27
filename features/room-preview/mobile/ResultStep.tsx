@@ -20,6 +20,8 @@ interface ResultStepProps {
   showResult: boolean;
   onCreateRender: () => Promise<void>;
   onModify: () => void;
+  /** When true the idle render button is hidden — the parent's two-button recovery UI handles retry. */
+  hasRenderError?: boolean;
 }
 
 export default function ResultStep({
@@ -28,6 +30,7 @@ export default function ResultStep({
   showResult,
   onCreateRender,
   onModify,
+  hasRenderError = false,
 }: ResultStepProps) {
   const { dir, locale, t } = useI18n();
   const [isFullscreen, setIsFullscreen] = useState(false);
@@ -63,7 +66,9 @@ export default function ResultStep({
   const localizedProductType = getProductTypeLabel(selectedProduct?.productType ?? null, locale);
 
   const showLoadingScreen = (isSavingProduct || showResult) && !localShowResult;
-  const showIdleButton = !localShowResult && !isSavingProduct && !showResult;
+  // Hide the idle CTA when the parent is displaying its own two-button failure recovery UI,
+  // so the customer never sees duplicate "retry render" triggers at the same time.
+  const showIdleButton = !localShowResult && !isSavingProduct && !showResult && !hasRenderError;
 
   const fullscreenLightbox = isFullscreen ? (
     <div

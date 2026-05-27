@@ -136,6 +136,20 @@ export default function MobileSessionClient({
     }
   }, [sessionId]);
 
+  // Track when the failure recovery UI first becomes visible to the customer.
+  const prevErrorRef = useRef<string | null>(null);
+  useEffect(() => {
+    if (error && !prevErrorRef.current) {
+      trackClientSessionEvent(sessionId, {
+        source: "mobile",
+        eventType: "failure_recovery_ui_shown",
+        level: "info",
+        metadata: { status: session?.status ?? null },
+      });
+    }
+    prevErrorRef.current = error;
+  }, [error, session?.status, sessionId]);
+
   const localSelectedProduct = useMemo(() => {
     if (!localProductId) return session?.selectedProduct ?? null;
     return products.find((p) => p.id === localProductId) ?? session?.selectedProduct ?? null;
@@ -298,33 +312,78 @@ export default function MobileSessionClient({
       {error ? (
         <div className="mt-6 rounded-[24px] border border-red-400/25 bg-red-50 px-5 py-4 text-sm text-red-700 dark:bg-red-500/08 dark:border-red-500/20 dark:text-red-300">
           {error}
-          {recoveryMessage ? (
-            <button
-              type="button"
-              onClick={() => {
-                if (recoveryMessage.ctaIntent === "reload_page") {
+          <div className="mt-3 flex flex-col gap-2">
+            {/* Primary action — إعادة المحاولة */}
+            {recoveryMessage ? (
+              <button
+                type="button"
+                onClick={() => {
                   trackClientSessionEvent(sessionId, {
                     source: "mobile",
-                    eventType: "mobile_reload_blocked",
-                    level: "warning",
-                    message: "Blocked mobile hard reload and retried inside the current page.",
-                    metadata: { status: session.status },
+                    eventType: "recovery_retry_clicked",
+                    level: "info",
+                    metadata: { ctaIntent: recoveryMessage.ctaIntent, status: session.status },
                   });
+                  if (recoveryMessage.ctaIntent === "reload_page") {
+                    trackClientSessionEvent(sessionId, {
+                      source: "mobile",
+                      eventType: "mobile_reload_blocked",
+                      level: "warning",
+                      message: "Blocked mobile hard reload and retried inside the current page.",
+                      metadata: { status: session.status },
+                    });
+                    clearRecoveryMessage();
+                    retry();
+                    return;
+                  }
+                  if (recoveryMessage.ctaIntent === "retry_render") {
+                    trackClientSessionEvent(sessionId, {
+                      source: "mobile",
+                      eventType: "render_retry_clicked",
+                      level: "info",
+                      metadata: { status: session.status },
+                    });
+                    void handleCreateRender();
+                    return;
+                  }
+                  if (recoveryMessage.ctaIntent === "reconnect_mobile") { retry(); return; }
+                  if (recoveryMessage.ctaIntent === "retake_room_photo") { handleRetakeRoomPhoto(); return; }
                   clearRecoveryMessage();
-                  retry();
-                  return;
+                }}
+                disabled={
+                  recoveryMessage.ctaIntent === "retry_render" &&
+                  session.status !== "failed" &&
+                  session.status !== "product_selected" &&
+                  session.status !== "result_ready"
                 }
-                if (recoveryMessage.ctaIntent === "retry_render") { void handleCreateRender(); return; }
-                if (recoveryMessage.ctaIntent === "reconnect_mobile") { retry(); return; }
-                if (recoveryMessage.ctaIntent === "retake_room_photo") { handleRetakeRoomPhoto(); return; }
-                clearRecoveryMessage();
+                className="block w-full rounded-[18px] border border-[var(--border-strong)] bg-[var(--bg-surface)] px-4 py-2.5 text-sm font-semibold text-[var(--text-primary)] hover:bg-[var(--bg-surface-2)] transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                {recoveryMessage.ctaText}
+              </button>
+            ) : null}
+
+            {/* Secondary action — تجربة مرة أخرى (always present when there is any error) */}
+            <a
+              href={ROOM_PREVIEW_ROUTES.landing}
+              onClick={() => {
+                trackClientSessionEvent(sessionId, {
+                  source: "mobile",
+                  eventType: "recovery_restart_clicked",
+                  level: "info",
+                  metadata: { status: session.status, hasRecoveryMessage: recoveryMessage !== null },
+                });
+                trackClientSessionEvent(sessionId, {
+                  source: "mobile",
+                  eventType: "new_session_requested_after_failure",
+                  level: "info",
+                  metadata: { status: session.status },
+                });
               }}
-              disabled={recoveryMessage.ctaIntent === "retry_render" && session.status !== "failed"}
-              className="mt-3 block w-full rounded-[18px] border border-[var(--border-strong)] bg-[var(--bg-surface)] px-4 py-2.5 text-sm font-semibold text-[var(--text-primary)] hover:bg-[var(--bg-surface-2)] transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+              className="block w-full rounded-[18px] border border-[var(--border-subtle,var(--border-strong))] bg-transparent px-4 py-2.5 text-center text-sm font-semibold text-[var(--text-secondary)] hover:bg-[var(--bg-surface)] transition-colors"
             >
-              {recoveryMessage.ctaText}
-            </button>
-          ) : null}
+              تجربة مرة أخرى
+            </a>
+          </div>
         </div>
       ) : null}
 
@@ -338,6 +397,7 @@ export default function MobileSessionClient({
           isSavingProduct={isRenderingSession}
           showResult={showResult}
           onCreateRender={handleCreateRender}
+          hasRenderError={error !== null}
           onModify={() => {
             void trackClientSessionEvent(sessionId, {
               source: "mobile",

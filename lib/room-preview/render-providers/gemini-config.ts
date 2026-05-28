@@ -47,22 +47,6 @@ export const GEMINI_RETRY_ATTEMPT_TIMEOUT_MS = (() => {
   return Math.max(30_000, Math.min(raw, 240_000));
 })();
 
-// ─── Parallel attempt config ──────────────────────────────────────────────────
-//
-// When ROOM_PREVIEW_ENABLE_PARALLEL_GEMINI_ATTEMPTS=true, two Gemini calls are
-// fired simultaneously under the same renderJobId. The first to succeed wins;
-// the other is aborted and its result is never saved. Falls back to the serial
-// retry path when disabled.
-
-export const ENABLE_PARALLEL_GEMINI_ATTEMPTS: boolean =
-  process.env.ROOM_PREVIEW_ENABLE_PARALLEL_GEMINI_ATTEMPTS === "true";
-
-// Capped at 2 — never start more than 2 parallel attempts.
-export const PARALLEL_GEMINI_ATTEMPTS: number = (() => {
-  const raw = Number(process.env.ROOM_PREVIEW_PARALLEL_GEMINI_ATTEMPTS);
-  if (!Number.isFinite(raw) || raw < 1) return 2;
-  return Math.min(Math.max(Math.round(raw), 1), 2);
-})();
 
 // ─── Output validation thresholds ────────────────────────────────────────────
 

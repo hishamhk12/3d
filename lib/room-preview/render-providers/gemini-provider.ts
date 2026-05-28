@@ -6,7 +6,6 @@ import { GoogleGenAI } from "@google/genai";
 import { getRoomPreviewPublicAssetPath } from "@/lib/room-preview/local-assets";
 import {
   buildRenderPrompt,
-  PROMPT_VERSION,
   PROMPT_VERSION_FAST,
   SENTINEL_FLOOR_NOT_VISIBLE,
   SENTINEL_MATERIAL_UNCLEAR,
@@ -19,123 +18,45 @@ import type {
 import { storageUpload } from "@/lib/storage";
 import { trackSessionEvent } from "@/lib/room-preview/session-diagnostics";
 import { getLogger } from "@/lib/logger";
+import {
+  ACTIVE_PROMPT_VERSION,
+  BASE_DELAY_MS,
+  DEBUG_ARTIFACTS_ENABLED,
+  ENABLE_PARALLEL_GEMINI_ATTEMPTS,
+  GEMINI_CALL_TIMEOUT_MS,
+  GEMINI_FIRST_ATTEMPT_TIMEOUT_MS,
+  GEMINI_IMAGE_MODELS,
+  GEMINI_RETRY_ATTEMPT_TIMEOUT_MS,
+  LONG_EDGE_OVERRIDE,
+  MAX_ASPECT_RATIO_DRIFT,
+  MAX_IMAGE_DIMENSION_PX,
+  MAX_PRODUCT_IMAGE_DIMENSION_PX,
+  MAX_RETRIES,
+  MIN_OUTPUT_BYTES,
+  MIN_OUTPUT_DIMENSION_PX,
+  PARALLEL_GEMINI_ATTEMPTS,
+  PROMPT_VARIANT,
+  REJECT_ASPECT_RATIO_DRIFT,
+  RENDER_QUALITY,
+  TIMEOUT_RETRY_PRODUCT_MAX_PX,
+  TIMEOUT_RETRY_ROOM_MAX_PX,
+} from "@/lib/room-preview/render-providers/gemini-config";
+export {
+  AspectRatioMismatchError,
+  GeminiAbortedError,
+  GeminiTimeoutError,
+  ParallelGeminiAllFailedError,
+} from "@/lib/room-preview/render-providers/gemini-errors";
+import type { ParallelAttemptTiming } from "@/lib/room-preview/render-providers/gemini-errors";
+import {
+  AspectRatioMismatchError,
+  GeminiAbortedError,
+  GeminiTimeoutError,
+  ParallelGeminiAllFailedError,
+} from "@/lib/room-preview/render-providers/gemini-errors";
 
 const log = getLogger("gemini-provider");
 
-// ─── Config ───────────────────────────────────────────────────────────────────
-
-// ROOM_PREVIEW_GEMINI_IMAGE_MODEL (single) takes precedence over GEMINI_IMAGE_MODELS (comma list).
-const GEMINI_IMAGE_MODELS: readonly string[] = (() => {
-  const single = process.env.ROOM_PREVIEW_GEMINI_IMAGE_MODEL?.trim();
-  if (single) return [single];
-  const multi = process.env.GEMINI_IMAGE_MODELS;
-  if (multi) return multi.split(",").map((m) => m.trim()).filter(Boolean);
-  return ["gemini-3.1-flash-image-preview"];
-})();
-
-const MAX_RETRIES = 3;
-const BASE_DELAY_MS = 3_000;
-
-// Legacy single timeout — kept for backward compat in diagnostics, but no longer
-// used to gate individual attempts. Superseded by the two per-attempt constants below.
-const GEMINI_CALL_TIMEOUT_MS = (() => {
-  const raw = Number(process.env.GEMINI_CALL_TIMEOUT_MS);
-  if (!Number.isFinite(raw) || raw <= 0) return 150_000;
-  return Math.max(60_000, Math.min(raw, 240_000));
-})();
-
-// Per-attempt timeouts for showroom UX.
-// First attempt uses a tight window so a stuck Gemini call doesn't make the customer
-// wait before we retry. Retry gets a longer budget for the smaller-image second pass.
-// Clamped: first 5–120 s, retry 30–240 s.
-const GEMINI_FIRST_ATTEMPT_TIMEOUT_MS = (() => {
-  const raw = Number(process.env.ROOM_PREVIEW_GEMINI_FIRST_ATTEMPT_TIMEOUT_MS);
-  if (!Number.isFinite(raw) || raw <= 0) return 30_000;
-  return Math.max(5_000, Math.min(raw, 120_000));
-})();
-
-const GEMINI_RETRY_ATTEMPT_TIMEOUT_MS = (() => {
-  const raw = Number(process.env.ROOM_PREVIEW_GEMINI_RETRY_ATTEMPT_TIMEOUT_MS);
-  if (!Number.isFinite(raw) || raw <= 0) return 60_000;
-  return Math.max(30_000, Math.min(raw, 240_000));
-})();
-
-// ─── Parallel attempt config ──────────────────────────────────────────────────
-//
-// When ROOM_PREVIEW_ENABLE_PARALLEL_GEMINI_ATTEMPTS=true, two Gemini calls are
-// fired simultaneously under the same renderJobId. The first to succeed wins;
-// the other is aborted and its result is never saved. Falls back to the serial
-// retry path when disabled.
-
-const ENABLE_PARALLEL_GEMINI_ATTEMPTS: boolean =
-  process.env.ROOM_PREVIEW_ENABLE_PARALLEL_GEMINI_ATTEMPTS === "true";
-
-// Capped at 2 — never start more than 2 parallel attempts.
-const PARALLEL_GEMINI_ATTEMPTS: number = (() => {
-  const raw = Number(process.env.ROOM_PREVIEW_PARALLEL_GEMINI_ATTEMPTS);
-  if (!Number.isFinite(raw) || raw < 1) return 2;
-  return Math.min(Math.max(Math.round(raw), 1), 2);
-})();
-
-const MIN_OUTPUT_BYTES = 10_000;
-const MIN_OUTPUT_DIMENSION_PX = 400;
-const MAX_ASPECT_RATIO_DRIFT = 0.02;
-const REJECT_ASPECT_RATIO_DRIFT = 0.05;
-
-// ─── Render quality mode ──────────────────────────────────────────────────────
-//
-// ROOM_PREVIEW_RENDER_QUALITY=fast|balanced|quality
-//   fast:     1024 px long edge, short prompt — fastest, good for testing
-//   balanced: 1280 px long edge, full prompt  — default
-//   quality:  1600 px long edge, full prompt  — best detail, slower
-//
-// ROOM_PREVIEW_RENDER_LONG_EDGE=<px> — explicit long-edge override; takes
-//   precedence over quality mode. Product long edge scales at 60% of room.
-
-type RenderQuality = "fast" | "balanced" | "quality";
-
-const RENDER_QUALITY: RenderQuality = (() => {
-  const raw = process.env.ROOM_PREVIEW_RENDER_QUALITY;
-  if (raw === "fast" || raw === "balanced" || raw === "quality") return raw;
-  return "balanced";
-})();
-
-const LONG_EDGE_OVERRIDE: number | null = (() => {
-  const raw = parseInt(process.env.ROOM_PREVIEW_RENDER_LONG_EDGE ?? "", 10);
-  return Number.isFinite(raw) && raw >= 512 ? Math.min(raw, 2048) : null;
-})();
-
-const QUALITY_ROOM_LONG_EDGE: Record<RenderQuality, number> = {
-  fast:     1024,
-  balanced: 1280,
-  quality:  1600,
-};
-
-const QUALITY_PRODUCT_LONG_EDGE: Record<RenderQuality, number> = {
-  fast:    640,
-  balanced: 768,
-  quality:  960,
-};
-
-/** Long edge (px) for room images sent to Gemini — fit: "inside", no crop. */
-const MAX_IMAGE_DIMENSION_PX: number =
-  LONG_EDGE_OVERRIDE ?? QUALITY_ROOM_LONG_EDGE[RENDER_QUALITY];
-
-/** Long edge (px) for product images sent to Gemini. */
-const MAX_PRODUCT_IMAGE_DIMENSION_PX: number = LONG_EDGE_OVERRIDE !== null
-  ? Math.round(LONG_EDGE_OVERRIDE * 0.6)
-  : QUALITY_PRODUCT_LONG_EDGE[RENDER_QUALITY];
-
-/** Prompt variant driven by quality mode: fast uses the shorter fast-v1 prompt. */
-const PROMPT_VARIANT: "fast" | "v4" = RENDER_QUALITY === "fast" ? "fast" : "v4";
-const ACTIVE_PROMPT_VERSION = PROMPT_VARIANT === "fast" ? PROMPT_VERSION_FAST : PROMPT_VERSION;
-
-// Smaller fallback dimensions used on the one-shot timeout retry.
-const TIMEOUT_RETRY_ROOM_MAX_PX    = 1024;
-const TIMEOUT_RETRY_PRODUCT_MAX_PX = 640;
-
-/** When true, raw buffers are saved under debug/render-jobs/{sessionId}/{jobId}/. */
-const DEBUG_ARTIFACTS_ENABLED = process.env.ROOM_PREVIEW_DEBUG_RENDER_ARTIFACTS === "true";
 
 // ─── Resolved config snapshot (safe to log — no secrets) ─────────────────────
 //
@@ -499,82 +420,7 @@ async function generateContentWithTimeout(
   }
 }
 
-// ─── Typed render errors ──────────────────────────────────────────────────────
-
-class AspectRatioMismatchError extends Error {
-  readonly failureReason = "output_aspect_ratio_mismatch" as const;
-  constructor(
-    public readonly driftPercent: number,
-    public readonly inputWidth: number,
-    public readonly inputHeight: number,
-    public readonly outputWidth: number,
-    public readonly outputHeight: number,
-  ) {
-    super(
-      `Aspect ratio mismatch: output ${outputWidth}×${outputHeight} vs input ${inputWidth}×${inputHeight} (drift ${driftPercent.toFixed(1)}%)`,
-    );
-    this.name = "AspectRatioMismatchError";
-  }
-}
-
-// Thrown when a parallel-attempt winner cancels the losing attempt's HTTP call.
-class GeminiAbortedError extends Error {
-  readonly code = "GEMINI_ABORTED" as const;
-  constructor() {
-    super("Gemini call aborted — another parallel attempt won.");
-    this.name = "GeminiAbortedError";
-  }
-}
-
-// Phase 4: typed timeout error — carries failureReason so render-service.ts
-// stores "gemini_timeout" on the failed render job automatically via
-// getFailureReason(), without any changes to render-service.ts.
-// Exported so tests can throw it directly without needing fake timers.
-export class GeminiTimeoutError extends Error {
-  readonly failureReason = "gemini_timeout" as const;
-  readonly code = "GEMINI_TIMEOUT" as const;
-  readonly retryable = true as const;
-  constructor(modelName: string, timeoutMs: number) {
-    super(`Gemini call timed out after ${timeoutMs / 1000}s (model: ${modelName})`);
-    this.name = "GeminiTimeoutError";
-  }
-}
-
-// Thrown when every parallel attempt fails (all timed out, all errored, etc.).
-// Carries the per-attempt timing data so the caller can emit rich diagnostics
-// before rethrowing. failureReason is "gemini_timeout" when all timed out so
-// render-service.ts stores the correct failure code without any changes.
-class ParallelGeminiAllFailedError extends Error {
-  readonly failureReason: "gemini_timeout" | "gemini_error";
-  readonly code = "PARALLEL_ALL_FAILED" as const;
-  readonly attemptTimings: ParallelAttemptTiming[];
-  readonly numAttempts: number;
-  readonly allTimedOut: boolean;
-
-  constructor(
-    lastError: unknown,
-    attemptTimings: ParallelAttemptTiming[],
-    numAttempts: number,
-    allTimedOut: boolean,
-    timeoutMs: number,
-  ) {
-    const message = allTimedOut
-      ? `Both parallel Gemini attempts timed out after ${timeoutMs / 1000}s`
-      : lastError instanceof Error
-        ? lastError.message
-        : "All parallel Gemini attempts failed";
-    super(message);
-    this.name = "ParallelGeminiAllFailedError";
-    this.failureReason = allTimedOut ? "gemini_timeout" : "gemini_error";
-    this.attemptTimings = attemptTimings;
-    this.numAttempts = numAttempts;
-    this.allTimedOut = allTimedOut;
-  }
-}
-
 // ─── Output validation + normalization ───────────────────────────────────────
-
-const MAX_ASPECT_DRIFT = MAX_ASPECT_RATIO_DRIFT;
 
 async function validateAndNormalizeOutputImage(
   outputBase64: string,
@@ -634,7 +480,7 @@ async function validateAndNormalizeOutputImage(
     const drift = Math.abs(outputAspect - inputAspect) / inputAspect;
     const driftPct = parseFloat((drift * 100).toFixed(2));
 
-    if (drift > MAX_ASPECT_DRIFT) {
+    if (drift > MAX_ASPECT_RATIO_DRIFT) {
       const shouldReject = drift > REJECT_ASPECT_RATIO_DRIFT;
       log.warn(
         {
@@ -727,13 +573,6 @@ type ParallelAttemptRawOutput = {
   width: number;
   height: number;
   geminiMs: number;
-};
-
-type ParallelAttemptTiming = {
-  attemptId: string;
-  durationMs: number;
-  status: "won" | "lost" | "aborted" | "timeout" | "failed";
-  timeoutMs: number;
 };
 
 /**

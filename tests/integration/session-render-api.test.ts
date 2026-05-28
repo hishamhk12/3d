@@ -1,16 +1,20 @@
-import { describe, expect, it, vi } from "vitest";
+import { describe, expect, it, vi, beforeEach } from "vitest";
 import { generateSessionToken } from "@/lib/room-preview/session-token";
 import { RoomPreviewSessionTransitionError } from "@/lib/room-preview/session-machine";
 import type { RoomPreviewSession } from "@/lib/room-preview/types";
 
+// ─── Fixtures ─────────────────────────────────────────────────────────────────
+
 const SESSION_ID = "render-test-session";
 
-const readyToRenderSession: RoomPreviewSession = {
+// Session in product_selected state — valid source for markReadyToRenderTransition.
+// expiresAt must be a future timestamp; isEffectivelyExpired() treats null as expired.
+const productSelectedSession: RoomPreviewSession = {
   id: SESSION_ID,
-  status: "ready_to_render",
+  status: "product_selected",
   createdAt: "2024-01-01T00:00:00.000Z",
   updatedAt: "2024-01-01T01:00:00.000Z",
-  expiresAt: null,
+  expiresAt: new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString(),
   mobileConnected: true,
   selectedRoom: {
     source: "camera",
@@ -26,6 +30,11 @@ const readyToRenderSession: RoomPreviewSession = {
   renderResult: null,
 };
 
+const readyToRenderSession: RoomPreviewSession = {
+  ...productSelectedSession,
+  status: "ready_to_render",
+};
+
 // ─── Mocks ────────────────────────────────────────────────────────────────────
 
 vi.mock("next/server", async (importOriginal) => {
@@ -36,15 +45,42 @@ vi.mock("next/server", async (importOriginal) => {
   };
 });
 
+vi.mock("@/lib/logger", () => ({
+  getLogger: vi.fn().mockReturnValue({
+    info: vi.fn(), warn: vi.fn(), error: vi.fn(), debug: vi.fn(),
+  }),
+}));
+
+// session-diagnostics imports prisma at module load; must be mocked to avoid
+// the DATABASE_URL check throwing before any test runs.
+vi.mock("@/lib/room-preview/session-diagnostics", () => ({
+  trackSessionEvent:       vi.fn().mockResolvedValue(undefined),
+  openSessionIssue:        vi.fn().mockResolvedValue(undefined),
+  resolveSessionIssue:     vi.fn().mockResolvedValue(undefined),
+  diagnosticsErrorMetadata: vi.fn().mockReturnValue({ message: "err", name: "Error" }),
+}));
+
+vi.mock("@/lib/room-preview/session-events", () => ({
+  publishRoomPreviewSessionEvent: vi.fn(),
+}));
+
 vi.mock("@/lib/room-preview/session-service", () => ({
-  startRenderSession: vi.fn(),
   isRoomPreviewSessionNotFoundError: vi.fn((e) => e?.code === "SESSION_NOT_FOUND"),
-  isRoomPreviewSessionExpiredError: vi.fn((e) => e?.code === "SESSION_EXPIRED"),
+  isRoomPreviewSessionExpiredError:  vi.fn((e) => e?.code === "SESSION_EXPIRED"),
+  RoomPreviewSessionExpiredError: class extends Error {
+    code = "SESSION_EXPIRED" as const;
+    constructor() { super("Session expired"); this.name = "RoomPreviewSessionExpiredError"; }
+  },
+  RoomPreviewSessionNotFoundError: class extends Error {
+    code = "SESSION_NOT_FOUND" as const;
+    constructor() { super("Session not found"); this.name = "RoomPreviewSessionNotFoundError"; }
+  },
   RoomPreviewSessionTransitionError,
 }));
 
 vi.mock("@/lib/room-preview/render-service", () => ({
   executeRenderPipeline: vi.fn().mockResolvedValue(undefined),
+  recoverStuckRenderJob: vi.fn().mockResolvedValue(false),
 }));
 
 vi.mock("@/lib/analytics/event-tracker", () => ({
@@ -53,33 +89,39 @@ vi.mock("@/lib/analytics/event-tracker", () => ({
 }));
 
 vi.mock("@/lib/room-preview/session-repository", () => ({
-  getSessionById: vi.fn().mockResolvedValue(readyToRenderSession),
-  getSessionScreenFields: vi.fn().mockResolvedValue({ screenId: null, lastRenderHash: null }),
-  tryIncrementRenderCount: vi.fn().mockResolvedValue({ incremented: true, currentCount: 1 }),
-  decrementRenderCount: vi.fn().mockResolvedValue(undefined),
+  getSessionById:          vi.fn(),
+  getSessionScreenFields:  vi.fn().mockResolvedValue({ screenId: null, lastRenderHash: null }),
+  saveSessionState:        vi.fn(),
+  tryIncrementRenderCount: vi.fn().mockResolvedValue({ incremented: true }),
+  decrementRenderCount:    vi.fn().mockResolvedValue(undefined),
 }));
 
 vi.mock("@/lib/room-preview/screen-repository", () => ({
   checkAndIncrementScreenBudget: vi.fn().mockResolvedValue({ allowed: true }),
-  checkScreenCooldown: vi.fn().mockReturnValue({ limited: false }),
-  decrementScreenBudget: vi.fn().mockResolvedValue(undefined),
-  getActiveScreenById: vi.fn().mockResolvedValue(null),
-  saveSessionRenderHash: vi.fn().mockResolvedValue(undefined),
-  touchScreenLastRenderAt: vi.fn().mockResolvedValue(undefined),
+  checkScreenCooldown:           vi.fn().mockReturnValue({ limited: false }),
+  decrementScreenBudget:         vi.fn().mockResolvedValue(undefined),
+  getActiveScreenById:           vi.fn().mockResolvedValue(null),
+  saveSessionRenderHash:         vi.fn().mockResolvedValue(undefined),
+  touchScreenLastRenderAt:       vi.fn().mockResolvedValue(undefined),
 }));
 
 vi.mock("@/lib/room-preview/render-rate-limit", () => ({
-  acquireRenderLock: vi.fn().mockResolvedValue({ acquired: true }),
-  releaseRenderLock: vi.fn().mockResolvedValue(undefined),
-  checkDeviceCooldown: vi.fn().mockResolvedValue({ limited: false, ttl: 0 }),
-  setDeviceCooldown: vi.fn().mockResolvedValue(undefined),
-  DEVICE_COOLDOWN_SECONDS: 30,
+  acquireRenderLock:   vi.fn().mockResolvedValue({ acquired: true }),
+  releaseRenderLock:   vi.fn().mockResolvedValue(undefined),
+  checkDeviceCooldown: vi.fn().mockResolvedValue({ limited: false }),
+  setDeviceCooldown:   vi.fn().mockResolvedValue(undefined),
+  DEVICE_COOLDOWN_SECONDS: 300,
 }));
+
+// ─── Import route and mocked helpers after mocks are registered ───────────────
 
 const { POST } = await import(
   "@/app/api/room-preview/sessions/[sessionId]/render/route"
 );
-const { startRenderSession } = await import("@/lib/room-preview/session-service");
+const {
+  getSessionById,
+  saveSessionState,
+} = await import("@/lib/room-preview/session-repository");
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
@@ -100,12 +142,18 @@ function makeRequest(sessionId: string, withToken = true) {
   );
 }
 
+beforeEach(() => {
+  vi.clearAllMocks();
+  vi.mocked(getSessionById).mockResolvedValue(productSelectedSession);
+  vi.mocked(saveSessionState).mockImplementation(async (input) => ({
+    ...productSelectedSession, ...input,
+  }));
+});
+
 // ─── Tests ────────────────────────────────────────────────────────────────────
 
 describe("POST /api/room-preview/sessions/[sessionId]/render", () => {
   it("returns 202 with ready_to_render session when render is accepted", async () => {
-    vi.mocked(startRenderSession).mockResolvedValueOnce(readyToRenderSession);
-
     const response = await POST(makeRequest(SESSION_ID), makeContext(SESSION_ID));
     const body = await response.json();
 
@@ -132,10 +180,7 @@ describe("POST /api/room-preview/sessions/[sessionId]/render", () => {
   });
 
   it("returns 404 when session is not found", async () => {
-    const notFoundError = Object.assign(new Error("Session not found"), {
-      code: "SESSION_NOT_FOUND",
-    });
-    vi.mocked(startRenderSession).mockRejectedValueOnce(notFoundError);
+    vi.mocked(getSessionById).mockResolvedValue(null);
 
     const response = await POST(makeRequest(SESSION_ID), makeContext(SESSION_ID));
     const body = await response.json();
@@ -145,12 +190,12 @@ describe("POST /api/room-preview/sessions/[sessionId]/render", () => {
   });
 
   it("returns 400 when session is in an invalid state for rendering", async () => {
-    vi.mocked(startRenderSession).mockRejectedValueOnce(
-      new RoomPreviewSessionTransitionError(
-        "الرجاء اختيار منتج قبل البدء بالتصميم.",
-        "room_selected",
-      ),
-    );
+    // mobile_connected has no product selected — markReadyToRenderTransition throws.
+    vi.mocked(getSessionById).mockResolvedValue({
+      ...productSelectedSession,
+      status: "mobile_connected" as const,
+      selectedProduct: null,
+    });
 
     const response = await POST(makeRequest(SESSION_ID), makeContext(SESSION_ID));
     const body = await response.json();
@@ -160,7 +205,7 @@ describe("POST /api/room-preview/sessions/[sessionId]/render", () => {
   });
 
   it("returns 500 on unexpected errors", async () => {
-    vi.mocked(startRenderSession).mockRejectedValueOnce(new Error("Unexpected"));
+    vi.mocked(saveSessionState).mockRejectedValue(new Error("Unexpected DB error"));
 
     const response = await POST(makeRequest(SESSION_ID), makeContext(SESSION_ID));
     const body = await response.json();

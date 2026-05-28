@@ -1,17 +1,35 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
 
 // ---------------------------------------------------------------------------
-// Mock prisma before importing the module under test
+// Mock prisma and all transitive dependencies before importing the module
 // ---------------------------------------------------------------------------
 
 const mockUpdateMany = vi.fn();
+const mockFindMany   = vi.fn();
 
 vi.mock("@/lib/server/prisma", () => ({
   prisma: {
     roomPreviewSession: {
       updateMany: mockUpdateMany,
+      findMany:   mockFindMany,
     },
   },
+}));
+
+// session-cleanup now calls trackSessionEvent / openSessionIssue (session-diagnostics)
+// and publishRoomPreviewSessionEvent (session-events) per affected session.
+vi.mock("@/lib/room-preview/session-diagnostics", () => ({
+  trackSessionEvent: vi.fn().mockResolvedValue(undefined),
+  openSessionIssue:  vi.fn().mockResolvedValue(undefined),
+}));
+
+vi.mock("@/lib/room-preview/session-events", () => ({
+  publishRoomPreviewSessionEvent: vi.fn(),
+}));
+
+// publishCleanupEvent calls getSessionById to push real-time SSE updates.
+vi.mock("@/lib/room-preview/session-repository", () => ({
+  getSessionById: vi.fn().mockResolvedValue(null),
 }));
 
 const {
@@ -33,9 +51,22 @@ function lastData() {
   return mockUpdateMany.mock.calls.at(-1)?.[0]?.data;
 }
 
+/** WHERE clause from the last findMany call (used by completeResultReadySessions). */
+function lastFindManyWhere() {
+  return mockFindMany.mock.calls.at(-1)?.[0]?.where;
+}
+
 beforeEach(() => {
   vi.clearAllMocks();
   mockUpdateMany.mockResolvedValue({ count: 0 });
+  // Return one session row so cleanup functions proceed past the early-return
+  // guard in completeResultReadySessions and reach the updateMany call.
+  mockFindMany.mockResolvedValue([{
+    id: "sess-test",
+    status: "product_selected",
+    updatedAt: new Date(Date.now() - 60_000),
+    lastMobileSeenAt: null,
+  }]);
 });
 
 // ---------------------------------------------------------------------------
@@ -53,7 +84,7 @@ describe("expireOldSessions", () => {
     expect(lastData()).toEqual({ status: "expired" });
   });
 
-  it("excludes already-terminal statuses: failed, expired, completed", async () => {
+  it("excludes terminal and in-flight statuses: failed, expired, completed, rendering, ready_to_render, result_ready", async () => {
     await expireOldSessions();
     const notIn: string[] = lastWhere().status.notIn;
     expect(notIn).toContain("failed");
@@ -61,9 +92,11 @@ describe("expireOldSessions", () => {
     expect(notIn).toContain("completed");
   });
 
-  it("does NOT exclude result_ready — it must be expirable too", async () => {
+  // result_ready is excluded so completeResultReadySessions() can race-free advance it to
+  // completed without this function concurrently expiring the same row.
+  it("excludes result_ready to avoid racing with completeResultReadySessions", async () => {
     await expireOldSessions();
-    expect(lastWhere().status.notIn).not.toContain("result_ready");
+    expect(lastWhere().status.notIn).toContain("result_ready");
   });
 
   it("targets sessions with null expiresAt (legacy orphans)", async () => {
@@ -180,7 +213,10 @@ describe("completeResultReadySessions", () => {
   });
 
   it("only targets result_ready sessions", async () => {
+    // The selection of sessions via findMany and the updateMany guard both
+    // restrict to result_ready.
     await completeResultReadySessions();
+    expect(lastFindManyWhere().status).toBe("result_ready");
     expect(lastWhere().status).toBe("result_ready");
   });
 
@@ -190,12 +226,14 @@ describe("completeResultReadySessions", () => {
   });
 
   it("defaults to a 90-second display window", async () => {
+    // completeResultReadySessions uses findMany to find eligible sessions, then
+    // updateMany by ID. The updatedAt.lte cutoff lives in the findMany WHERE clause.
     const ninetySecMs = 90 * 1000;
     const before = Date.now();
     await completeResultReadySessions();
     const after = Date.now();
 
-    const cutoff: Date = lastWhere().updatedAt.lte;
+    const cutoff: Date = lastFindManyWhere().updatedAt.lte;
     expect(cutoff.getTime()).toBeLessThanOrEqual(before - ninetySecMs + 100);
     expect(cutoff.getTime()).toBeGreaterThanOrEqual(after - ninetySecMs - 100);
   });
@@ -206,7 +244,7 @@ describe("completeResultReadySessions", () => {
     await completeResultReadySessions(custom);
     const after = Date.now();
 
-    const cutoff: Date = lastWhere().updatedAt.lte;
+    const cutoff: Date = lastFindManyWhere().updatedAt.lte;
     expect(cutoff.getTime()).toBeLessThanOrEqual(before - custom + 100);
     expect(cutoff.getTime()).toBeGreaterThanOrEqual(after - custom - 100);
   });

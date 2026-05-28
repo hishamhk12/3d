@@ -22,6 +22,9 @@ export default defineConfig({
       "@": path.resolve(__dirname, "."),
       // Stub "server-only" so route helpers can be imported in Node tests
       "server-only": path.resolve(__dirname, "tests/__mocks__/server-only.ts"),
+      // Stub "sharp" so gemini-provider tests don't load the native binary.
+      // Any test that needs the real sharp should NOT use this config.
+      "sharp": path.resolve(__dirname, "tests/__mocks__/sharp.ts"),
     },
   },
 });

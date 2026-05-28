@@ -529,7 +529,8 @@ class GeminiAbortedError extends Error {
 // Phase 4: typed timeout error — carries failureReason so render-service.ts
 // stores "gemini_timeout" on the failed render job automatically via
 // getFailureReason(), without any changes to render-service.ts.
-class GeminiTimeoutError extends Error {
+// Exported so tests can throw it directly without needing fake timers.
+export class GeminiTimeoutError extends Error {
   readonly failureReason = "gemini_timeout" as const;
   readonly code = "GEMINI_TIMEOUT" as const;
   readonly retryable = true as const;

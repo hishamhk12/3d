@@ -332,7 +332,10 @@ describe("selectProductTransition", () => {
     expect(next.selectedProduct).toEqual(validProduct);
   });
 
-  it.each(["ready_to_render", "rendering", "result_ready", "expired"] as const)(
+  // result_ready is intentionally NOT in this list: the customer can re-select a
+  // product after viewing the result (pressing "تعديل"). ready_to_render and
+  // rendering are hard-locked because the pipeline is actively running.
+  it.each(["ready_to_render", "rendering", "expired"] as const)(
     "throws when session is locked: %s",
     (status) => {
       const session = makeSession({ status, mobileConnected: true, selectedRoom: validRoom });
@@ -341,6 +344,17 @@ describe("selectProductTransition", () => {
       );
     },
   );
+
+  it("allows re-selecting a product from result_ready (customer re-render flow)", () => {
+    const session = makeSession({
+      status: "result_ready",
+      mobileConnected: true,
+      selectedRoom: validRoom,
+      selectedProduct: validProduct,
+    });
+    const next = selectProductTransition(session, validProduct);
+    expect(next.status).toBe("product_selected");
+  });
 });
 
 // ─── markReadyToRenderTransition ─────────────────────────────────────────────

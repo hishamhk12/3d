@@ -382,19 +382,21 @@ describe("isCreateRoomPreviewSessionResponse", () => {
 });
 
 describe("isConnectRoomPreviewSessionResponse", () => {
-  it("accepts { success: true }", () => {
-    expect(isConnectRoomPreviewSessionResponse({ success: true })).toBe(true);
+  // ConnectRoomPreviewSessionResponse = RoomPreviewSession (the whole session is returned).
+  it("accepts a valid RoomPreviewSession", () => {
+    expect(isConnectRoomPreviewSessionResponse(validSession)).toBe(true);
   });
 
-  it("rejects { success: false }", () => {
+  it("rejects a non-session object like { success: false }", () => {
     expect(isConnectRoomPreviewSessionResponse({ success: false })).toBe(false);
   });
 });
 
 describe("isSaveRoomPreviewSessionRoomResponse", () => {
-  it("accepts { success: true, room: SelectedRoom }", () => {
+  // Response now includes the full session object alongside the room.
+  it("accepts { success: true, room: SelectedRoom, session: RoomPreviewSession }", () => {
     expect(
-      isSaveRoomPreviewSessionRoomResponse({ success: true, room: validRoom }),
+      isSaveRoomPreviewSessionRoomResponse({ success: true, room: validRoom, session: validSession }),
     ).toBe(true);
   });
 
@@ -404,9 +406,10 @@ describe("isSaveRoomPreviewSessionRoomResponse", () => {
 });
 
 describe("isSaveRoomPreviewSessionProductResponse", () => {
-  it("accepts { success: true, product: SelectedProduct }", () => {
+  // Response now includes the full session object alongside the product.
+  it("accepts { success: true, product: SelectedProduct, session: RoomPreviewSession }", () => {
     expect(
-      isSaveRoomPreviewSessionProductResponse({ success: true, product: validProduct }),
+      isSaveRoomPreviewSessionProductResponse({ success: true, product: validProduct, session: validSession }),
     ).toBe(true);
   });
 

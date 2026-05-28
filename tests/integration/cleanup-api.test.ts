@@ -6,6 +6,16 @@ vi.mock("@/lib/room-preview/session-cleanup", () => ({
   expireIdleWaitingSessions: vi.fn(),
   failStuckRenderingSessions: vi.fn(),
   completeResultReadySessions: vi.fn(),
+  detectMobileStale: vi.fn(),
+}));
+
+// stuck-detection imports prisma at module load; mock it to prevent DATABASE_URL error.
+vi.mock("@/lib/room-preview/stuck-detection", () => ({
+  detectStuckSessions: vi.fn().mockResolvedValue(0),
+}));
+
+vi.mock("@/lib/logger", () => ({
+  getLogger: vi.fn().mockReturnValue({ info: vi.fn(), warn: vi.fn(), error: vi.fn() }),
 }));
 
 const { GET } = await import("@/app/api/room-preview/cleanup/route");
@@ -14,7 +24,9 @@ const {
   expireIdleWaitingSessions,
   failStuckRenderingSessions,
   completeResultReadySessions,
+  detectMobileStale,
 } = await import("@/lib/room-preview/session-cleanup");
+const { detectStuckSessions } = await import("@/lib/room-preview/stuck-detection");
 
 function makeRequest(secret?: string) {
   const headers: Record<string, string> = {};
@@ -23,11 +35,13 @@ function makeRequest(secret?: string) {
 }
 
 describe("GET /api/room-preview/cleanup", () => {
-  it("runs all four cleanup operations and returns counts", async () => {
+  it("runs all cleanup operations and returns counts", async () => {
     vi.mocked(expireOldSessions).mockResolvedValueOnce(3);
     vi.mocked(expireIdleWaitingSessions).mockResolvedValueOnce(5);
     vi.mocked(failStuckRenderingSessions).mockResolvedValueOnce(2);
     vi.mocked(completeResultReadySessions).mockResolvedValueOnce(4);
+    vi.mocked(detectMobileStale).mockResolvedValueOnce(1);
+    vi.mocked(detectStuckSessions).mockResolvedValueOnce(0);
 
     const response = await GET(makeRequest());
     const body = await response.json();
@@ -38,6 +52,7 @@ describe("GET /api/room-preview/cleanup", () => {
     expect(body.idleExpired).toBe(5);
     expect(body.stuckFailed).toBe(2);
     expect(body.completed).toBe(4);
+    expect(body.mobileStale).toBe(1);
     expect(typeof body.ranAt).toBe("string");
   });
 

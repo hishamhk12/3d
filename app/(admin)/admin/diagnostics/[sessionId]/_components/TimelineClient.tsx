@@ -34,6 +34,7 @@ const JOURNEY_EVENT_TYPES = new Set([
   "render_start_clicked", "render_request_started", "render_request_accepted", "render_request_success", "render_request_failed",
   "render_started", "render_completed", "render_failed", "render_timeout",
   "render_timing_summary", "render_branch_resolved",
+  "gemini_attempt_timeout", "gemini_retry_started", "gemini_retry_succeeded",
   "result_displayed_screen", "result_seen_mobile",
   "screen_completion_message_displayed", "screen_completed_redirect_to_home",
   "back_pressed", "mobile_tap_detected",
@@ -112,6 +113,8 @@ const EVENT_LABELS: Record<string, string> = {
   screen_completion_message_displayed:    "Completion Message",
   screen_completed_redirect_to_home:      "Redirected Home",
   floor_polygon_missing_prompt_only_mode: "Floor Polygon Missing",
+  gemini_attempt_timeout:                 "Gemini Attempt Timeout",
+  gemini_retry_started:                   "Gemini Retry Started",
   gemini_retry_succeeded:                 "Gemini Retry Succeeded",
 };
 

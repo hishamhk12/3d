@@ -50,13 +50,13 @@ const GEMINI_CALL_TIMEOUT_MS = (() => {
 // Clamped: first 5–120 s, retry 30–240 s.
 const GEMINI_FIRST_ATTEMPT_TIMEOUT_MS = (() => {
   const raw = Number(process.env.ROOM_PREVIEW_GEMINI_FIRST_ATTEMPT_TIMEOUT_MS);
-  if (!Number.isFinite(raw) || raw <= 0) return 25_000;
+  if (!Number.isFinite(raw) || raw <= 0) return 30_000;
   return Math.max(5_000, Math.min(raw, 120_000));
 })();
 
 const GEMINI_RETRY_ATTEMPT_TIMEOUT_MS = (() => {
   const raw = Number(process.env.ROOM_PREVIEW_GEMINI_RETRY_ATTEMPT_TIMEOUT_MS);
-  if (!Number.isFinite(raw) || raw <= 0) return 90_000;
+  if (!Number.isFinite(raw) || raw <= 0) return 60_000;
   return Math.max(30_000, Math.min(raw, 240_000));
 })();
 
@@ -675,6 +675,21 @@ async function validateAndNormalizeOutputImage(
 }
 
 // ─── Retry helpers ────────────────────────────────────────────────────────────
+
+/**
+ * Short, low-complexity prompt used when attempt 1 times out.
+ * Intentionally omits floor-polygon coordinates and quality constraints so Gemini
+ * has the best chance of returning quickly within the longer retry budget.
+ */
+function buildFallbackPrompt(productName: string | null): string {
+  const productRef = productName ? `"${productName}"` : "the provided flooring product";
+  return [
+    `Replace only the visible floor with ${productRef}.`,
+    "Keep walls, furniture, ceiling, lighting, shadows, and perspective unchanged.",
+    "Do not modify anything except the floor surface.",
+    "Return a realistic photo result.",
+  ].join("\n");
+}
 
 function isRetryableError(error: unknown): boolean {
   if (error && typeof error === "object" && "status" in error) {
@@ -1352,6 +1367,7 @@ export const geminiRoomPreviewRenderProvider = {
     let aspectRatioRetried = false;
     let timeoutRetried = false;
     let activePrompt = prompt;
+    let currentPromptVariant: "normal" | "fallback" = "normal";
     // Phase 4: may be replaced with smaller-dimension versions on timeout retry.
     let currentRoomImage    = roomImage;
     let currentProductImage = productImage;
@@ -1364,6 +1380,7 @@ export const geminiRoomPreviewRenderProvider = {
       retryReason?: string;
       attemptTimeoutMs: number;
       abortedByTimeout: boolean;
+      promptVariant?: "normal" | "fallback";
     }> = [];
     let lastRetryReason: string | undefined;
 
@@ -1521,7 +1538,7 @@ export const geminiRoomPreviewRenderProvider = {
             },
             "render_timing",
           );
-          attemptTimings.push({ attempt, modelName, durationMs: geminiMs, status: "succeeded", attemptTimeoutMs, abortedByTimeout: false });
+          attemptTimings.push({ attempt, modelName, durationMs: geminiMs, status: "succeeded", attemptTimeoutMs, abortedByTimeout: false, promptVariant: currentPromptVariant });
 
           if (timeoutRetried) {
             log.info(
@@ -1661,6 +1678,7 @@ export const geminiRoomPreviewRenderProvider = {
             level: "info",
             metadata: {
               renderJobId: request.jobId,
+              mode: timeoutRetried ? "serial_adaptive" : "serial",
               totalProviderMs: tUploadDone - tProviderStart,
               imageLoadMs: tImagesLoaded - tProviderStart,
               geminiMs,
@@ -1669,6 +1687,7 @@ export const geminiRoomPreviewRenderProvider = {
               attemptCount: attemptTimings.length,
               retried: attemptTimings.length > 1,
               retryReason: lastRetryReason,
+              winnerPromptVariant: currentPromptVariant,
               debugArtifactsEnabled: DEBUG_ARTIFACTS_ENABLED,
               qualityMode: RENDER_QUALITY,
               promptVersion: ACTIVE_PROMPT_VERSION,
@@ -1779,7 +1798,10 @@ export const geminiRoomPreviewRenderProvider = {
             break;
           }
 
-          // Phase 4: on first timeout, reload images at reduced dimensions and retry once.
+          // Attempt 1 timed out — retry once with a shorter fallback prompt and
+          // reduced image dimensions. The fallback prompt is intentionally simpler
+          // (no floor-polygon coordinates, no quality constraints) so Gemini can
+          // return within the longer GEMINI_RETRY_ATTEMPT_TIMEOUT_MS budget.
           if (err instanceof GeminiTimeoutError && !timeoutRetried) {
             timeoutRetried = true;
             lastRetryReason = "gemini_timeout";
@@ -1791,7 +1813,9 @@ export const geminiRoomPreviewRenderProvider = {
               retryReason: "gemini_timeout",
               attemptTimeoutMs,
               abortedByTimeout: true,
+              promptVariant: "normal",
             });
+
             log.warn(
               {
                 event: "gemini_attempt_timeout",
@@ -1799,21 +1823,29 @@ export const geminiRoomPreviewRenderProvider = {
                 modelName,
                 attempt,
                 timeoutMs: attemptTimeoutMs,
-                actualDurationMs: attemptTimeoutMs,
-                action: "retrying_with_reduced_dimensions",
+                action: "retrying_with_fallback_prompt",
+                nextTimeoutMs: GEMINI_RETRY_ATTEMPT_TIMEOUT_MS,
               },
-              "gemini_attempt_timeout",
+              "gemini_attempt_timeout: starting fallback retry",
             );
-            log.info(
-              {
-                event: "gemini_retry_started",
-                sessionId,
+
+            // Emit session event so the diagnostics timeline shows the timeout.
+            trackSessionEvent({
+              sessionId,
+              source: "renderer",
+              eventType: "gemini_attempt_timeout",
+              level: "warning",
+              metadata: {
+                renderJobId: request.jobId,
+                attempt,
                 modelName,
-                roomMaxPx: TIMEOUT_RETRY_ROOM_MAX_PX,
-                productMaxPx: TIMEOUT_RETRY_PRODUCT_MAX_PX,
+                timeoutMs: attemptTimeoutMs,
+                promptVariant: "normal",
+                action: "retry_with_fallback_prompt",
               },
-              "Gemini timeout retry: reloading images at reduced dimensions",
-            );
+            }).catch(() => {});
+
+            // Reload both images at smaller dimensions to reduce payload size.
             [currentRoomImage, currentProductImage] = await Promise.all([
               loadAndPrepareImage(room.imageUrl, {
                 imageRole: "room",
@@ -1826,15 +1858,43 @@ export const geminiRoomPreviewRenderProvider = {
                 maxDimensionOverride: TIMEOUT_RETRY_PRODUCT_MAX_PX,
               }),
             ]);
-            // Rebuild prompt with the new (smaller) room dimensions.
-            const retryDimensions = { width: currentRoomImage.width, height: currentRoomImage.height };
-            activePrompt = buildRenderPrompt(
-              product.productType ?? null,
-              product.name ?? null,
-              room.floorQuad ?? null,
-              retryDimensions,
-              PROMPT_VARIANT,
+
+            // Switch to the short fallback prompt — omits polygon coords and
+            // quality constraints that may have caused the model to over-think.
+            currentPromptVariant = "fallback";
+            activePrompt = buildFallbackPrompt(product.name ?? null);
+
+            log.info(
+              {
+                event: "gemini_retry_started",
+                sessionId,
+                modelName,
+                promptVariant: "fallback",
+                fallbackPromptLength: activePrompt.length,
+                roomMaxPx: TIMEOUT_RETRY_ROOM_MAX_PX,
+                productMaxPx: TIMEOUT_RETRY_PRODUCT_MAX_PX,
+                timeoutMs: GEMINI_RETRY_ATTEMPT_TIMEOUT_MS,
+              },
+              "Gemini retry started with fallback prompt and reduced image dimensions",
             );
+            trackSessionEvent({
+              sessionId,
+              source: "renderer",
+              eventType: "gemini_retry_started",
+              level: "info",
+              metadata: {
+                renderJobId: request.jobId,
+                attempt: attempt + 1,
+                modelName,
+                retryReason: "gemini_timeout",
+                promptVariant: "fallback",
+                fallbackPromptLength: activePrompt.length,
+                roomMaxPx: TIMEOUT_RETRY_ROOM_MAX_PX,
+                productMaxPx: TIMEOUT_RETRY_PRODUCT_MAX_PX,
+                timeoutMs: GEMINI_RETRY_ATTEMPT_TIMEOUT_MS,
+              },
+            }).catch(() => {});
+
             continue;
           }
 

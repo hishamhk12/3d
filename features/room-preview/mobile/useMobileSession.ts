@@ -29,16 +29,22 @@ import type {
   RoomPreviewRoomSource,
   RoomPreviewSession,
 } from "@/lib/room-preview/types";
+import {
+  createActionErrorMessage,
+  getViewStateFromError,
+  isNetworkInterrupted,
+  isSessionConnected,
+  MOBILE_INITIAL_LOAD_MAX_ATTEMPTS,
+  MOBILE_INITIAL_LOAD_RETRY_DELAY_MS,
+  MOBILE_NETWORK_ERROR_MESSAGE,
+  wait,
+  type MobileSessionViewState,
+  type SaveStatus,
+} from "@/features/room-preview/mobile/mobile-session-utils";
 
-const MOBILE_NETWORK_ERROR_MESSAGE =
-  "تعذر الاتصال بالسيرفر، تأكد أن الجوال والكمبيوتر على نفس الشبكة";
-const MOBILE_INITIAL_LOAD_MAX_ATTEMPTS = 3;
-const MOBILE_INITIAL_LOAD_RETRY_DELAY_MS = 1_500;
-
-// ─── Types ────────────────────────────────────────────────────────────────────
-
-export type MobileSessionViewState = "loading" | "ready" | "not_found" | "expired" | "failed";
-export type SaveStatus = "idle" | "success" | "error";
+// Re-export the view-state and save-status types so external code can keep
+// importing them from useMobileSession (preserves the original public API).
+export type { MobileSessionViewState, SaveStatus };
 
 export interface UseMobileSessionReturn {
   // i18n (for use in the orchestrator and step components)
@@ -93,42 +99,6 @@ export interface UseMobileSessionReturn {
   // Debug
   debugEntries: LogEntry[];
   clearDebugLog: () => void;
-}
-
-// ─── Internal helpers ─────────────────────────────────────────────────────────
-
-function isSessionConnected(session: RoomPreviewSession) {
-  return session.mobileConnected;
-}
-
-function getViewStateFromError(
-  error: unknown,
-  t: TranslationDictionary,
-): { message: string; state: Exclude<MobileSessionViewState, "loading" | "ready"> } {
-  if (isRoomPreviewRequestError(error)) {
-    if (error.code === "not_found") return { state: "not_found", message: t.roomPreview.mobile.invalidLink };
-    if (error.code === "expired")   return { state: "expired",   message: t.roomPreview.mobile.expiredLink };
-    return { state: "failed", message: error.message };
-  }
-  return { state: "failed", message: t.roomPreview.mobile.loadFailed };
-}
-
-function createActionErrorMessage(error: unknown, fallbackMessage: string) {
-  if (isRoomPreviewRequestError(error)) return error.message;
-  return error instanceof Error ? error.message : fallbackMessage;
-}
-
-function wait(durationMs: number) {
-  return new Promise((resolve) => {
-    setTimeout(resolve, durationMs);
-  });
-}
-
-function isNetworkInterrupted(error: unknown) {
-  return (
-    (isRoomPreviewRequestError(error) && error.code === "network") ||
-    (error instanceof TypeError && error.message === "Failed to fetch")
-  );
 }
 
 // ─── Hook ─────────────────────────────────────────────────────────────────────

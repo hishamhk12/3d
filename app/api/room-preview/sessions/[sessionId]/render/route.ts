@@ -1,4 +1,3 @@
-import { createHash } from "node:crypto";
 import { after, NextResponse } from "next/server";
 import { getLogger } from "@/lib/logger";
 import { guardSession } from "@/lib/room-preview/api-guard";
@@ -39,6 +38,11 @@ import {
   saveSessionRenderHash,
   touchScreenLastRenderAt,
 } from "@/lib/room-preview/screen-repository";
+import {
+  buildRenderHash,
+  getDeviceFingerprint,
+  tooManyRequests,
+} from "@/lib/room-preview/render-route-utils";
 
 const log = getLogger("render-api");
 
@@ -58,37 +62,6 @@ const screenBudgetWarnMap     = new Map<string, number>();
 // can complete. Requires Vercel Pro.
 export const maxDuration = 300;
 export const dynamic = "force-dynamic";
-
-// ─── Helpers ──────────────────────────────────────────────────────────────────
-
-function getDeviceFingerprint(request: Request): string {
-  const ip =
-    request.headers.get("x-forwarded-for")?.split(",")[0]?.trim() ??
-    request.headers.get("x-real-ip")?.trim() ??
-    "";
-
-  const ua = (request.headers.get("user-agent") ?? "").slice(0, 300);
-
-  const input = ip || ua ? `${ip}|${ua}` : "unknown";
-
-  return createHash("sha256")
-    .update(input)
-    .digest("hex")
-    .slice(0, 32);
-}
-
-function tooManyRequests(body: { error: string; code?: string }, retryAfter: number): NextResponse {
-  return NextResponse.json(body, {
-    status: 429,
-    headers: { "Retry-After": String(retryAfter) },
-  });
-}
-
-function buildRenderHash(roomImageUrl: string, productId: string): string {
-  return createHash("sha256")
-    .update(`${roomImageUrl}::${productId}`)
-    .digest("hex");
-}
 
 // ─── Route handler ────────────────────────────────────────────────────────────
 

@@ -43,20 +43,18 @@ import {
   getDeviceFingerprint,
   tooManyRequests,
 } from "@/lib/room-preview/render-route-utils";
+import {
+  deviceCooldownWarnMap,
+  renderLimitWarnCooldown,
+  screenBudgetWarnMap,
+  shouldEmitRateLimitEvent,
+} from "@/lib/room-preview/render-route-cooldowns";
 
 const log = getLogger("render-api");
 
 /** Maximum renders allowed per session. Override with MAX_RENDERS_PER_SESSION env var. */
 const _envMax = parseInt(process.env.MAX_RENDERS_PER_SESSION ?? "", 10);
 const MAX_RENDERS_PER_SESSION = Number.isFinite(_envMax) && _envMax > 0 ? _envMax : 2;
-
-// ─── Rate-limit event dedup ────────────────────────────────────────────────────
-// Prevents repeated taps from flooding the timeline. One event per key per
-// 60 s is sufficient signal; subsequent rejections within the window are silent.
-const RATE_LIMIT_WARN_COOLDOWN_MS = 60_000;
-const renderLimitWarnCooldown = new Map<string, number>();
-const deviceCooldownWarnMap   = new Map<string, number>();
-const screenBudgetWarnMap     = new Map<string, number>();
 
 // Keep the function alive for up to 5 minutes so the after() render pipeline
 // can complete. Requires Vercel Pro.
@@ -144,10 +142,7 @@ export async function POST(
       log.warn({ sessionId, deviceId, ttl: cooldownResult.ttl }, "Render blocked — device cooldown active");
 
       after(async () => {
-        const now = Date.now();
-        const last = deviceCooldownWarnMap.get(deviceId);
-        if (last === undefined || now - last >= RATE_LIMIT_WARN_COOLDOWN_MS) {
-          deviceCooldownWarnMap.set(deviceId, now);
+        if (shouldEmitRateLimitEvent(deviceCooldownWarnMap, deviceId)) {
           await trackSessionEvent({
             sessionId,
             source: "server",
@@ -175,10 +170,7 @@ export async function POST(
 
         // Fire render_limit_reached once per 60 s per session to avoid timeline spam.
         after(async () => {
-          const now = Date.now();
-          const last = renderLimitWarnCooldown.get(sessionId);
-          if (last === undefined || now - last >= RATE_LIMIT_WARN_COOLDOWN_MS) {
-            renderLimitWarnCooldown.set(sessionId, now);
+          if (shouldEmitRateLimitEvent(renderLimitWarnCooldown, sessionId)) {
             await trackSessionEvent({
               sessionId,
               source: "server",
@@ -223,10 +215,7 @@ export async function POST(
           const dailyBudget = screen.dailyBudget;
 
           after(async () => {
-            const now = Date.now();
-            const last = screenBudgetWarnMap.get(screenIdNonNull);
-            if (last === undefined || now - last >= RATE_LIMIT_WARN_COOLDOWN_MS) {
-              screenBudgetWarnMap.set(screenIdNonNull, now);
+            if (shouldEmitRateLimitEvent(screenBudgetWarnMap, screenIdNonNull)) {
               await trackSessionEvent({
                 sessionId,
                 source: "server",

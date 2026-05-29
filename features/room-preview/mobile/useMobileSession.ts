@@ -41,6 +41,11 @@ import {
   type MobileSessionViewState,
   type SaveStatus,
 } from "@/features/room-preview/mobile/mobile-session-utils";
+import {
+  getErrorMessage,
+  getRequestErrorCode,
+  hasRequestErrorCode,
+} from "@/features/room-preview/mobile/mobile-session-error-utils";
 
 // Re-export the view-state and save-status types so external code can keep
 // importing them from useMobileSession (preserves the original public API).
@@ -367,7 +372,7 @@ export function useMobileSession({
             debugLog("success", "Auto-connected successfully");
           } catch (autoConnectError) {
             console.error("[room-preview] mobile_connect_failed", {
-              error: autoConnectError instanceof Error ? autoConnectError.message : String(autoConnectError),
+              error: getErrorMessage(autoConnectError),
               mode: "auto",
               sessionId,
               url: connectUrl,
@@ -381,17 +386,17 @@ export function useMobileSession({
                 : isNetworkInterrupted(autoConnectError)
                   ? "NETWORK_INTERRUPTED"
                   : null,
-              message: autoConnectError instanceof Error ? autoConnectError.message : String(autoConnectError),
+              message: getErrorMessage(autoConnectError),
               statusBefore: nextSession.status,
               metadata: { attempt, mode: "auto", url: connectUrl },
             });
-            debugLog("error", `Failed to auto-connect session: ${autoConnectError instanceof Error ? autoConnectError.message : String(autoConnectError)}`);
+            debugLog("error", `Failed to auto-connect session: ${getErrorMessage(autoConnectError)}`);
             trackClientSessionEvent(sessionId, {
               source: "mobile",
               eventType: "mobile_auto_connect_failed",
               level: "error",
               code: isNetworkInterrupted(autoConnectError) ? "NETWORK_INTERRUPTED" : null,
-              message: autoConnectError instanceof Error ? autoConnectError.message : String(autoConnectError),
+              message: getErrorMessage(autoConnectError),
               metadata: { attempt, loadAttempt: loadAttempt + 1, url: connectUrl },
             });
             throw autoConnectError;
@@ -418,7 +423,7 @@ export function useMobileSession({
           "error",
           isTypeFailed
             ? "TypeError: Failed to fetch (firewall / wrong network?)"
-            : `Fetch error: ${loadError instanceof Error ? loadError.message : String(loadError)}`,
+            : `Fetch error: ${getErrorMessage(loadError)}`,
           loadError instanceof Error
             ? `code: ${isRoomPreviewRequestError(loadError) ? loadError.code : "n/a"} url: ${failedUrl}`
             : `url: ${failedUrl}`,
@@ -429,7 +434,7 @@ export function useMobileSession({
           eventType: "mobile_fetch_failed_with_url",
           level: "error",
           code: networkInterrupted ? "NETWORK_INTERRUPTED" : null,
-          message: loadError instanceof Error ? loadError.message : String(loadError),
+          message: getErrorMessage(loadError),
           metadata: { attempt, loadAttempt: loadAttempt + 1, url: failedUrl },
         });
 
@@ -470,7 +475,7 @@ export function useMobileSession({
           eventType: "mobile_fetch_failed",
           level: "error",
           code: networkInterrupted ? "NETWORK_INTERRUPTED" : null,
-          message: loadError instanceof Error ? loadError.message : String(loadError),
+          message: getErrorMessage(loadError),
           metadata: { attempt, loadAttempt: loadAttempt + 1, url: failedUrl },
         });
         debugLog("state", `viewState → ${failure.state}`);
@@ -530,7 +535,7 @@ export function useMobileSession({
       .catch((renderError) => {
         if (!active) return;
         const failure = getViewStateFromError(renderError, t);
-        debugLog("error", `Render resume error: ${renderError instanceof Error ? renderError.message : String(renderError)}`);
+        debugLog("error", `Render resume error: ${getErrorMessage(renderError)}`);
         setError(failure.message);
       })
       .finally(() => {
@@ -630,7 +635,7 @@ export function useMobileSession({
     } catch (connectError) {
       const failure = getViewStateFromError(connectError, t);
       console.error("[room-preview] mobile_connect_failed", {
-        error: connectError instanceof Error ? connectError.message : String(connectError),
+        error: getErrorMessage(connectError),
         mode: "manual",
         sessionId,
       });
@@ -638,14 +643,12 @@ export function useMobileSession({
         source: "mobile",
         eventType: "mobile_connect_failed",
         level: "error",
-        code: isRoomPreviewRequestError(connectError)
-          ? connectError.code
-          : null,
-        message: connectError instanceof Error ? connectError.message : String(connectError),
+        code: getRequestErrorCode(connectError),
+        message: getErrorMessage(connectError),
         statusBefore: session.status,
         metadata: { mode: "manual" },
       });
-      debugLog("error", `Connect failed: ${connectError instanceof Error ? connectError.message : String(connectError)}`);
+      debugLog("error", `Connect failed: ${getErrorMessage(connectError)}`);
 
       if (failure.state === "expired" || failure.state === "not_found") {
         setSession(null);
@@ -798,7 +801,7 @@ export function useMobileSession({
       debugLog("success", `Room saved  source: ${response.session.selectedRoom?.source ?? "?"}`);
     } catch (saveError) {
       const failure = getViewStateFromError(saveError, t);
-      debugLog("error", `Room upload failed: ${saveError instanceof Error ? saveError.message : String(saveError)}`, `file: ${file.name}`);
+      debugLog("error", `Room upload failed: ${getErrorMessage(saveError)}`, `file: ${file.name}`);
 
       if (failure.state === "expired" || failure.state === "not_found") {
         setSession(null);
@@ -827,8 +830,8 @@ export function useMobileSession({
         source: "mobile",
         eventType: "room_upload_failed",
         level: "error",
-        code: isRoomPreviewRequestError(saveError) ? saveError.code : null,
-        message: saveError instanceof Error ? saveError.message : String(saveError),
+        code: getRequestErrorCode(saveError),
+        message: getErrorMessage(saveError),
         metadata: { source, fileName: file.name, fileSize: file.size, fileType: file.type },
       });
     } finally {
@@ -898,7 +901,7 @@ export function useMobileSession({
           return null;
         }
         const failure = getViewStateFromError(saveError, t);
-        debugLog("error", `Product save failed: ${saveError instanceof Error ? saveError.message : String(saveError)}`);
+        debugLog("error", `Product save failed: ${getErrorMessage(saveError)}`);
         if (failure.state === "expired" || failure.state === "not_found") {
           setSession(null);
           setViewState(failure.state);
@@ -968,7 +971,7 @@ export function useMobileSession({
       return response.session;
     } catch (saveError) {
       const failure = getViewStateFromError(saveError, t);
-      debugLog("error", `QR product save failed: ${saveError instanceof Error ? saveError.message : String(saveError)}`);
+      debugLog("error", `QR product save failed: ${getErrorMessage(saveError)}`);
       if (failure.state === "expired" || failure.state === "not_found") {
         setSession(null);
         setViewState(failure.state);
@@ -1113,24 +1116,24 @@ export function useMobileSession({
       }
     } catch (renderError) {
       const failure = getViewStateFromError(renderError, t);
-      debugLog("error", `Render error: ${renderError instanceof Error ? renderError.message : String(renderError)}`);
+      debugLog("error", `Render error: ${getErrorMessage(renderError)}`);
 
       trackClientSessionEvent(renderSession.id, {
         source: "mobile",
         eventType: "render_request_failed",
         level: "error",
         code: isRoomPreviewRequestError(renderError) ? String(renderError.code) : "UNKNOWN",
-        message: renderError instanceof Error ? renderError.message : String(renderError),
+        message: getErrorMessage(renderError),
         metadata: {
           ...renderMetadataBase,
           status: isRoomPreviewRequestError(renderError) ? renderError.status : null,
-          errorMessage: renderError instanceof Error ? renderError.message : String(renderError),
+          errorMessage: getErrorMessage(renderError),
         },
       });
 
       // Expired / not-found sessions cannot be retried — transition viewState
       // so the UI shows the appropriate panel rather than a retry button.
-      if (isRoomPreviewRequestError(renderError) && (renderError.code === "expired" || renderError.code === "not_found")) {
+      if (hasRequestErrorCode(renderError, "expired") || hasRequestErrorCode(renderError, "not_found")) {
         setSession(null);
         setViewState(failure.state);
         setError(failure.message);
@@ -1138,7 +1141,7 @@ export function useMobileSession({
         return;
       }
 
-      if (isRoomPreviewRequestError(renderError) && renderError.code === "render_limit_reached") {
+      if (hasRequestErrorCode(renderError, "render_limit_reached")) {
         // Both buttons must always appear; use retry_render so the primary CTA retries the render.
         setError("فشل التصميم أكثر من مرة.");
         setRecoveryMessage(getCustomerRecoveryMessage("retry_render"));
@@ -1148,7 +1151,7 @@ export function useMobileSession({
           level: "warning",
           metadata: { reason: "render_limit_reached", status: renderSession.status },
         });
-      } else if (isRoomPreviewRequestError(renderError) && renderError.code === "render_device_cooldown") {
+      } else if (hasRequestErrorCode(renderError, "render_device_cooldown")) {
         // Show retry button even on cooldown — user decides when to tap again.
         setError("يمكنك طلب معاينة جديدة بعد ٥ دقائق.");
         setRecoveryMessage(getCustomerRecoveryMessage("retry_render"));
@@ -1158,7 +1161,7 @@ export function useMobileSession({
           level: "warning",
           metadata: { reason: "render_device_cooldown", status: renderSession.status },
         });
-      } else if (isRoomPreviewRequestError(renderError) && renderError.code === "screen_budget_exhausted") {
+      } else if (hasRequestErrorCode(renderError, "screen_budget_exhausted")) {
         // Daily screen budget is truly exhausted — retry would fail too; only new session helps.
         setError("انتهى الحد اليومي لهذه الشاشة. يرجى التواصل مع الموظف المختص.");
         setRecoveryMessage(null);
@@ -1170,7 +1173,7 @@ export function useMobileSession({
         });
       } else {
         // Timeout and all other render errors — always use retry_render for a consistent two-button UI.
-        const isTimeout = isRoomPreviewRequestError(renderError) && renderError.code === "timeout";
+        const isTimeout = hasRequestErrorCode(renderError, "timeout");
         setRecoveryMessage(getCustomerRecoveryMessage("retry_render"));
         setError(
           isTimeout
@@ -1186,14 +1189,14 @@ export function useMobileSession({
       }
       trackClientSessionEvent(renderSession.id, {
         source: "mobile",
-        eventType: isRoomPreviewRequestError(renderError) && renderError.code === "timeout"
+        eventType: hasRequestErrorCode(renderError, "timeout")
           ? "render_timeout"
           : "render_failed",
         level: "error",
-        code: isRoomPreviewRequestError(renderError) && renderError.code === "timeout"
+        code: hasRequestErrorCode(renderError, "timeout")
           ? "RENDER_TIMEOUT"
           : "RENDER_FAILED",
-        message: renderError instanceof Error ? renderError.message : String(renderError),
+        message: getErrorMessage(renderError),
       });
     } finally {
       renderRequestInFlightRef.current = false;

@@ -47,6 +47,7 @@ import {
   hasRequestErrorCode,
 } from "@/features/room-preview/mobile/mobile-session-error-utils";
 import { useMobileConnect } from "@/features/room-preview/mobile/useMobileConnect";
+import { useRoomUpload } from "@/features/room-preview/mobile/useRoomUpload";
 
 // Re-export the view-state and save-status types so external code can keep
 // importing them from useMobileSession (preserves the original public API).
@@ -119,7 +120,6 @@ export function useMobileSession({
   const [session,             setSession]            = useState<RoomPreviewSession | null>(null);
   const [viewState,           setViewState]          = useState<MobileSessionViewState>("loading");
   const [loadAttempt,         setLoadAttempt]        = useState(0);
-  const [isSavingRoom,        setIsSavingRoom]       = useState(false);
   const [isSavingProduct,     _setIsSavingProduct]   = useState(false);
   const isSavingProductRef = useRef(false);
   const setIsSavingProduct = (v: boolean) => { isSavingProductRef.current = v; _setIsSavingProduct(v); };
@@ -157,6 +157,21 @@ export function useMobileSession({
     setViewState,
     setError,
     setSuccessMessage,
+    setRoomSaveStatus,
+    setProductSaveStatus,
+    setRoomSaveStatusLabel,
+    sessionId,
+    t,
+    debugLog,
+  });
+
+  const { isSavingRoom, handleFileSelection } = useRoomUpload({
+    session,
+    setSession,
+    setViewState,
+    setError,
+    setSuccessMessage,
+    setRecoveryMessage,
     setRoomSaveStatus,
     setProductSaveStatus,
     setRoomSaveStatusLabel,
@@ -589,182 +604,6 @@ export function useMobileSession({
   }, [session?.expiresAt, viewState]);
 
   // ── Handlers ─────────────────────────────────────────────────────────────────
-
-  const handleFileSelection = useCallback(async (
-    source: Extract<RoomPreviewRoomSource, "camera" | "gallery">,
-    file: File | null,
-  ) => {
-    if (!file || isSavingRoom || !session) {
-      if (!file) {
-        console.warn("[room-preview] Missing uploaded file", { sessionId, source });
-        debugLog("warn", `handleFileSelection: no file selected (source: ${source})`);
-        setRoomSaveStatus("error");
-      }
-      return;
-    }
-
-    trackClientSessionEvent(sessionId, {
-      source: "mobile",
-      eventType: "mobile_tap_detected",
-      level: "info",
-      metadata: { target: "room_upload", source, fileSize: file.size, fileType: file.type },
-    });
-    trackClientSessionEvent(sessionId, {
-      source: "mobile",
-      eventType: "room_upload_started",
-      level: "info",
-      metadata: { source, fileName: file.name, fileSize: file.size, fileType: file.type },
-    });
-    setIsSavingRoom(true);
-    setError(null);
-    setSuccessMessage(null);
-    setRecoveryMessage(null);
-    setRoomSaveStatus("idle");
-    setProductSaveStatus("idle");
-    setRoomSaveStatusLabel("جاري رفع صورة الغرفة...");
-
-    const fileToUpload = await compressRoomImage(file);
-
-    debugLog(
-      "network",
-      `uploading room  source: ${source}`,
-      `file: ${file.name} (${file.size}b)  ${fileToUpload !== file ? `compressed → ${fileToUpload.name} (${fileToUpload.size}b, ${Math.round((1 - fileToUpload.size / file.size) * 100)}% smaller)` : "skipped compression (file already small)"}`,
-    );
-
-    try {
-      // ── Step 1: request a signed upload URL from the server ───────────────
-      let uploadUrlResponse;
-      let usedDirectUpload = false;
-
-      try {
-        uploadUrlResponse = await requestDirectUploadUrl(sessionId, { source, file: fileToUpload });
-        usedDirectUpload = true;
-        trackClientSessionEvent(sessionId, {
-          source: "mobile",
-          eventType: "room_direct_upload_started",
-          level: "info",
-          metadata: { source, fileSize: fileToUpload.size, fileType: fileToUpload.type },
-        });
-        debugLog("network", `Got signed upload URL — PUT ${uploadUrlResponse.objectKey}`);
-      } catch (urlError) {
-        const isNotSupported =
-          isRoomPreviewRequestError(urlError) &&
-          urlError.status === 501;
-
-        if (isNotSupported) {
-          // Local / non-R2 dev environment — fall back to FormData upload
-          debugLog("info", "Direct upload not supported, falling back to FormData upload");
-        } else {
-          throw urlError;
-        }
-      }
-
-      let response;
-
-      if (usedDirectUpload && uploadUrlResponse) {
-        // ── Step 2: PUT file directly to R2 ────────────────────────────────
-        await uploadFileToR2(
-          uploadUrlResponse.uploadUrl,
-          fileToUpload,
-          {
-            onProgress: (percent) => {
-              setRoomSaveStatusLabel(`جاري رفع صورة الغرفة... ${percent}%`);
-            },
-            onR2Failure: ({ status, statusText, responseText, host }) => {
-              trackClientSessionEvent(sessionId, {
-                source: "mobile",
-                eventType: "room_direct_upload_r2_failed",
-                level: "error",
-                code: status === 403 ? "R2_SIGNATURE_INVALID" : status === 0 ? "R2_CORS_OR_NETWORK" : "R2_PUT_FAILED",
-                metadata: {
-                  status,
-                  statusText,
-                  responseText: responseText.slice(0, 500),
-                  host,
-                  source,
-                  fileType: fileToUpload.type,
-                  fileSize: fileToUpload.size,
-                },
-              });
-            },
-          },
-        );
-
-        debugLog("success", `File uploaded to R2 (${fileToUpload.size}b)`);
-        setRoomSaveStatusLabel("جاري رفع صورة الغرفة...");
-
-        // ── Step 3: confirm the upload on the server ────────────────────────
-        response = await confirmDirectUpload(sessionId, {
-          objectKey: uploadUrlResponse.objectKey,
-          publicUrl: uploadUrlResponse.publicUrl,
-          source,
-          file: fileToUpload,
-        });
-
-        trackClientSessionEvent(sessionId, {
-          source: "mobile",
-          eventType: "room_direct_upload_confirmed",
-          level: "info",
-          metadata: { source, objectKey: uploadUrlResponse.objectKey },
-        });
-      } else {
-        // ── Fallback: old FormData upload (development / non-R2) ────────────
-        response = await saveRoomPreviewSessionRoom(
-          sessionId,
-          { source, file: fileToUpload, previousRoomImageUrl: session.selectedRoom?.imageUrl },
-        );
-      }
-
-      setSession(response.session);
-      setRoomSaveStatus("success");
-      setRoomSaveStatusLabel(null);
-      trackClientSessionEvent(sessionId, {
-        source: "mobile",
-        eventType: "room_upload_completed",
-        level: "info",
-        statusAfter: response.session.status,
-        metadata: { source, directUpload: usedDirectUpload },
-      });
-      debugLog("success", `Room saved  source: ${response.session.selectedRoom?.source ?? "?"}`);
-    } catch (saveError) {
-      const failure = getViewStateFromError(saveError, t);
-      debugLog("error", `Room upload failed: ${getErrorMessage(saveError)}`, `file: ${file.name}`);
-
-      if (failure.state === "expired" || failure.state === "not_found") {
-        setSession(null);
-        setViewState(failure.state);
-        setError(failure.message);
-        debugLog("state", `viewState → ${failure.state}`);
-      } else {
-        console.error(
-          "[room-preview] Failed to save uploaded room",
-          JSON.stringify({ error: JSON.parse(getRoomPreviewErrorLogDetails(saveError)), fileName: file.name, fileSize: file.size, fileType: file.type, sessionId, source }),
-        );
-        const recovery = isRoomPreviewRequestError(saveError) && saveError.status === 413
-          ? getCustomerRecoveryMessage("image_too_large")
-          : getCustomerRecoveryMessage("retry_upload");
-        setRecoveryMessage(recovery);
-        setError(
-          recovery?.text ??
-          (isRoomPreviewRequestError(saveError) && saveError.status === 403
-            ? "انتهت صلاحية رابط الرفع، حاول مرة أخرى"
-            : createActionErrorMessage(saveError, "تعذر رفع الصورة، تحقق من الاتصال وحاول مرة أخرى")),
-        );
-        setRoomSaveStatus("error");
-        setRoomSaveStatusLabel(null);
-      }
-      trackClientSessionEvent(sessionId, {
-        source: "mobile",
-        eventType: "room_upload_failed",
-        level: "error",
-        code: getRequestErrorCode(saveError),
-        message: getErrorMessage(saveError),
-        metadata: { source, fileName: file.name, fileSize: file.size, fileType: file.type },
-      });
-    } finally {
-      setIsSavingRoom(false);
-    }
-  }, [isSavingRoom, session, sessionId, t, debugLog]);
 
   const handleProductSelect = useCallback((productId: string) => {
     if (!session) return;

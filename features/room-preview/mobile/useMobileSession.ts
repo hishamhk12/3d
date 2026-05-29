@@ -50,6 +50,7 @@ import { useMobileConnect } from "@/features/room-preview/mobile/useMobileConnec
 import { useRoomUpload } from "@/features/room-preview/mobile/useRoomUpload";
 import { useRenderAction } from "@/features/room-preview/mobile/useRenderAction";
 import { useProductSelection } from "@/features/room-preview/mobile/useProductSelection";
+import { useMobileSessionEvents } from "@/features/room-preview/mobile/useMobileSessionEvents";
 
 // Re-export the view-state and save-status types so external code can keep
 // importing them from useMobileSession (preserves the original public API).
@@ -211,67 +212,15 @@ export function useMobileSession({
     debugLog,
   });
 
-  // Track the first moment the heartbeat becomes unreachable (true → false).
-  // Fire-once per disconnection event so we never spam the timeline.
-  const prevHeartbeatConnectedRef = useRef(true);
-  useEffect(() => {
-    const wasConnected = prevHeartbeatConnectedRef.current;
-    prevHeartbeatConnectedRef.current = heartbeatConnected;
-    if (!heartbeatConnected && wasConnected) {
-      trackClientSessionEvent(sessionId, {
-        source: "mobile",
-        eventType: "weak_connection_warning_shown",
-        level: "warning",
-        metadata: { failedCount: heartbeatFailedCount },
-      });
-    }
-  }, [heartbeatConnected, heartbeatFailedCount, sessionId]);
-
-  // ── result_seen_mobile ────────────────────────────────────────────────────
-  // Fires once per unique render result when the result UI first becomes
-  // visible. The ref (keyed by imageUrl) prevents duplicate events from
-  // polling re-renders, back-navigation recovery, or repeated setShowResult
-  // calls with the same result.
-  const resultSeenRef = useRef<string | null>(null);
-  useEffect(() => {
-    if (!showResult || !session) return;
-    const imageUrl = session.renderResult?.imageUrl;
-    if (!imageUrl) return;
-    if (resultSeenRef.current === imageUrl) return;
-    resultSeenRef.current = imageUrl;
-    trackClientSessionEvent(session.id, {
-      source: "mobile",
-      eventType: "result_seen_mobile",
-      level: "info",
-      metadata: {
-        status: session.status,
-        hasResultImage: true,
-        timestamp: new Date().toISOString(),
-      },
-    });
-  }, [showResult, session]);
-
-  // Keep the diagnostics status ref current for all async event listeners
-  useEffect(() => {
-    updateStatus(session?.status ?? null);
-    if (session?.status) {
-      console.info("[room-preview] mobile_session_status_changed", {
-        mobileConnected: session.mobileConnected,
-        sessionId,
-        status: session.status,
-      });
-    }
-  }, [session?.mobileConnected, session?.status, sessionId, updateStatus]);
-
-  // ── Lifecycle logging ────────────────────────────────────────────────────────
-  useEffect(() => {
-    debugLog("info", "MobileSessionClient mounted", `sessionId: ${sessionId}`);
-    // mount_page_mounted is already sent by useMobileDiagnostics — no duplicate needed.
-    return () => {
-      debugLog("warn", "MobileSessionClient unmounting");
-    };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+  useMobileSessionEvents({
+    session,
+    sessionId,
+    showResult,
+    heartbeatConnected,
+    heartbeatFailedCount,
+    updateStatus,
+    debugLog,
+  });
 
   // ── Browser Back guard ───────────────────────────────────────────────────────
   // Push a duplicate history entry on mount. When the user presses Back, the

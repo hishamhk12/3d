@@ -52,6 +52,7 @@ import { useRenderAction } from "@/features/room-preview/mobile/useRenderAction"
 import { useProductSelection } from "@/features/room-preview/mobile/useProductSelection";
 import { useMobileSessionEvents } from "@/features/room-preview/mobile/useMobileSessionEvents";
 import { useBrowserBackGuard } from "@/features/room-preview/mobile/useBrowserBackGuard";
+import { useSessionExpiryTimer } from "@/features/room-preview/mobile/useSessionExpiryTimer";
 
 // Re-export the view-state and save-status types so external code can keep
 // importing them from useMobileSession (preserves the original public API).
@@ -229,6 +230,14 @@ export function useMobileSession({
     setShowResult,
     sessionId,
     t,
+  });
+
+  useSessionExpiryTimer({
+    session,
+    viewState,
+    setSession,
+    setError,
+    setViewState,
   });
 
   // ── Initial session load ─────────────────────────────────────────────────────
@@ -475,31 +484,6 @@ export function useMobileSession({
     };
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [session?.id, showResult]);
-
-  // ── Client-side expiry timer ─────────────────────────────────────────────────
-  // Safety net: if the server hasn't notified about expiry yet (no SSE on
-  // mobile), force the UI into expired state the moment wall-clock time is
-  // reached so the customer sees the right message immediately.
-  useEffect(() => {
-    if (viewState !== "ready" || !session?.expiresAt) return;
-
-    const msUntilExpiry = new Date(session.expiresAt).getTime() - Date.now();
-
-    if (msUntilExpiry <= 0) {
-      setSession(null);
-      setError(null);
-      setViewState("expired");
-      return;
-    }
-
-    const timer = setTimeout(() => {
-      setSession(null);
-      setError(null);
-      setViewState("expired");
-    }, msUntilExpiry);
-
-    return () => clearTimeout(timer);
-  }, [session?.expiresAt, viewState]);
 
   // ── Handlers ─────────────────────────────────────────────────────────────────
 

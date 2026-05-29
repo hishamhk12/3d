@@ -1,0 +1,141 @@
+import "server-only";
+
+import { createHash } from "node:crypto";
+
+import type {
+  RenderJobInput,
+  RenderJobResult,
+  RoomPreviewSession,
+} from "@/lib/room-preview/types";
+import type { RoomPreviewRenderProviderResult } from "@/lib/room-preview/render-providers/types";
+import { isFloorMaterialProduct } from "@/lib/room-preview/validators";
+
+// ─── Constants ────────────────────────────────────────────────────────────────
+
+/** Maximum age before a `pending` / `processing` render job is considered stuck. */
+export const STUCK_RENDER_THRESHOLD_MS = 8 * 60 * 1_000; // 8 minutes
+
+// ─── Failure-reason helpers ───────────────────────────────────────────────────
+
+/**
+ * Returns the typed `failureReason` carried on an error (e.g. `gemini_timeout`)
+ * or `null` for any other thrown value.
+ */
+export function getFailureReason(err: unknown): string | null {
+  if (
+    err &&
+    typeof err === "object" &&
+    "failureReason" in err &&
+    typeof (err as { failureReason?: unknown }).failureReason === "string"
+  ) {
+    return (err as { failureReason: string }).failureReason;
+  }
+  return null;
+}
+
+/**
+ * Picks the best failure reason string to store on a failed `RenderJob` row:
+ *   1. The typed `failureReason` from the error, if present.
+ *   2. Otherwise the truncated `error.message` (500-char cap).
+ *   3. Otherwise the constant `"Unknown render error"`.
+ */
+export function buildFailedRenderJobReason(
+  err: unknown,
+  typedReason: string | null,
+): string {
+  return typedReason ?? (err instanceof Error ? err.message.slice(0, 500) : "Unknown render error");
+}
+
+// ─── Render-job input ─────────────────────────────────────────────────────────
+
+/**
+ * Validates that a session has the room/product fields required to start a
+ * render and returns the typed `RenderJobInput` payload for the provider.
+ *
+ * Throws if any required field is missing or if the product is not a
+ * `floor_material` (the only type supported in this render phase).
+ */
+export function buildRenderJobInput(session: RoomPreviewSession): RenderJobInput {
+  if (!session.selectedRoom?.imageUrl || !session.selectedRoom.source) {
+    throw new Error("A selected room is required before creating a render job.");
+  }
+
+  if (!session.selectedProduct?.id || !session.selectedProduct.imageUrl || !session.selectedProduct.name) {
+    throw new Error("A selected product is required before creating a render job.");
+  }
+
+  if (!isFloorMaterialProduct(session.selectedProduct)) {
+    throw new Error("Only floor_material products are supported in this render phase.");
+  }
+
+  return {
+    product: session.selectedProduct,
+    room: session.selectedRoom,
+    sessionId: session.id,
+  };
+}
+
+/**
+ * SHA-256 hash of `${room.imageUrl}::${product.id}` used as the `inputHash` on
+ * the render job row for dedup queries. Returns `undefined` when either field
+ * is missing so the column is left null.
+ */
+export function buildRenderJobInputHash(input: RenderJobInput): string | undefined {
+  if (!input.room.imageUrl || !input.product.id) return undefined;
+  return createHash("sha256")
+    .update(`${input.room.imageUrl}::${input.product.id}`)
+    .digest("hex");
+}
+
+// ─── Provider result → render-job result ──────────────────────────────────────
+
+/** Picks the subset of provider-result fields stored on the render job. */
+export function buildRenderJobResult(
+  preview: RoomPreviewRenderProviderResult,
+): RenderJobResult {
+  return {
+    imageUrl: preview.imageUrl,
+    kind: preview.kind,
+    generatedAt: preview.generatedAt,
+    modelName: preview.modelName,
+  } satisfies RenderJobResult;
+}
+
+// ─── Render-timing summary metadata ───────────────────────────────────────────
+
+export type RenderTimingMetadata = {
+  renderJobId: string | null;
+  status: "completed" | "failed";
+  totalMs: number;
+  setupMs: number | null;
+  providerMs: number | null;
+  saveMs: number | null;
+};
+
+/**
+ * Pure builder for the `render_timing_summary` event metadata. Handles both the
+ * success and failure paths via the same conditional-null pattern that was
+ * previously inlined in two places. Field names are byte-identical to the
+ * original event payload.
+ *
+ * Caller passes the four raw checkpoint values (0 = not reached) and the
+ * already-computed `totalMs` so this function stays clock-free and pure.
+ */
+export function buildRenderTimingMetadata(params: {
+  renderJobId: string | null;
+  status: "completed" | "failed";
+  totalMs: number;
+  tSetupDone: number;
+  tProviderDone: number;
+  tSaved: number;
+}): RenderTimingMetadata {
+  const { renderJobId, status, totalMs, tSetupDone, tProviderDone, tSaved } = params;
+  return {
+    renderJobId,
+    status,
+    totalMs,
+    setupMs:    tSetupDone > 0 ? tSetupDone : null,
+    providerMs: tProviderDone > 0 && tSetupDone > 0 ? tProviderDone - tSetupDone : null,
+    saveMs:     tSaved > 0 && tProviderDone > 0 ? tSaved - tProviderDone : null,
+  };
+}

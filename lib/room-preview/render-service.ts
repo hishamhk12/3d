@@ -1,6 +1,5 @@
 import "server-only";
 
-import { createHash } from "node:crypto";
 import { after } from "next/server";
 
 import { renderRoomPreviewWithProvider } from "@/lib/room-preview/render-providers";
@@ -21,12 +20,9 @@ import {
 } from "@/lib/room-preview/session-repository";
 import { decrementScreenBudget } from "@/lib/room-preview/screen-repository";
 import type {
-  RenderJobInput,
-  RenderJobResult,
   RoomPreviewRenderResult,
   RoomPreviewSession,
 } from "@/lib/room-preview/types";
-import { isFloorMaterialProduct } from "@/lib/room-preview/validators";
 import { getLogger } from "@/lib/logger";
 import { trackEvent, getUserSessionIdForSession } from "@/lib/analytics/event-tracker";
 import { saveCustomerExperienceForSession } from "@/lib/room-preview/customer-service";
@@ -36,20 +32,17 @@ import {
   resolveSessionIssue,
   trackSessionEvent,
 } from "@/lib/room-preview/session-diagnostics";
+import {
+  buildFailedRenderJobReason,
+  buildRenderJobInput,
+  buildRenderJobInputHash,
+  buildRenderJobResult,
+  buildRenderTimingMetadata,
+  getFailureReason,
+  STUCK_RENDER_THRESHOLD_MS,
+} from "@/lib/room-preview/render-service-utils";
 
 const log = getLogger("render-service");
-
-function getFailureReason(err: unknown): string | null {
-  if (
-    err &&
-    typeof err === "object" &&
-    "failureReason" in err &&
-    typeof (err as { failureReason?: unknown }).failureReason === "string"
-  ) {
-    return (err as { failureReason: string }).failureReason;
-  }
-  return null;
-}
 
 async function persistSessionTransition(nextSession: RoomPreviewSession) {
   const updatedSession = await saveSessionState({
@@ -78,26 +71,6 @@ async function persistSessionTransition(nextSession: RoomPreviewSession) {
   }
 
   return updatedSession;
-}
-
-function buildRenderJobInput(session: RoomPreviewSession): RenderJobInput {
-  if (!session.selectedRoom?.imageUrl || !session.selectedRoom.source) {
-    throw new Error("A selected room is required before creating a render job.");
-  }
-
-  if (!session.selectedProduct?.id || !session.selectedProduct.imageUrl || !session.selectedProduct.name) {
-    throw new Error("A selected product is required before creating a render job.");
-  }
-
-  if (!isFloorMaterialProduct(session.selectedProduct)) {
-    throw new Error("Only floor_material products are supported in this render phase.");
-  }
-
-  return {
-    product: session.selectedProduct,
-    room: session.selectedRoom,
-    sessionId: session.id,
-  };
 }
 
 async function markSessionAsFailed(sessionId: string) {
@@ -164,12 +137,7 @@ async function runRoomPreviewRenderPipeline(sessionId: string) {
     });
 
     const input = buildRenderJobInput(session);
-    const inputHash =
-      input.room.imageUrl && input.product.id
-        ? createHash("sha256")
-            .update(`${input.room.imageUrl}::${input.product.id}`)
-            .digest("hex")
-        : undefined;
+    const inputHash = buildRenderJobInputHash(input);
 
     const createdJob = await createRenderJob({
       input,
@@ -220,12 +188,7 @@ async function runRoomPreviewRenderPipeline(sessionId: string) {
     }
     tProviderDone = Date.now() - pipelineStart;
 
-    const result = {
-      imageUrl: composedPreview.imageUrl,
-      kind: composedPreview.kind,
-      generatedAt: composedPreview.generatedAt,
-      modelName: composedPreview.modelName,
-    } satisfies RenderJobResult;
+    const result = buildRenderJobResult(composedPreview);
 
     const tDbUpdatesStart = Date.now();
     await updateRenderJob(createdJob.id, {
@@ -300,14 +263,14 @@ async function runRoomPreviewRenderPipeline(sessionId: string) {
       source: "renderer",
       eventType: "render_timing_summary",
       level: "info",
-      metadata: {
+      metadata: buildRenderTimingMetadata({
         renderJobId: createdJob.id,
         status: "completed",
-        totalMs:    tSaved,
-        setupMs:    tSetupDone > 0 ? tSetupDone : null,
-        providerMs: tProviderDone > 0 && tSetupDone > 0 ? tProviderDone - tSetupDone : null,
-        saveMs:     tSaved > 0 && tProviderDone > 0 ? tSaved - tProviderDone : null,
-      },
+        totalMs: tSaved,
+        tSetupDone,
+        tProviderDone,
+        tSaved,
+      }),
     }).catch(() => undefined);
 
     // Save experience for returning customer tracking (fire-and-forget).
@@ -328,7 +291,7 @@ async function runRoomPreviewRenderPipeline(sessionId: string) {
       await updateRenderJob(renderJobId, {
         result: null,
         status: "failed",
-        failureReason: failureReason ?? (err instanceof Error ? err.message.slice(0, 500) : "Unknown render error"),
+        failureReason: buildFailedRenderJobReason(err, failureReason),
       }).catch(() => undefined);
     }
 
@@ -358,14 +321,14 @@ async function runRoomPreviewRenderPipeline(sessionId: string) {
       source: "renderer",
       eventType: "render_timing_summary",
       level: "warning",
-      metadata: {
+      metadata: buildRenderTimingMetadata({
         renderJobId,
         status: "failed",
-        totalMs:    Date.now() - pipelineStart,
-        setupMs:    tSetupDone > 0 ? tSetupDone : null,
-        providerMs: tProviderDone > 0 && tSetupDone > 0 ? tProviderDone - tSetupDone : null,
-        saveMs:     null,
-      },
+        totalMs: Date.now() - pipelineStart,
+        tSetupDone,
+        tProviderDone,
+        tSaved,
+      }),
     }).catch(() => undefined);
 
     await decrementRenderCount(sessionId).catch((error) => {
@@ -395,7 +358,6 @@ async function runRoomPreviewRenderPipeline(sessionId: string) {
   }
 }
 
-const STUCK_RENDER_THRESHOLD_MS = 8 * 60 * 1_000; // 8 minutes
 
 /**
  * If a render job for this session has been stuck in `pending` or `processing`

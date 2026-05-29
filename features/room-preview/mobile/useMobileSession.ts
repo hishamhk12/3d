@@ -49,6 +49,7 @@ import {
 import { useMobileConnect } from "@/features/room-preview/mobile/useMobileConnect";
 import { useRoomUpload } from "@/features/room-preview/mobile/useRoomUpload";
 import { useRenderAction } from "@/features/room-preview/mobile/useRenderAction";
+import { useProductSelection } from "@/features/room-preview/mobile/useProductSelection";
 
 // Re-export the view-state and save-status types so external code can keep
 // importing them from useMobileSession (preserves the original public API).
@@ -124,8 +125,6 @@ export function useMobileSession({
   const [isSavingProduct,     _setIsSavingProduct]   = useState(false);
   const isSavingProductRef = useRef(false);
   const setIsSavingProduct = (v: boolean) => { isSavingProductRef.current = v; _setIsSavingProduct(v); };
-  const [localProductId,      setLocalProductId]     = useState<string | null>(null);
-  const productAbortRef       = useRef<AbortController | null>(null);
   const productSavePromiseRef = useRef<Promise<RoomPreviewSession | null> | null>(null);
   const [showResult,          setShowResult]         = useState(false);
   const [roomSaveStatusLabel, setRoomSaveStatusLabel]= useState<string | null>(null);
@@ -175,6 +174,21 @@ export function useMobileSession({
     setRoomSaveStatus,
     setProductSaveStatus,
     setRoomSaveStatusLabel,
+    sessionId,
+    t,
+    debugLog,
+  });
+
+  const { localProductId, handleProductSelect, handleProductCodeSelect } = useProductSelection({
+    session,
+    setSession,
+    setViewState,
+    setError,
+    setSuccessMessage,
+    setRecoveryMessage,
+    setProductSaveStatus,
+    setIsSavingProduct,
+    productSavePromiseRef,
     sessionId,
     t,
     debugLog,
@@ -248,13 +262,6 @@ export function useMobileSession({
       });
     }
   }, [session?.mobileConnected, session?.status, sessionId, updateStatus]);
-
-  // ── Abort in-flight product save on unmount ──────────────────────────────────
-  useEffect(() => {
-    return () => {
-      productAbortRef.current?.abort();
-    };
-  }, []);
 
   // ── Lifecycle logging ────────────────────────────────────────────────────────
   useEffect(() => {
@@ -621,155 +628,6 @@ export function useMobileSession({
   }, [session?.expiresAt, viewState]);
 
   // ── Handlers ─────────────────────────────────────────────────────────────────
-
-  const handleProductSelect = useCallback((productId: string) => {
-    if (!session) return;
-
-    // Abort any in-flight save for a previous product; latest selection wins.
-    productAbortRef.current?.abort();
-    const controller = new AbortController();
-    productAbortRef.current = controller;
-
-    // Immediate local update — UI responds before the network round-trip.
-    setLocalProductId(productId);
-    setError(null);
-    setSuccessMessage(null);
-    setIsSavingProduct(true);
-    setProductSaveStatus("idle");
-
-    const t0 = Date.now();
-    console.info("[room-preview] mobile_product_post_start", { sessionId, productId, t: t0 });
-
-    trackClientSessionEvent(sessionId, {
-      source: "mobile",
-      eventType: "mobile_tap_detected",
-      level: "info",
-      metadata: { target: "product", productId },
-    });
-    debugLog("network", `POST /product  productId: ${productId}`);
-
-    const savePromise: Promise<RoomPreviewSession | null> = saveRoomPreviewSessionProduct(
-      sessionId,
-      { productId },
-      { signal: controller.signal },
-    )
-      .then((response) => {
-        if (controller.signal.aborted) return null;
-        setSession(response.session);
-        setProductSaveStatus("success");
-        console.info("[room-preview] mobile_product_response_received", {
-          sessionId,
-          productId: response.session.selectedProduct?.id ?? productId,
-          ms: Date.now() - t0,
-        });
-        trackClientSessionEvent(sessionId, {
-          source: "mobile",
-          eventType: "product_selected",
-          level: "info",
-          statusAfter: response.session.status,
-          metadata: { productId: response.session.selectedProduct?.id ?? productId },
-        });
-        debugLog("success", `Product saved  id: ${response.session.selectedProduct?.id ?? "?"}`);
-        console.info("[room-preview] Product saved", {
-          sessionId,
-          productId: response.session.selectedProduct?.id ?? null,
-          barcode:   response.session.selectedProduct?.barcode ?? null,
-          status:    response.session.status,
-        });
-        return response.session;
-      })
-      .catch((saveError) => {
-        // Ignore intentional aborts — a newer product selection is already in flight.
-        if (controller.signal.aborted || (saveError instanceof Error && saveError.name === "AbortError")) {
-          return null;
-        }
-        const failure = getViewStateFromError(saveError, t);
-        debugLog("error", `Product save failed: ${getErrorMessage(saveError)}`);
-        if (failure.state === "expired" || failure.state === "not_found") {
-          setSession(null);
-          setViewState(failure.state);
-          setError(failure.message);
-          debugLog("state", `viewState → ${failure.state}`);
-        } else {
-          console.error("[room-preview] Failed to save product", { sessionId, productId, error: saveError });
-          setError(createActionErrorMessage(saveError, t.roomPreview.mobile.product.saveFailed));
-          setProductSaveStatus("error");
-        }
-        return null;
-      })
-      .finally(() => {
-        // Always clear the save promise — even aborted saves must not block future renders.
-        if (productSavePromiseRef.current === savePromise) productSavePromiseRef.current = null;
-        // Only clear saving state / abort ref if this is still the active request.
-        if (!controller.signal.aborted) {
-          setIsSavingProduct(false);
-          if (productAbortRef.current === controller) productAbortRef.current = null;
-        }
-      });
-
-    productSavePromiseRef.current = savePromise;
-  }, [session, sessionId, t, debugLog]);
-
-  // Look up a product by scanned/entered value. Tries barcode → id → name substring.
-  const handleProductCodeSelect = useCallback(async (productCode: string) => {
-    if (!session) return null;
-
-    // Cancel any in-flight product-by-id save; QR scan takes priority.
-    if (productAbortRef.current) {
-      productAbortRef.current.abort();
-      productAbortRef.current = null;
-    }
-
-    setIsSavingProduct(true);
-    setProductSaveStatus("idle");
-    setLocalProductId(productCode);
-    setError(null);
-    setSuccessMessage(null);
-    setRecoveryMessage(null);
-
-    trackClientSessionEvent(sessionId, {
-      source: "mobile",
-      eventType: "product_qr_confirmed",
-      level: "info",
-      metadata: { productCode },
-    });
-    debugLog("network", `POST /product  productCode: ${productCode}`);
-
-    try {
-      const response = await saveRoomPreviewSessionProduct(sessionId, { productCode });
-      setSession(response.session);
-      setProductSaveStatus("success");
-      trackClientSessionEvent(sessionId, {
-        source: "mobile",
-        eventType: "product_selected",
-        level: "info",
-        statusAfter: response.session.status,
-        metadata: {
-          productCode,
-          productId: response.session.selectedProduct?.id ?? productCode,
-          source: "printed_product_qr",
-        },
-      });
-      debugLog("success", `QR product saved  id: ${response.session.selectedProduct?.id ?? "?"}`);
-      return response.session;
-    } catch (saveError) {
-      const failure = getViewStateFromError(saveError, t);
-      debugLog("error", `QR product save failed: ${getErrorMessage(saveError)}`);
-      if (failure.state === "expired" || failure.state === "not_found") {
-        setSession(null);
-        setViewState(failure.state);
-        setError(failure.message);
-        debugLog("state", `viewState -> ${failure.state}`);
-      } else {
-        console.error("[room-preview] Failed to save QR product", { sessionId, productCode, error: saveError });
-        setError(createActionErrorMessage(saveError, t.roomPreview.mobile.product.saveFailed));
-        setProductSaveStatus("error");
-      }
-      return null;
-    } finally {
-      setIsSavingProduct(false);
-    }
-  }, [session, sessionId, t, debugLog]);
 
   const handleRetakeRoomPhoto = useCallback(() => {
     if (!session) return;

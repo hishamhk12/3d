@@ -49,6 +49,14 @@ import {
   screenBudgetWarnMap,
   shouldEmitRateLimitEvent,
 } from "@/lib/room-preview/render-route-cooldowns";
+import {
+  cachedRenderResponse,
+  isCachedRenderHit,
+  renderInternalErrorResponse,
+  sessionExpiredResponse,
+  sessionInvalidStateResponse,
+  sessionNotFoundResponse,
+} from "@/lib/room-preview/render-route-guards";
 
 const log = getLogger("render-api");
 
@@ -125,15 +133,9 @@ export async function POST(
 
     if (roomImageUrl && productId) {
       const renderHash = buildRenderHash(roomImageUrl, productId);
-      // Skip dedup when session is already at result_ready: the customer explicitly
-      // pressed "تعديل" to request a fresh render with the same inputs.
-      if (
-        screenFields?.lastRenderHash === renderHash &&
-        session.renderResult !== null &&
-        session.status !== "result_ready"
-      ) {
+      if (isCachedRenderHit(session, screenFields, renderHash)) {
         log.info({ sessionId }, "Render dedupe hit — returning cached result");
-        return NextResponse.json(session, { status: 200 });
+        return cachedRenderResponse(session);
       }
     }
 
@@ -361,17 +363,11 @@ export async function POST(
     }
 
     if (isRoomPreviewSessionNotFoundError(error)) {
-      return NextResponse.json(
-        { code: error.code, error: error.message },
-        { status: 404 },
-      );
+      return sessionNotFoundResponse(error);
     }
 
     if (isRoomPreviewSessionExpiredError(error)) {
-      return NextResponse.json(
-        { code: error.code, error: error.message },
-        { status: 410 },
-      );
+      return sessionExpiredResponse(error);
     }
 
     if (error instanceof RoomPreviewSessionTransitionError) {
@@ -380,10 +376,7 @@ export async function POST(
         type: "RENDER_FAILED",
         metadata: { code: error.code, currentStatus: error.currentStatus },
       });
-      return NextResponse.json(
-        { code: error.code, error: error.message },
-        { status: 400 },
-      );
+      return sessionInvalidStateResponse(error);
     }
 
     log.error({ err: error, sessionId }, "Failed to start render session");
@@ -392,10 +385,7 @@ export async function POST(
       type: "RENDER_FAILED",
       metadata: { phase: "render_request" },
     });
-    return NextResponse.json(
-      { error: "Failed to start render session." },
-      { status: 500 },
-    );
+    return renderInternalErrorResponse();
   } finally {
     if (renderLockAcquired) {
       await releaseRenderLock(sessionId).catch((err) => {

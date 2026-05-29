@@ -51,6 +51,7 @@ import { useRoomUpload } from "@/features/room-preview/mobile/useRoomUpload";
 import { useRenderAction } from "@/features/room-preview/mobile/useRenderAction";
 import { useProductSelection } from "@/features/room-preview/mobile/useProductSelection";
 import { useMobileSessionEvents } from "@/features/room-preview/mobile/useMobileSessionEvents";
+import { useBrowserBackGuard } from "@/features/room-preview/mobile/useBrowserBackGuard";
 
 // Re-export the view-state and save-status types so external code can keep
 // importing them from useMobileSession (preserves the original public API).
@@ -138,10 +139,6 @@ export function useMobileSession({
   // Blocks any further render requests from the current mobile page.
   const restartDoneRef = useRef(false);
   const [restartDone, setRestartDone] = useState(false);
-  // Always-current ref so the popstate handler reads fresh session state
-  // without being re-registered on every render.
-  const sessionRef = useRef<RoomPreviewSession | null>(null);
-  sessionRef.current = session;
 
   const { entries: debugEntries, add: debugLog, clear: clearDebugLog } = useDebugLog();
   const { trackFetch, updateStatus } = useMobileDiagnostics(sessionId);
@@ -222,89 +219,17 @@ export function useMobileSession({
     debugLog,
   });
 
-  // ── Browser Back guard ───────────────────────────────────────────────────────
-  // Push a duplicate history entry on mount. When the user presses Back, the
-  // browser moves to the original (same URL) and fires popstate — we catch it,
-  // re-push to keep the guard alive, then re-fetch the authoritative session
-  // state and update the view accordingly.
-  useEffect(() => {
-    window.history.pushState(null, "");
-
-    function handlePopState() {
-      // Restore guard so every subsequent Back press is also caught.
-      window.history.pushState(null, "");
-
-      const currentPath = window.location.pathname;
-
-      trackClientSessionEvent(sessionId, {
-        source: "mobile",
-        eventType: "back_pressed",
-        level: "info",
-        metadata: {
-          currentPath,
-          currentStatus: sessionRef.current?.status ?? null,
-          timestamp: new Date().toISOString(),
-        },
-      });
-
-      void (async () => {
-        try {
-          const fresh = await fetchRoomPreviewSession(sessionId);
-          setSession(fresh);
-
-          const { status } = fresh;
-
-          if (status === "expired" || status === "completed") {
-            setViewState("expired");
-            setError(null);
-          } else if (status === "failed") {
-            setViewState("ready");
-            const recovery = getCustomerRecoveryMessage("retry_render");
-            setRecoveryMessage(recovery);
-            setError(recovery?.text ?? t.roomPreview.mobile.loadFailed);
-          } else {
-            setViewState("ready");
-            if (status === "result_ready" && fresh.renderResult?.imageUrl) {
-              setShowResult(true);
-            }
-          }
-
-          // Confirm to the user that we kept them in flow.
-          const msg = "أعدناك إلى الخطوة الصحيحة للحفاظ على تجربتك";
-          setSuccessMessage(msg);
-          setTimeout(
-            () => setSuccessMessage((prev) => (prev === msg ? null : prev)),
-            4_000,
-          );
-
-          trackClientSessionEvent(sessionId, {
-            source: "mobile",
-            eventType: "redirected_to_correct_step",
-            level: "info",
-            metadata: {
-              fromPath: currentPath,
-              toPath: currentPath,
-              status,
-              reason: "browser_back_recovery",
-            },
-          });
-        } catch (err) {
-          if (isRoomPreviewRequestError(err)) {
-            if (err.code === "not_found") setViewState("not_found");
-            else if (err.code === "expired") setViewState("expired");
-            // Network error: silently stay on current view — Back guard must
-            // never crash or freeze the UI.
-          }
-        }
-      })();
-    }
-
-    window.addEventListener("popstate", handlePopState);
-    return () => {
-      window.removeEventListener("popstate", handlePopState);
-    };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [sessionId]);
+  useBrowserBackGuard({
+    session,
+    setSession,
+    setViewState,
+    setError,
+    setSuccessMessage,
+    setRecoveryMessage,
+    setShowResult,
+    sessionId,
+    t,
+  });
 
   // ── Initial session load ─────────────────────────────────────────────────────
   useEffect(() => {

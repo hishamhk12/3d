@@ -46,6 +46,7 @@ import {
   getRequestErrorCode,
   hasRequestErrorCode,
 } from "@/features/room-preview/mobile/mobile-session-error-utils";
+import { useMobileConnect } from "@/features/room-preview/mobile/useMobileConnect";
 
 // Re-export the view-state and save-status types so external code can keep
 // importing them from useMobileSession (preserves the original public API).
@@ -118,7 +119,6 @@ export function useMobileSession({
   const [session,             setSession]            = useState<RoomPreviewSession | null>(null);
   const [viewState,           setViewState]          = useState<MobileSessionViewState>("loading");
   const [loadAttempt,         setLoadAttempt]        = useState(0);
-  const [isConnecting,        setIsConnecting]       = useState(false);
   const [isSavingRoom,        setIsSavingRoom]       = useState(false);
   const [isSavingProduct,     _setIsSavingProduct]   = useState(false);
   const isSavingProductRef = useRef(false);
@@ -150,6 +150,20 @@ export function useMobileSession({
     failedCount: heartbeatFailedCount,
     lastSuccessAt: heartbeatLastSuccessAt,
   } = useMobileHeartbeat(sessionId, session?.status);
+
+  const { isConnecting, handleConnect } = useMobileConnect({
+    session,
+    setSession,
+    setViewState,
+    setError,
+    setSuccessMessage,
+    setRoomSaveStatus,
+    setProductSaveStatus,
+    setRoomSaveStatusLabel,
+    sessionId,
+    t,
+    debugLog,
+  });
 
   // Track the first moment the heartbeat becomes unreachable (true → false).
   // Fire-once per disconnection event so we never spam the timeline.
@@ -575,93 +589,6 @@ export function useMobileSession({
   }, [session?.expiresAt, viewState]);
 
   // ── Handlers ─────────────────────────────────────────────────────────────────
-
-  const handleConnect = useCallback(async () => {
-    if (isConnecting || !session || isSessionConnected(session)) return;
-
-    trackClientSessionEvent(sessionId, {
-      source: "mobile",
-      eventType: "mobile_tap_detected",
-      level: "info",
-      metadata: { target: "connect" },
-    });
-    setIsConnecting(true);
-    setError(null);
-    setSuccessMessage(null);
-    setRoomSaveStatus("idle");
-    setProductSaveStatus("idle");
-    setRoomSaveStatusLabel(null);
-
-    debugLog("network", `POST /connect  sessionId: ${sessionId}`);
-    console.info("[room-preview] mobile_connect_started", {
-      mode: "manual",
-      sessionId,
-      statusBefore: session.status,
-    });
-    trackClientSessionEvent(sessionId, {
-      source: "mobile",
-      eventType: "mobile_connect_started",
-      level: "info",
-      statusBefore: session.status,
-      metadata: { mode: "manual" },
-    });
-
-    try {
-      const connectedSession = await connectRoomPreviewSession(sessionId);
-      console.info("[room-preview] mobile_connect_success", {
-        mode: "manual",
-        sessionId,
-        statusAfter: connectedSession.status,
-      });
-      trackClientSessionEvent(sessionId, {
-        source: "mobile",
-        eventType: "mobile_connect_success",
-        level: "info",
-        statusAfter: connectedSession.status,
-        metadata: { mode: "manual" },
-      });
-      setSession({
-        ...session,
-        mobileConnected: true,
-        status:
-          session.selectedProduct?.id && session.selectedProduct?.imageUrl
-            ? "product_selected"
-            : session.selectedRoom?.imageUrl
-              ? "room_selected"
-              : "mobile_connected",
-      });
-      setSuccessMessage(t.roomPreview.mobile.connectedSuccess);
-      debugLog("success", "Session connected");
-    } catch (connectError) {
-      const failure = getViewStateFromError(connectError, t);
-      console.error("[room-preview] mobile_connect_failed", {
-        error: getErrorMessage(connectError),
-        mode: "manual",
-        sessionId,
-      });
-      trackClientSessionEvent(sessionId, {
-        source: "mobile",
-        eventType: "mobile_connect_failed",
-        level: "error",
-        code: getRequestErrorCode(connectError),
-        message: getErrorMessage(connectError),
-        statusBefore: session.status,
-        metadata: { mode: "manual" },
-      });
-      debugLog("error", `Connect failed: ${getErrorMessage(connectError)}`);
-
-      if (failure.state === "expired" || failure.state === "not_found") {
-        setSession(null);
-        setViewState(failure.state);
-        setError(failure.message);
-        debugLog("state", `viewState → ${failure.state}`);
-      } else {
-        setError(createActionErrorMessage(connectError, t.roomPreview.mobile.connectFailed));
-      }
-    } finally {
-      setIsConnecting(false);
-    }
-  }, [isConnecting, session, sessionId, t, debugLog]);
 
   const handleFileSelection = useCallback(async (
     source: Extract<RoomPreviewRoomSource, "camera" | "gallery">,

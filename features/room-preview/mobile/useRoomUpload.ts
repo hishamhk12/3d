@@ -11,7 +11,7 @@ import {
   uploadFileToR2,
   confirmDirectUpload,
 } from "@/lib/room-preview/room-service";
-import { compressRoomImage } from "@/lib/room-preview/image-compress";
+import { compressRoomImageWithStats } from "@/lib/room-preview/image-compress";
 import { trackClientSessionEvent } from "@/lib/room-preview/session-diagnostics-client";
 import {
   getCustomerRecoveryMessage,
@@ -120,13 +120,33 @@ export function useRoomUpload(params: UseRoomUploadParams): UseRoomUploadReturn 
     setProductSaveStatus("idle");
     setRoomSaveStatusLabel("جاري رفع صورة الغرفة...");
 
-    const fileToUpload = await compressRoomImage(file);
+    const { file: fileToUpload, stats: compressionStats } = await compressRoomImageWithStats(file);
+    const compressionPercent = Math.round((1 - compressionStats.compressionRatio) * 100);
 
     debugLog(
       "network",
       `uploading room  source: ${source}`,
-      `file: ${file.name} (${file.size}b)  ${fileToUpload !== file ? `compressed → ${fileToUpload.name} (${fileToUpload.size}b, ${Math.round((1 - fileToUpload.size / file.size) * 100)}% smaller)` : "skipped compression (file already small)"}`,
+      `file: ${file.name} (${file.size}b)  ${compressionStats.skipped ? "skipped compression (file already small or no gain)" : `compressed → ${fileToUpload.name} (${fileToUpload.size}b, ${compressionPercent}% smaller${compressionStats.width && compressionStats.height ? `, ${compressionStats.width}×${compressionStats.height}` : ""})`}`,
     );
+
+    // Diagnostics: record what client-side compression did so render latency can
+    // be correlated with upload payload size in the session timeline.
+    trackClientSessionEvent(sessionId, {
+      source: "mobile",
+      eventType: "room_image_compressed",
+      level: "info",
+      metadata: {
+        source,
+        skipped: compressionStats.skipped,
+        originalBytes: compressionStats.originalBytes,
+        compressedBytes: compressionStats.compressedBytes,
+        compressionRatio: Number(compressionStats.compressionRatio.toFixed(3)),
+        compressionPercent,
+        width: compressionStats.width,
+        height: compressionStats.height,
+        fileType: fileToUpload.type,
+      },
+    });
 
     try {
       // ── Step 1: request a signed upload URL from the server ───────────────

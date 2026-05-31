@@ -19,9 +19,11 @@ import {
   ACTIVE_PROMPT_VERSION,
   BASE_DELAY_MS,
   DEBUG_ARTIFACTS_ENABLED,
+  DEFAULT_GEMINI_IMAGE_MODEL,
   GEMINI_CALL_TIMEOUT_MS,
   GEMINI_FIRST_ATTEMPT_TIMEOUT_MS,
   GEMINI_IMAGE_MODELS,
+  GEMINI_IMAGE_MODEL_SOURCE,
   GEMINI_RETRY_ATTEMPT_TIMEOUT_MS,
   LONG_EDGE_OVERRIDE,
   MAX_IMAGE_DIMENSION_PX,
@@ -91,6 +93,25 @@ const RESOLVED_CONFIG = {
 log.info(
   { event: "render_config_resolved", ...RESOLVED_CONFIG },
   "Gemini provider config resolved at module load (cold start)",
+);
+
+// Dedicated, unmistakable startup line for the selected image model — makes it
+// trivial to confirm in logs which model a cold start resolved and whether it
+// came from an env override or the built-in default. The model MUST be an image
+// generation/editing model (see DEFAULT_GEMINI_IMAGE_MODEL comment) — a vision-only
+// model would return text instead of an image and fail every render.
+log.info(
+  {
+    event: "gemini_image_model_selected",
+    selectedModel: GEMINI_IMAGE_MODELS[0],
+    allModels: GEMINI_IMAGE_MODELS,
+    source: GEMINI_IMAGE_MODEL_SOURCE,
+    defaultModel: DEFAULT_GEMINI_IMAGE_MODEL,
+    overrideEnv: "ROOM_PREVIEW_GEMINI_IMAGE_MODEL",
+    raw_ROOM_PREVIEW_GEMINI_IMAGE_MODEL: process.env.ROOM_PREVIEW_GEMINI_IMAGE_MODEL ?? null,
+    raw_GEMINI_IMAGE_MODELS: process.env.GEMINI_IMAGE_MODELS ?? null,
+  },
+  `Gemini image model selected: ${GEMINI_IMAGE_MODELS[0]} (source: ${GEMINI_IMAGE_MODEL_SOURCE})`,
 );
 
 // Safety check: if the env var says "fast" but the resolved prompt is not fast-v1,
@@ -326,6 +347,10 @@ export const geminiRoomPreviewRenderProvider = {
     }> = [];
     let lastRetryReason: string | undefined;
 
+    // Labeled so a fatal timeout can break the whole render (not just the inner
+    // attempt loop) — otherwise each additional configured model would start a
+    // fresh 60 s attempt and stack toward the 300 s route limit.
+    modelLoop:
     for (const modelName of GEMINI_IMAGE_MODELS) {
       for (let attempt = 1; attempt <= MAX_RETRIES; attempt++) {
         // First attempt uses a tight timeout so a stuck Gemini call fails fast.
@@ -871,7 +896,9 @@ export const geminiRoomPreviewRenderProvider = {
               },
               "Gemini timeout retry also timed out — failing render",
             );
-            break;
+            // Stop entirely after a fatal timeout — do not fall through to other
+            // models and stack more multi-second attempts toward the route limit.
+            break modelLoop;
           }
 
           if (isRetryableError(err) && attempt < MAX_RETRIES) {

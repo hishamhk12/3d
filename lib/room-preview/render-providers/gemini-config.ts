@@ -6,6 +6,17 @@ import {
 } from "@/lib/room-preview/prompt-template-v2";
 
 // ─── Model list ───────────────────────────────────────────────────────────────
+//
+// IMPORTANT — this route needs IMAGE OUTPUT, not just image understanding.
+// Vision-only / text-output models (e.g. gemini-1.5-flash) are faster and cheaper,
+// but they can only *describe* an image — they cannot return a generated/edited
+// image. This render route composites a new floor into the room photo and must
+// receive an image back (responseModalities: ["TEXT","IMAGE"]). Therefore the
+// selected model MUST be an image generation/editing model. Do not point the
+// override below at a vision-only model or renders will fail with "no image".
+
+/** Default image-generation model used when no env override is set. */
+export const DEFAULT_GEMINI_IMAGE_MODEL = "gemini-3.1-flash-image-preview";
 
 // ROOM_PREVIEW_GEMINI_IMAGE_MODEL (single) takes precedence over GEMINI_IMAGE_MODELS (comma list).
 export const GEMINI_IMAGE_MODELS: readonly string[] = (() => {
@@ -13,7 +24,14 @@ export const GEMINI_IMAGE_MODELS: readonly string[] = (() => {
   if (single) return [single];
   const multi = process.env.GEMINI_IMAGE_MODELS;
   if (multi) return multi.split(",").map((m) => m.trim()).filter(Boolean);
-  return ["gemini-3.1-flash-image-preview"];
+  return [DEFAULT_GEMINI_IMAGE_MODEL];
+})();
+
+/** Where the resolved model list came from — surfaced in startup logs. */
+export const GEMINI_IMAGE_MODEL_SOURCE: "env:ROOM_PREVIEW_GEMINI_IMAGE_MODEL" | "env:GEMINI_IMAGE_MODELS" | "default" = (() => {
+  if (process.env.ROOM_PREVIEW_GEMINI_IMAGE_MODEL?.trim()) return "env:ROOM_PREVIEW_GEMINI_IMAGE_MODEL";
+  if (process.env.GEMINI_IMAGE_MODELS?.trim()) return "env:GEMINI_IMAGE_MODELS";
+  return "default";
 })();
 
 // ─── Retry constants ──────────────────────────────────────────────────────────
@@ -32,18 +50,21 @@ export const GEMINI_CALL_TIMEOUT_MS = (() => {
 })();
 
 // Per-attempt timeouts for showroom UX.
-// First attempt uses a tight window so a stuck Gemini call doesn't make the customer
-// wait before we retry. Retry gets a longer budget for the smaller-image second pass.
+// First attempt gets a realistic budget so a healthy-but-slow Gemini call isn't
+// killed prematurely; the retry gets a longer budget for the smaller-image second
+// pass. The earlier 30 s first-attempt window was too tight — it tripped on normal
+// cold-start latency and forced an unnecessary (and slower overall) retry.
+// Defaults: first 60 s, retry 90 s. Env overrides still honoured.
 // Clamped: first 5–120 s, retry 30–240 s.
 export const GEMINI_FIRST_ATTEMPT_TIMEOUT_MS = (() => {
   const raw = Number(process.env.ROOM_PREVIEW_GEMINI_FIRST_ATTEMPT_TIMEOUT_MS);
-  if (!Number.isFinite(raw) || raw <= 0) return 30_000;
+  if (!Number.isFinite(raw) || raw <= 0) return 60_000;
   return Math.max(5_000, Math.min(raw, 120_000));
 })();
 
 export const GEMINI_RETRY_ATTEMPT_TIMEOUT_MS = (() => {
   const raw = Number(process.env.ROOM_PREVIEW_GEMINI_RETRY_ATTEMPT_TIMEOUT_MS);
-  if (!Number.isFinite(raw) || raw <= 0) return 60_000;
+  if (!Number.isFinite(raw) || raw <= 0) return 90_000;
   return Math.max(30_000, Math.min(raw, 240_000));
 })();
 

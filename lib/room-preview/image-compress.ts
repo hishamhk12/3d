@@ -4,21 +4,64 @@
  * Uses the Canvas API — browser only, never import from server code.
  *
  * Strategy:
- *  - Cap the longest side at 1920 px (maintains aspect ratio)
+ *  - Cap the longest side at 1024 px (maintains aspect ratio)
  *  - Re-encode as JPEG at 82% quality
  *  - Skip entirely if the file is already under 1 MB (not worth the CPU)
  *  - If compression somehow produces a larger file, return the original
  *  - On any error (canvas unavailable, corrupt image), return the original
  *    so the upload can still proceed
+ *
+ * The 1024 px / 0.82 target keeps the floor clearly visible while cutting the
+ * upload payload (and therefore the Gemini round-trip) substantially. The
+ * backend `sharp` resize + validation stays in place as a safety fallback — if
+ * the client skips compression (small file, old browser, decode failure) the
+ * server still normalises the image before it reaches Gemini.
  */
 
-const MAX_DIMENSION_PX = 1920;
+const MAX_DIMENSION_PX = 1024;
 const JPEG_QUALITY = 0.82;
 /** Files smaller than this are already small enough — skip compression. */
 const SKIP_BELOW_BYTES = 1 * 1024 * 1024; // 1 MB
 
-export async function compressRoomImage(file: File): Promise<File> {
-  if (file.size <= SKIP_BELOW_BYTES) return file;
+/**
+ * Diagnostics describing what compression did. `skipped` is true whenever the
+ * original file is returned unchanged (already small, no size gain, or a
+ * decode/canvas failure). `width`/`height` are the output dimensions when the
+ * image was actually re-encoded, otherwise null.
+ */
+export interface CompressionStats {
+  skipped: boolean;
+  originalBytes: number;
+  compressedBytes: number;
+  /** compressedBytes / originalBytes — 1 when skipped. */
+  compressionRatio: number;
+  width: number | null;
+  height: number | null;
+}
+
+function passthrough(file: File): { file: File; stats: CompressionStats } {
+  return {
+    file,
+    stats: {
+      skipped: true,
+      originalBytes: file.size,
+      compressedBytes: file.size,
+      compressionRatio: 1,
+      width: null,
+      height: null,
+    },
+  };
+}
+
+/**
+ * Compress a room image and return the (possibly unchanged) file together with
+ * stats for diagnostics. Never rejects — on any failure it resolves with the
+ * original file so the upload can still proceed.
+ */
+export async function compressRoomImageWithStats(
+  file: File,
+): Promise<{ file: File; stats: CompressionStats }> {
+  if (file.size <= SKIP_BELOW_BYTES) return passthrough(file);
 
   return new Promise((resolve) => {
     const objectUrl = URL.createObjectURL(file);
@@ -26,7 +69,7 @@ export async function compressRoomImage(file: File): Promise<File> {
 
     img.onerror = () => {
       URL.revokeObjectURL(objectUrl);
-      resolve(file); // corrupt / unsupported format — send original
+      resolve(passthrough(file)); // corrupt / unsupported format — send original
     };
 
     img.onload = () => {
@@ -51,7 +94,7 @@ export async function compressRoomImage(file: File): Promise<File> {
 
       const ctx = canvas.getContext("2d");
       if (!ctx) {
-        resolve(file); // canvas unavailable
+        resolve(passthrough(file)); // canvas unavailable
         return;
       }
 
@@ -60,14 +103,25 @@ export async function compressRoomImage(file: File): Promise<File> {
       canvas.toBlob(
         (blob) => {
           if (!blob || blob.size >= file.size) {
-            resolve(file); // no gain — send original
+            resolve(passthrough(file)); // no gain — send original
             return;
           }
 
           // Keep the same base name but force .jpg extension so the server
           // receives a consistent MIME type.
           const compressedName = file.name.replace(/\.[^.]+$/, ".jpg");
-          resolve(new File([blob], compressedName, { type: "image/jpeg" }));
+          const compressedFile = new File([blob], compressedName, { type: "image/jpeg" });
+          resolve({
+            file: compressedFile,
+            stats: {
+              skipped: false,
+              originalBytes: file.size,
+              compressedBytes: compressedFile.size,
+              compressionRatio: compressedFile.size / file.size,
+              width: w,
+              height: h,
+            },
+          });
         },
         "image/jpeg",
         JPEG_QUALITY,
@@ -76,4 +130,13 @@ export async function compressRoomImage(file: File): Promise<File> {
 
     img.src = objectUrl;
   });
+}
+
+/**
+ * Backward-compatible wrapper that returns just the file. Existing callers that
+ * don't need stats keep working unchanged.
+ */
+export async function compressRoomImage(file: File): Promise<File> {
+  const { file: result } = await compressRoomImageWithStats(file);
+  return result;
 }

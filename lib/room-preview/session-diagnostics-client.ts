@@ -47,6 +47,7 @@ const UNTHROTTLED_EVENTS = new Set([
   "redirected_to_correct_step",
   "mobile_tap_detected",
   "room_upload_started",
+  "room_image_compressed",
   "room_upload_completed",
   "room_upload_failed",
   "room_upload_url_requested",

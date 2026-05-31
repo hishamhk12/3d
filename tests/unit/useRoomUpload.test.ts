@@ -31,8 +31,21 @@ vi.mock("@/lib/room-preview/room-service", () => ({
 }));
 
 vi.mock("@/lib/room-preview/image-compress", () => ({
-  // Default: no-op compression — returns the same file.
+  // Default: no-op compression — returns the same file with skipped stats.
   compressRoomImage: vi.fn((file: File) => Promise.resolve(file)),
+  compressRoomImageWithStats: vi.fn((file: File) =>
+    Promise.resolve({
+      file,
+      stats: {
+        skipped: true,
+        originalBytes: file.size,
+        compressedBytes: file.size,
+        compressionRatio: 1,
+        width: null,
+        height: null,
+      },
+    }),
+  ),
 }));
 
 vi.mock("@/lib/room-preview/session-client", async (importOriginal) => {
@@ -56,7 +69,7 @@ const {
   uploadFileToR2,
   confirmDirectUpload,
 } = await import("@/lib/room-preview/room-service");
-const { compressRoomImage } = await import("@/lib/room-preview/image-compress");
+const { compressRoomImage, compressRoomImageWithStats } = await import("@/lib/room-preview/image-compress");
 const { RoomPreviewRequestError } = await import("@/lib/room-preview/session-client");
 const { trackClientSessionEvent } = await import(
   "@/lib/room-preview/session-diagnostics-client"
@@ -158,8 +171,21 @@ function eventsOfType(eventType: string) {
 
 beforeEach(() => {
   vi.clearAllMocks();
-  // Default: compressRoomImage is a no-op pass-through.
+  // Default: compression is a no-op pass-through (returns the same file).
   vi.mocked(compressRoomImage).mockImplementation((file: File) => Promise.resolve(file));
+  vi.mocked(compressRoomImageWithStats).mockImplementation((file: File) =>
+    Promise.resolve({
+      file,
+      stats: {
+        skipped: true,
+        originalBytes: file.size,
+        compressedBytes: file.size,
+        compressionRatio: 1,
+        width: null,
+        height: null,
+      },
+    }),
+  );
   // Silence the verbose console.warn/error logs the hook makes on failures.
   vi.spyOn(console, "warn").mockImplementation(() => {});
   vi.spyOn(console, "error").mockImplementation(() => {});
@@ -565,12 +591,22 @@ describe("useRoomUpload", () => {
     });
   });
 
-  describe("compressRoomImage usage", () => {
-    it("calls compressRoomImage on the input file and uploads the compressed result", async () => {
+  describe("compressRoomImageWithStats usage", () => {
+    it("compresses the input file and uploads the compressed result", async () => {
       const params = makeParams();
       const original = makeRoomFile("orig.jpg", 10_000, "image/jpeg");
       const compressed = new File([new Uint8Array(2_000)], "orig-compressed.jpg", { type: "image/jpeg" });
-      vi.mocked(compressRoomImage).mockResolvedValue(compressed);
+      vi.mocked(compressRoomImageWithStats).mockResolvedValue({
+        file: compressed,
+        stats: {
+          skipped: false,
+          originalBytes: 10_000,
+          compressedBytes: 2_000,
+          compressionRatio: 0.2,
+          width: 1024,
+          height: 576,
+        },
+      });
       vi.mocked(requestDirectUploadUrl).mockResolvedValue(makeUploadUrlResponse());
       vi.mocked(uploadFileToR2).mockResolvedValue(undefined);
       vi.mocked(confirmDirectUpload).mockResolvedValue(makeRoomSavedResponse());
@@ -578,12 +614,51 @@ describe("useRoomUpload", () => {
       const { result } = renderHook(() => useRoomUpload(params));
       await act(async () => { await result.current.handleFileSelection("camera", original); });
 
-      expect(compressRoomImage).toHaveBeenCalledWith(original);
+      expect(compressRoomImageWithStats).toHaveBeenCalledWith(original);
       // The compressed file (not the original) is sent to the API.
       expect(requestDirectUploadUrl).toHaveBeenCalledWith(
         SESSION_ID,
         { source: "camera", file: compressed },
       );
+    });
+
+    it("emits room_image_compressed diagnostics with size, ratio, and dimensions", async () => {
+      const params = makeParams();
+      const original = makeRoomFile("orig.jpg", 10_000, "image/jpeg");
+      const compressed = new File([new Uint8Array(2_000)], "orig-compressed.jpg", { type: "image/jpeg" });
+      vi.mocked(compressRoomImageWithStats).mockResolvedValue({
+        file: compressed,
+        stats: {
+          skipped: false,
+          originalBytes: 10_000,
+          compressedBytes: 2_000,
+          compressionRatio: 0.2,
+          width: 1024,
+          height: 576,
+        },
+      });
+      vi.mocked(requestDirectUploadUrl).mockResolvedValue(makeUploadUrlResponse());
+      vi.mocked(uploadFileToR2).mockResolvedValue(undefined);
+      vi.mocked(confirmDirectUpload).mockResolvedValue(makeRoomSavedResponse());
+
+      const { result } = renderHook(() => useRoomUpload(params));
+      await act(async () => { await result.current.handleFileSelection("camera", original); });
+
+      expect(eventsOfType("room_image_compressed")[0]).toMatchObject({
+        source: "mobile",
+        eventType: "room_image_compressed",
+        level: "info",
+        metadata: {
+          source: "camera",
+          skipped: false,
+          originalBytes: 10_000,
+          compressedBytes: 2_000,
+          compressionRatio: 0.2,
+          compressionPercent: 80,
+          width: 1024,
+          height: 576,
+        },
+      });
     });
   });
 });

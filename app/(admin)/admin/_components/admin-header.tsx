@@ -74,6 +74,7 @@ export function AdminHeader() {
             {navLink("/admin/analytics", "Analytics")}
             {navLink("/admin/diagnostics", "Diagnostics")}
             {navLink("/admin/render-errors", "Render Errors")}
+            {navLink("/admin/chatbot", "Chatbot")}
           </nav>
         </div>
 

@@ -42,6 +42,26 @@ const REQUIRED: EnvSpec[] = [
     productionOnly: true,
   },
   {
+    key: "SELLER_SESSION_SECRET",
+    hint: "Signing secret for the seller_session JWT (separate from admin/customer secrets) — generate with: openssl rand -hex 32",
+    productionOnly: true,
+  },
+  {
+    key: "CHATBOT_FASTAPI_URL",
+    hint: 'Base URL of the chatbot FastAPI service for the seller-chat proxy, e.g. "http://localhost:8001" (server-only, private network — never NEXT_PUBLIC_)',
+    productionOnly: true,
+  },
+  {
+    key: "EXTERNAL_SELLER_JWT_SECRET",
+    hint: "Signs the short-lived external-seller token sent to FastAPI /internal/chat. MUST match the FastAPI service value and stay SEPARATE from SELLER_SESSION_SECRET and INTERNAL_JWT_SECRET — generate with: openssl rand -hex 32",
+    productionOnly: true,
+  },
+  {
+    key: "INTERNAL_JWT_SECRET",
+    hint: "Signs the short-lived internal ADMIN token for admin→FastAPI calls (import/status/metrics). MUST match the FastAPI service value and stay SEPARATE from EXTERNAL_SELLER_JWT_SECRET and SELLER_SESSION_SECRET — generate with: openssl rand -hex 32",
+    productionOnly: true,
+  },
+  {
     key: "GEMINI_API_KEY",
     hint: "Google Gemini API key — required by the render pipeline",
     productionOnly: true,
@@ -82,5 +102,27 @@ export function validateEnv(): void {
         missing.join("\n\n") +
         `\n\nSee .env.example for full documentation on each variable.`,
     );
+  }
+
+  // The three JWT secrets are SEPARATE trust boundaries and must never share a
+  // value. Enforced in production (where all three are set); a dev with only
+  // some set is not blocked.
+  if (isProd) {
+    const secrets: Array<[string, string | undefined]> = [
+      ["INTERNAL_JWT_SECRET", process.env.INTERNAL_JWT_SECRET?.trim()],
+      ["EXTERNAL_SELLER_JWT_SECRET", process.env.EXTERNAL_SELLER_JWT_SECRET?.trim()],
+      ["SELLER_SESSION_SECRET", process.env.SELLER_SESSION_SECRET?.trim()],
+    ];
+    for (let i = 0; i < secrets.length; i++) {
+      for (let j = i + 1; j < secrets.length; j++) {
+        const [aName, aVal] = secrets[i];
+        const [bName, bVal] = secrets[j];
+        if (aVal && bVal && aVal === bVal) {
+          throw new Error(
+            `[startup] ${aName} and ${bName} must be distinct secrets (separate trust boundaries).`,
+          );
+        }
+      }
+    }
   }
 }

@@ -1,0 +1,145 @@
+/* ============================================================================
+   Seller-chat scoped styles. Ported from the chatbot's globals.css but SCOPED to
+   `.seller-chat-scope` so nothing leaks into the 3d app: no global RTL, no global
+   font change, no Tailwind v3 config. Only the tokens + chat/animation classes
+   the ported UI needs. Brand values mirror the original (navy #003A7D, cyan
+   #00AFD7, gray #5B6770, orange #FA4616). Keyframes are namespaced `sc-*`.
+   ============================================================================ */
+.seller-chat-scope {
+  /* Cairo (scoped via next/font variable on the wrapper) → fallbacks. The 3d
+     global Tajawal/Inter fonts are untouched outside this subtree. */
+  font-family: var(--font-cairo), "Noto Sans Arabic", Arial, system-ui, sans-serif;
+
+  /* Brand + motion tokens (scoped). */
+  --sc-brand: #003a7d;
+  --sc-accent: #00afd7;
+  --sc-accent-dark: #0090b4;
+  --sc-gray: #5b6770;
+  --sc-orange: #fa4616;
+
+  --sc-motion-fast: 160ms;
+  --sc-motion-normal: 280ms;
+  --sc-motion-slow: 420ms;
+  --sc-ease-standard: cubic-bezier(0.2, 0, 0, 1);
+  --sc-ease-emphasized: cubic-bezier(0.22, 1, 0.36, 1);
+  --sc-ease-enter: cubic-bezier(0, 0, 0.2, 1);
+  --sc-stagger-small: 40ms;
+}
+
+/* Keep product codes / English names LTR inside RTL text. */
+.seller-chat-scope .sc-ltr {
+  direction: ltr;
+  unicode-bidi: embed;
+  display: inline-block;
+}
+
+/* Soft enterprise card shadow (was Tailwind `shadow-card`). */
+.seller-chat-scope .sc-shadow-card {
+  box-shadow:
+    0 1px 2px 0 rgba(0, 60, 113, 0.06),
+    0 4px 12px -6px rgba(0, 60, 113, 0.12);
+}
+
+/* Mobile-app shell: fill the stable viewport height; pinned composer. Desktop
+   (>=640px) reverts to natural height. */
+.seller-chat-scope .sc-shell {
+  height: calc(100dvh - var(--sc-offset, 0px) - env(safe-area-inset-bottom, 0px));
+  padding-bottom: calc(1rem + env(safe-area-inset-bottom));
+}
+@supports not (height: 100dvh) {
+  .seller-chat-scope .sc-shell {
+    height: calc(100vh - var(--sc-offset, 0px));
+  }
+}
+@media (min-width: 640px) {
+  .seller-chat-scope .sc-shell {
+    height: auto;
+    padding-bottom: 1.5rem;
+  }
+}
+
+/* Always-on gentle transitions (safe under reduced motion). */
+.seller-chat-scope .sc-pill,
+.seller-chat-scope .sc-send {
+  transition:
+    transform var(--sc-motion-fast) var(--sc-ease-standard),
+    box-shadow var(--sc-motion-fast) var(--sc-ease-standard),
+    background-color var(--sc-motion-fast) var(--sc-ease-standard),
+    border-color var(--sc-motion-fast) var(--sc-ease-standard),
+    opacity var(--sc-motion-fast) var(--sc-ease-standard);
+}
+.seller-chat-scope .sc-card {
+  transition:
+    transform var(--sc-motion-normal) var(--sc-ease-standard),
+    box-shadow var(--sc-motion-normal) var(--sc-ease-standard);
+}
+
+@media (prefers-reduced-motion: no-preference) {
+  .seller-chat-scope .sc-send:hover:not(:disabled) {
+    transform: translateY(-1px);
+  }
+  .seller-chat-scope .sc-send:active:not(:disabled) {
+    transform: translateY(0) scale(0.97);
+  }
+  .seller-chat-scope .sc-pill:hover:not(:disabled) {
+    transform: translateY(-1px);
+  }
+  .seller-chat-scope .sc-pill:active:not(:disabled) {
+    transform: scale(0.98);
+  }
+  .seller-chat-scope .sc-card:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 8px 20px -10px rgba(0, 60, 113, 0.28);
+  }
+  .seller-chat-scope .sc-user-in {
+    animation: sc-user-in var(--sc-motion-normal) var(--sc-ease-emphasized) both;
+  }
+  .seller-chat-scope .sc-bot-in {
+    animation: sc-bot-in var(--sc-motion-slow) var(--sc-ease-emphasized) both;
+  }
+  .seller-chat-scope .sc-card-in {
+    animation: sc-card-in var(--sc-motion-slow) var(--sc-ease-emphasized) both;
+  }
+  .seller-chat-scope .sc-loading {
+    animation: sc-loading-pulse 1.6s var(--sc-ease-standard) infinite;
+  }
+  .seller-chat-scope .sc-dropdown-in {
+    animation: sc-dropdown-in var(--sc-motion-fast) var(--sc-ease-enter) both;
+  }
+  .seller-chat-scope .sc-robot {
+    opacity: 0;
+    animation: sc-robot-in var(--sc-motion-slow) var(--sc-ease-emphasized) 120ms forwards;
+  }
+  .seller-chat-scope .sc-robot-wrap {
+    animation: sc-float 4.5s var(--sc-ease-standard) 760ms infinite;
+  }
+}
+
+@keyframes sc-user-in {
+  from { opacity: 0; transform: translateY(8px); }
+  to { opacity: 1; transform: none; }
+}
+@keyframes sc-bot-in {
+  from { opacity: 0; transform: translateY(6px) scale(0.98); }
+  to { opacity: 1; transform: none; }
+}
+@keyframes sc-card-in {
+  from { opacity: 0; transform: translateY(10px); }
+  to { opacity: 1; transform: none; }
+}
+@keyframes sc-loading-pulse {
+  0%, 100% { opacity: 0.5; }
+  50% { opacity: 1; }
+}
+@keyframes sc-dropdown-in {
+  from { opacity: 0; transform: translateY(-6px); }
+  to { opacity: 1; transform: none; }
+}
+@keyframes sc-robot-in {
+  from { opacity: 0; transform: scale(0.92); }
+  to { opacity: 1; transform: scale(1); }
+}
+@keyframes sc-float {
+  0%, 100% { transform: translateY(0); }
+  50% { transform: translateY(-2.5%); }
+}

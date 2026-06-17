@@ -6,7 +6,7 @@
 //
 // This page introduces NO customer authentication — the Customer option is a plain
 // navigation to the current public entry point.
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 
 type Tab = "customer" | "seller";
@@ -14,6 +14,15 @@ type Tab = "customer" | "seller";
 export default function LoginPage() {
   const router = useRouter();
   const [tab, setTab] = useState<Tab>("customer");
+
+  // Honor ?type=seller (e.g. arriving from the mobile role screen or a seller
+  // redirect) by pre-selecting the Seller tab. Read after mount to avoid any
+  // SSR/hydration mismatch; both tabs remain visible and selectable.
+  useEffect(() => {
+    if (new URLSearchParams(window.location.search).get("type") === "seller") {
+      setTab("seller");
+    }
+  }, []);
   const [sellerCode, setSellerCode] = useState("");
   const [showroomCode, setShowroomCode] = useState("");
   const [password, setPassword] = useState("");

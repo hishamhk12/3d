@@ -2,8 +2,7 @@
 
 import Image from "next/image";
 import { useEffect, useRef, useState } from "react";
-import { ImagePlus, LoaderCircle, RefreshCw } from "lucide-react";
-import { AnimatedButton } from "@/components/ui/AnimatedButton";
+import { ImageIcon, LoaderCircle, RefreshCw, Upload } from "lucide-react";
 import { useI18n } from "@/lib/i18n/provider";
 import type { RoomPreviewRoomSource, SelectedRoom } from "@/lib/room-preview/types";
 
@@ -13,6 +12,16 @@ interface RoomStepProps {
   selectedRoom: SelectedRoom | null;
   onFileSelection: (source: Extract<RoomPreviewRoomSource, "gallery">, file: File | null) => void;
 }
+
+// Onboarding/login pill button family (charcoal primary, cyan secondary).
+// Same height / pill radius / weight / centered text / states as `عميل`,
+// `بائع`, `متابعة`, `ابدأ التجربة`, `تسجيل الدخول`.
+const PILL_BTN =
+  "flex h-14 w-full items-center justify-center rounded-[32px] text-lg font-bold text-white " +
+  "transition-all duration-200 active:scale-[0.98] focus-visible:outline-none focus-visible:ring-2 " +
+  "focus-visible:ring-offset-2 disabled:opacity-40 disabled:cursor-not-allowed";
+const PRIMARY_BTN_STYLE = { background: "#192126", boxShadow: "0 10px 26px rgba(25,33,38,0.28)" } as const;
+const SECONDARY_BTN_STYLE = { background: "#00AFD7", boxShadow: "0 10px 26px rgba(0,175,215,0.30)" } as const;
 
 export default function RoomStep({
   isSavingRoom,
@@ -57,8 +66,7 @@ export default function RoomStep({
   }, [selectedRoom?.imageUrl]);
 
   return (
-    <section className={`mt-8 rounded-[28px] border border-[var(--border)] bg-[var(--bg-surface)] p-6 ${dir === "rtl" ? "text-right" : "text-left"}`}>
-
+    <section className={`mt-4 ${dir === "rtl" ? "text-right" : "text-left"}`}>
       <input
         ref={inputRef}
         type="file"
@@ -73,61 +81,82 @@ export default function RoomStep({
         }}
       />
 
-      {/* Header */}
-      <p className="text-xs font-semibold tracking-[0.18em] text-[var(--brand-cyan)] uppercase">
-        {isAr ? "صورة الغرفة" : "Room Image"}
-      </p>
-      <h2 className="font-display mt-2 text-2xl font-semibold text-[var(--text-primary)]">
+      {/* Heading */}
+      <h2 className="font-display text-center text-2xl font-semibold text-[var(--text-primary)]">
         {isAr ? "ارفع صورة غرفتك" : "Upload your room image"}
       </h2>
-      <p className="mt-3 text-sm leading-7 text-[var(--text-secondary)]">
-        {isAr ? "اختر صورة واضحة من معرض الهاتف لتجربة المنتج داخل مساحتك." : "Choose a clear photo from your gallery to experience the product in your space."}
-      </p>
-
-      <p className="mt-2 rounded-2xl border border-[var(--brand-cyan)]/15 bg-[var(--brand-cyan)]/[0.06] px-3 py-2 text-xs leading-6 text-[var(--text-secondary)]">
+      <p className="mx-auto mt-2 max-w-xs text-center text-sm leading-7 text-[var(--text-secondary)]">
         {isAr
-          ? "لأفضل نتيجة، صوّر الغرفة بشكل أفقي وبإضاءة واضحة."
-          : "For best results, capture the room horizontally with clear lighting."}
+          ? "اختر صورة واضحة لتجربة المنتج داخل مساحتك."
+          : "Choose a clear photo to preview the product in your space."}
       </p>
 
-      {/* Upload tap area */}
       {!hasPreview ? (
-        <AnimatedButton
-          type="button"
-          onClick={openPicker}
-          disabled={isSavingRoom}
-          aria-label={isAr ? "اختيار صورة من معرض الهاتف" : "Choose image from gallery"}
-          className="mt-6 flex w-full flex-col items-center justify-center gap-4 rounded-[24px] border-2 border-dashed border-[var(--brand-cyan)]/20 bg-[var(--brand-cyan)]/[0.04] py-12 transition-all duration-300 hover:border-[var(--brand-cyan)]/40 hover:bg-[var(--brand-cyan)]/[0.08] disabled:cursor-not-allowed disabled:opacity-50"
-        >
-          {isSavingRoom ? (
-            <>
-              <LoaderCircle className="size-8 animate-spin text-[var(--brand-cyan)]" />
-              <span className="text-sm font-semibold text-[var(--brand-cyan)]">
-                {roomSaveStatusLabel ?? t.common.actions.loading}
-              </span>
-            </>
-          ) : (
-            <>
-              <div className="flex h-[60px] w-[60px] items-center justify-center rounded-full bg-gradient-to-br from-[#003C71] to-[#00AFD7]/60 shadow-[0_8px_24px_rgba(0,175,215,0.25)]">
-                <ImagePlus className="size-7 text-white" strokeWidth={1.75} />
-              </div>
-              <div className="flex flex-col items-center gap-1">
-                <span className="text-base font-semibold text-[var(--text-primary)]">
-                  {isAr ? "اختيار صورة من المعرض" : "Select image from gallery"}
-                </span>
-                <span className="text-xs text-[var(--text-muted)]">
-                  {isAr ? "اضغط هنا للاختيار" : "Tap here to select"}
-                </span>
-              </div>
-            </>
-          )}
-        </AnimatedButton>
-      ) : null}
+        <>
+          {/* Upload drop-zone — Figma uploader card adapted to brand tokens */}
+          <button
+            type="button"
+            onClick={openPicker}
+            disabled={isSavingRoom}
+            aria-label={isAr ? "اختيار صورة من معرض الهاتف" : "Choose image from gallery"}
+            className="group mt-6 flex w-full flex-col items-center justify-center gap-4 rounded-[40px] border border-[var(--border)] bg-[var(--bg-surface)] p-3 shadow-[var(--shadow-lg)] transition-all duration-300 hover:border-[var(--brand-cyan)]/40 disabled:cursor-not-allowed disabled:opacity-60"
+          >
+            <div className="flex w-full flex-col items-center justify-center gap-4 rounded-[32px] border border-[var(--brand-cyan)]/25 bg-[var(--brand-cyan)]/[0.05] px-6 py-10">
+              {isSavingRoom ? (
+                <>
+                  <LoaderCircle className="size-8 animate-spin text-[var(--brand-cyan)]" />
+                  <span className="text-sm font-semibold text-[var(--brand-cyan)]">
+                    {roomSaveStatusLabel ?? t.common.actions.loading}
+                  </span>
+                </>
+              ) : (
+                <>
+                  {/* Document + upload-badge icon (Figma 3:30) */}
+                  <div className="relative flex items-center justify-center">
+                    <div
+                      aria-hidden
+                      className="absolute size-[116px] rounded-full bg-[var(--brand-cyan)]/[0.08]"
+                    />
+                    <div className="relative">
+                      <div className="flex h-[64px] w-[56px] items-center justify-center rounded-[12px] border border-[var(--border-strong)] bg-[var(--bg-surface-2)]">
+                        <ImageIcon className="size-6 text-[var(--text-muted)]" strokeWidth={1.75} />
+                      </div>
+                      <div className="absolute -bottom-2.5 -left-2.5 flex size-9 items-center justify-center rounded-full bg-gradient-to-br from-[#003C71] to-[#00AFD7] shadow-[0_6px_18px_rgba(0,175,215,0.35)]">
+                        <Upload className="size-4 text-white" strokeWidth={2.25} />
+                      </div>
+                    </div>
+                  </div>
+                  <span className="text-xs font-medium tracking-wide text-[var(--text-muted)]">
+                    {isAr ? "JPG أو PNG" : "JPG or PNG"}
+                  </span>
+                </>
+              )}
+            </div>
+          </button>
 
-      {/* Preview */}
-      {hasPreview ? (
+          {/* Primary action — onboarding pill family */}
+          {!isSavingRoom ? (
+            <button
+              type="button"
+              onClick={openPicker}
+              className={`${PILL_BTN} mt-4 focus-visible:ring-[#192126]/45`}
+              style={PRIMARY_BTN_STYLE}
+            >
+              {isAr ? "اختيار صورة من المعرض" : "Select image from gallery"}
+            </button>
+          ) : null}
+
+          {/* Photo guidance */}
+          <p className="mt-4 text-center text-xs leading-6 text-[var(--text-muted)]">
+            {isAr
+              ? "صوّر الغرفة بشكل أفقي وبإضاءة واضحة."
+              : "Capture the room horizontally with clear lighting."}
+          </p>
+        </>
+      ) : (
+        /* Preview state */
         <div className="mt-6">
-          <div className="relative aspect-[4/3] w-full overflow-hidden rounded-[20px] border border-[var(--border)] shadow-[0_8px_32px_rgba(0,0,0,0.20)]">
+          <div className="relative aspect-[4/3] w-full overflow-hidden rounded-[28px] border border-[var(--border)] shadow-[0_8px_32px_rgba(0,0,0,0.20)]">
             <Image
               src={selectedRoom!.imageUrl!}
               alt=""
@@ -145,7 +174,7 @@ export default function RoomStep({
               className="object-contain"
             />
             {isSavingRoom ? (
-              <div className="absolute inset-0 flex flex-col items-center justify-center gap-3 rounded-[20px] bg-[var(--bg-page)]/80 backdrop-blur-sm">
+              <div className="absolute inset-0 flex flex-col items-center justify-center gap-3 rounded-[28px] bg-[var(--bg-page)]/80 backdrop-blur-sm">
                 <LoaderCircle className="size-7 animate-spin text-[var(--brand-cyan)]" />
                 <span className="text-sm font-semibold text-[var(--text-secondary)]">
                   {roomSaveStatusLabel ?? t.common.actions.loading}
@@ -155,31 +184,26 @@ export default function RoomStep({
           </div>
 
           {isPortraitPreview ? (
-            <p className="mt-3 rounded-2xl border border-amber-300/25 bg-amber-300/10 px-3 py-2 text-xs leading-6 text-[var(--text-secondary)]">
+            <p className="mt-3 rounded-2xl border border-amber-300/25 bg-amber-300/10 px-3 py-2 text-center text-xs leading-6 text-[var(--text-secondary)]">
               {isAr
-                ? "الصورة طولية، قد تظهر بفراغات جانبية على الشاشة. الأفضل تصوير الغرفة أفقياً."
-                : "This photo is portrait, so it may show side spacing on the screen. Landscape room photos work best."}
+                ? "الصورة طولية، قد تظهر بفراغات جانبية. الأفضل تصوير الغرفة أفقياً."
+                : "This photo is portrait, so it may show side spacing. Landscape photos work best."}
             </p>
           ) : null}
 
-          <p className="mt-3 rounded-2xl border border-[var(--brand-cyan)]/15 bg-[var(--brand-cyan)]/[0.06] px-3 py-2 text-xs leading-6 text-[var(--text-secondary)]">
-            {isAr
-              ? "لأفضل نتيجة، تأكد أن الأرضية ظاهرة بوضوح في الصورة."
-              : "For best results, make sure the floor is clearly visible in the photo."}
-          </p>
-
           {!isSavingRoom ? (
-            <AnimatedButton
+            <button
               type="button"
               onClick={openPicker}
-              className="mt-4 flex w-full items-center justify-center gap-2 rounded-[20px] border border-[var(--border)] bg-[var(--bg-surface-2)] py-3 text-sm font-semibold text-[var(--text-secondary)] transition-all duration-200 hover:border-[var(--border-strong)] hover:text-[var(--text-primary)]"
+              className={`${PILL_BTN} mt-4 gap-2 focus-visible:ring-[var(--brand-cyan)]/60`}
+              style={SECONDARY_BTN_STYLE}
             >
-              <RefreshCw className="size-4" strokeWidth={2} />
-              {isAr ? "تغيير الصورة" : "Change Image"}
-            </AnimatedButton>
+              <RefreshCw className="size-5" strokeWidth={2.25} />
+              {isAr ? "تغيير الصورة" : "Change image"}
+            </button>
           ) : null}
         </div>
-      ) : null}
+      )}
     </section>
   );
 }

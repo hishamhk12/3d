@@ -55,18 +55,13 @@ export default async function GatePage({ params, searchParams }: GatePageProps) 
 
   return (
     <main
-      className="relative min-h-screen overflow-hidden gate-bg text-[var(--text-primary)]"
+      className="relative min-h-screen bg-white text-[var(--text-primary)]"
       dir={locale === "ar" ? "rtl" : "ltr"}
       lang={locale}
     >
-      {/* Bokeh */}
-      <div aria-hidden="true" className="gate-bokeh">
-        <span /><span /><span /><span /><span /><span />
-      </div>
-
-      {/* GateForm owns its own layout per step: the role-selection screen renders an
-          immersive hero layout, while the customer/employee form steps render inside
-          the shared glass card. */}
+      {/* GateForm owns its own layout per step. Every step renders a full-screen
+          white layer (the approved role-selection visual system) — no blue
+          background, no glass card. */}
       <GateForm
         sessionId={sessionId}
         locale={locale}

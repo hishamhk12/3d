@@ -5,7 +5,6 @@ import Image from "next/image";
 import { useRouter } from "next/navigation";
 import { useFormStatus } from "react-dom";
 import { ChevronLeft, ChevronRight } from "lucide-react";
-import { CompanyLogo } from "@/components/CompanyLogo";
 import { submitGateForm } from "../actions";
 import { trackClientSessionEvent } from "@/lib/room-preview/session-diagnostics-client";
 import {
@@ -56,24 +55,87 @@ interface GateFormProps {
   error?: string;
 }
 
+// ─── Approved design system (from the role-selection master screen) ─────────────
+
+// Shared pill button: same height / pill radius / weight / centered alignment as
+// the role-selection buttons, with enlarged Arabic text (text-lg). Primary =
+// dark charcoal, secondary = project cyan; both use white text for contrast.
+const PILL_BTN =
+  "flex h-14 w-full items-center justify-center rounded-[32px] text-lg font-bold text-white " +
+  "transition-all duration-200 active:scale-[0.98] focus-visible:outline-none focus-visible:ring-2 " +
+  "focus-visible:ring-offset-2 disabled:opacity-40 disabled:cursor-not-allowed";
+const PILL_PRIMARY = "focus-visible:ring-[#192126]/45";
+const PILL_SECONDARY = "focus-visible:ring-[var(--brand-cyan)]/60";
+const PRIMARY_BTN_STYLE = { background: "#192126", boxShadow: "0 10px 26px rgba(25,33,38,0.28)" } as const;
+const SECONDARY_BTN_STYLE = { background: "#00AFD7", boxShadow: "0 10px 26px rgba(0,175,215,0.30)" } as const;
+
 // ─── Small shared pieces ───────────────────────────────────────────────────────
 
 /**
- * Shared shell for the customer / employee form steps. Reproduces the glass card
- * + brand header that previously lived in the gate page, so those steps look
- * unchanged. The role-selection step renders its own immersive layout instead.
+ * Shared shell for the customer / employee form steps. Matches the approved
+ * role-selection screen: a clean full-screen white section (no blue background,
+ * no floating glass card), centered, scrollable when content is tall, and
+ * safe-area aware so the whole QR flow reads as one design system.
  */
-function FormShell({ subtitle, children }: { subtitle: string; children: React.ReactNode }) {
+function FormShell({ children }: { children: React.ReactNode }) {
   return (
-    <div className="mx-auto flex min-h-screen max-w-2xl flex-col px-4 py-10">
-      <div className="flex-1 flex flex-col justify-center">
-        <div className="tour-panel rounded-3xl p-8" style={{ boxShadow: "var(--shadow-xl)" }}>
-          <div className="text-center mb-8 flex flex-col items-center">
-            <CompanyLogo className="h-14 w-40 object-contain text-[var(--brand-navy)] mb-4" />
-            <p className="text-sm text-[var(--text-secondary)] mt-1">{subtitle}</p>
-          </div>
-          {children}
-        </div>
+    <div className="fixed inset-0 z-20 flex flex-col overflow-y-auto bg-white" style={{ minHeight: "100svh" }}>
+      <div
+        className="mx-auto flex min-h-full w-full max-w-md flex-col justify-center px-5"
+        style={{
+          paddingTop: "max(1.75rem, env(safe-area-inset-top))",
+          paddingBottom: "max(1.75rem, env(safe-area-inset-bottom))",
+        }}
+      >
+        {children}
+      </div>
+    </div>
+  );
+}
+
+/**
+ * The approved onboarding image composition (single source of truth for the
+ * role-selection AND customer-choice screens): full-bleed main_pic.png anchored
+ * to the bottom so the lower camera UI (progress row, the instruction sentence
+ * "صوّر غرفتك، اختر المنتج، وشاهد التصميم قبل التنفيذ.", shutter and camera-switch
+ * icon) stays visible, a soft white fade that only softens the bottom edge, and a
+ * white content section. Callers pass the heading + buttons as children.
+ */
+function OnboardingImageLayout({ children }: { children: React.ReactNode }) {
+  return (
+    // Normal document flow with a one-screen minimum: the button screens fill
+    // exactly one viewport (no scroll); the taller form screens grow past it and
+    // the page scrolls naturally so every field/button stays reachable.
+    <div className="relative flex w-full flex-col bg-white" style={{ minHeight: "100svh" }}>
+      {/* Main image — edge to edge, anchored bottom to keep the camera UI visible */}
+      <div className="relative w-full shrink-0" style={{ height: "70svh" }}>
+        <Image
+          src="/room-preview/main_pic.png"
+          alt=""
+          fill
+          priority
+          unoptimized
+          sizes="100vw"
+          className="object-cover object-bottom"
+        />
+        {/* Soft white fade — only below the shutter; does not cover the camera UI */}
+        <div
+          aria-hidden
+          className="pointer-events-none absolute inset-x-0 bottom-0"
+          style={{
+            height: "10%",
+            background:
+              "linear-gradient(to bottom, rgba(255,255,255,0) 0%, rgba(255,255,255,0) 45%, rgba(255,255,255,0.8) 80%, #ffffff 100%)",
+          }}
+        />
+      </div>
+
+      {/* White content section — heading + page-specific content */}
+      <div
+        className="flex flex-1 flex-col items-center bg-white px-5 text-center"
+        style={{ paddingBottom: "max(2rem, env(safe-area-inset-bottom))" }}
+      >
+        {children}
       </div>
     </div>
   );
@@ -116,7 +178,7 @@ function ErrorBanner({ message }: { message: string }) {
 function SubmitButton({
   label,
   pendingLabel,
-  className = "btn-cta w-full mt-2",
+  className = `${PILL_BTN} ${PILL_PRIMARY} mt-2`,
 }: {
   label: React.ReactNode;
   pendingLabel: string;
@@ -124,7 +186,7 @@ function SubmitButton({
 }) {
   const { pending } = useFormStatus();
   return (
-    <button type="submit" disabled={pending} className={className}>
+    <button type="submit" disabled={pending} className={className} style={PRIMARY_BTN_STYLE}>
       {pending ? (
         <span className="flex items-center justify-center gap-2">
           <span
@@ -139,50 +201,6 @@ function SubmitButton({
     </button>
   );
 }
-
-function SectionCard({
-  onClick,
-  icon,
-  label,
-  desc,
-}: {
-  onClick: () => void;
-  icon: React.ReactNode;
-  label: string;
-  desc: string;
-}) {
-  return (
-    <button
-      type="button"
-      onClick={onClick}
-      className="flex flex-col items-center gap-3 py-6 px-4 rounded-2xl cursor-pointer transition-all border border-[var(--border)] bg-[var(--bg-surface)] hover:border-[var(--border-accent)] hover:bg-[var(--bg-surface-2)] active:scale-[0.98]"
-    >
-      <div className="w-12 h-12 rounded-2xl bg-[var(--brand-cyan)]/10 border border-[var(--brand-cyan)]/20 flex items-center justify-center text-[var(--brand-cyan)]">
-        {icon}
-      </div>
-      <div className="text-center">
-        <p className="font-semibold text-[var(--text-primary)] text-sm">{label}</p>
-        <p className="text-xs text-[var(--text-muted)] mt-0.5">{desc}</p>
-      </div>
-    </button>
-  );
-}
-
-// ─── Icons ────────────────────────────────────────────────────────────────────
-
-const NewPersonIcon = (
-  <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2}
-      d="M18 9v3m0 0v3m0-3h3m-3 0h-3m-2-5a4 4 0 11-8 0 4 4 0 018 0zM3 20a6 6 0 0112 0v1H3v-1z" />
-  </svg>
-);
-
-const ReturningPersonIcon = (
-  <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2}
-      d="M11 16l-4-4m0 0l4-4m-4 4h14m-5 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h7a3 3 0 013 3v1" />
-  </svg>
-);
 
 // ─── Main component ────────────────────────────────────────────────────────────
 
@@ -272,122 +290,91 @@ export function GateForm({
   // two stacked pill buttons (350×56, radius 32) in the white section (no logo).
   if (step === "role") {
     return (
-      <div className="fixed inset-0 z-20 flex flex-col bg-white" style={{ minHeight: "100svh" }}>
-        {/* 1. Main image — edge to edge. Anchored to the BOTTOM so the lower
-            camera interface stays visible: the progress row (التقط صورة / ارفع
-            صورة / اختر المنتج / شاهد النتيجة), the instruction sentence
-            (صوّر غرفتك، اختر المنتج، وشاهد التصميم قبل التنفيذ.), the shutter and
-            the camera-switch icon. At ~70svh the visible crop is roughly source
-            15%→100%, which keeps the marketing text (source 36%–68%) too. */}
-        <div className="relative w-full shrink-0" style={{ height: "70svh" }}>
-          <Image
-            src="/room-preview/main_pic.png"
-            alt=""
-            fill
-            priority
-            unoptimized
-            sizes="100vw"
-            className="object-cover object-bottom"
-          />
-          {/* 2. Soft white fade — sits only below the shutter (very bottom of the
-              image). It is fully transparent through the camera UI, so the
-              instruction sentence, progress row and shutter are NOT covered; it
-              only softens the dark bottom bar into the white content section. */}
-          <div
-            aria-hidden
-            className="pointer-events-none absolute inset-x-0 bottom-0"
-            style={{
-              height: "10%",
-              background:
-                "linear-gradient(to bottom, rgba(255,255,255,0) 0%, rgba(255,255,255,0) 45%, rgba(255,255,255,0.8) 80%, #ffffff 100%)",
-            }}
-          />
+      <OnboardingImageLayout>
+        {/* Heading — ~24px below the fade */}
+        <h1 className="pt-6 font-display text-2xl font-extrabold leading-tight text-[#192126]">
+          كيف ترغب بالمتابعة؟
+        </h1>
+
+        {/* Two stacked buttons — ~18px under the heading, 12px between them */}
+        <div className="flex w-full flex-col gap-3 pt-[18px]">
+          {/* عميل — charcoal primary. Continues the customer flow (UNCHANGED). */}
+          <button
+            type="button"
+            onClick={() => setStep("customer_type")}
+            className={`${PILL_BTN} ${PILL_PRIMARY}`}
+            style={PRIMARY_BTN_STYLE}
+          >
+            {t.customer}
+          </button>
+
+          {/* بائع — cyan secondary, identical geometry. Opens /login?type=seller. */}
+          <button
+            type="button"
+            onClick={() => router.push("/login?type=seller")}
+            className={`${PILL_BTN} ${PILL_SECONDARY}`}
+            style={SECONDARY_BTN_STYLE}
+          >
+            {t.seller}
+          </button>
         </div>
-
-        {/* White content section — the heading + both buttons move down together
-            as one group, sitting in the lower white area below the camera UI/fade
-            with a moderate amount of space beneath the seller button. */}
-        <div
-          className="flex flex-1 flex-col items-center bg-white px-5 text-center"
-          style={{ paddingBottom: "max(2rem, env(safe-area-inset-bottom))" }}
-        >
-          {/* Heading — ~24px below the fade */}
-          <h1 className="pt-6 font-display text-2xl font-extrabold leading-tight text-[#192126]">
-            كيف ترغب بالمتابعة؟
-          </h1>
-
-          {/* Two stacked buttons — ~18px under the heading, 12px between them */}
-          <div className="flex w-full flex-col gap-3 pt-[18px]">
-            {/* عميل — near-black Figma button. Continues the customer flow (UNCHANGED). */}
-            <button
-              type="button"
-              onClick={() => setStep("customer_type")}
-              className="flex h-14 w-full items-center justify-center rounded-[32px] text-base font-bold text-white transition-all duration-200 active:scale-[0.98] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#192126]/45 focus-visible:ring-offset-2"
-              style={{ background: "#192126", boxShadow: "0 10px 26px rgba(25,33,38,0.28)" }}
-            >
-              {t.customer}
-            </button>
-
-            {/* بائع — project cyan, identical geometry. Opens /login?type=seller. */}
-            <button
-              type="button"
-              onClick={() => router.push("/login?type=seller")}
-              className="flex h-14 w-full items-center justify-center rounded-[32px] text-base font-bold text-white transition-all duration-200 active:scale-[0.98] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--brand-cyan)]/60 focus-visible:ring-offset-2"
-              style={{ background: "#00AFD7", boxShadow: "0 10px 26px rgba(0,175,215,0.30)" }}
-            >
-              {t.seller}
-            </button>
-          </div>
-        </div>
-      </div>
+      </OnboardingImageLayout>
     );
   }
 
-  // ── Customer type selection ───────────────────────────────────────────────
+  // ── Customer type selection — same onboarding composition as the role screen,
+  // only the two buttons change (عميل جديد / عميل حالي). No chip, arrow, or
+  // subtitle. ───────────────────────────────────────────────────────────────
   if (step === "customer_type") {
     return (
-      <FormShell subtitle={t.subtitle}>
-      <div className="w-full max-w-sm mx-auto">
-        <div className="flex items-center gap-2 mb-6 rtl:flex-row-reverse">
-          <BackBtn onClick={() => setStep("role")} />
-          <RolePill label={t.customer} />
-        </div>
-        <p className="text-center text-sm font-medium text-[var(--text-secondary)] mb-6">
-          {t.newOrExisting}
-        </p>
-        <div className="grid grid-cols-2 gap-3">
-          <SectionCard
+      <OnboardingImageLayout>
+        {/* Heading — identical to the role screen for a continuous look */}
+        <h1 className="pt-6 font-display text-2xl font-extrabold leading-tight text-[#192126]">
+          كيف ترغب بالمتابعة؟
+        </h1>
+
+        {/* Two stacked buttons — same style as the role screen */}
+        <div className="flex w-full flex-col gap-3 pt-[18px]">
+          {/* عميل جديد — charcoal primary. New customer flow (UNCHANGED). */}
+          <button
+            type="button"
             onClick={() => setStep("customer_new")}
-            icon={NewPersonIcon}
-            label={t.newCustomer}
-            desc={t.newCustomerDesc}
-          />
-          <SectionCard
+            className={`${PILL_BTN} ${PILL_PRIMARY}`}
+            style={PRIMARY_BTN_STYLE}
+          >
+            {t.newCustomer}
+          </button>
+
+          {/* عميل حالي — cyan secondary. Existing customer flow (UNCHANGED). */}
+          <button
+            type="button"
             onClick={() => setStep("customer_existing")}
-            icon={ReturningPersonIcon}
-            label={t.existingCustomer}
-            desc={t.existingCustomerDesc}
-          />
+            className={`${PILL_BTN} ${PILL_SECONDARY}`}
+            style={SECONDARY_BTN_STYLE}
+          >
+            {t.existingCustomer}
+          </button>
         </div>
-      </div>
-      </FormShell>
+      </OnboardingImageLayout>
     );
   }
 
-  // ── New customer form ─────────────────────────────────────────────────────
+  // ── New customer form — same onboarding composition; only the white section
+  // changes to a form. No chip/back-arrow. ──────────────────────────────────
   if (step === "customer_new") {
     return (
-      <FormShell subtitle={t.subtitle}>
-      <div className="w-full max-w-sm mx-auto">
-        <form action={submitGateForm} onSubmit={handleSubmit} className="space-y-4">
+      <OnboardingImageLayout>
+        <h1 className="pt-6 font-display text-2xl font-extrabold leading-tight text-[#192126]">
+          أدخل بياناتك
+        </h1>
+        <form
+          action={submitGateForm}
+          onSubmit={handleSubmit}
+          className="w-full max-w-sm mx-auto space-y-4 pt-5 text-start"
+        >
           <input type="hidden" name="sessionId" value={sessionId} />
           <input type="hidden" name="locale" value={locale} />
           <input type="hidden" name="flow" value="customer_new" />
-
-          <div className="flex items-center gap-2 mb-2 rtl:flex-row-reverse">
-            <BackBtn onClick={() => setStep("customer_type")} />
-            <RolePill label={t.newCustomer} />
-          </div>
 
           {error && <ErrorBanner message={error} />}
 
@@ -416,25 +403,26 @@ export function GateForm({
           />
           <p className="text-center text-xs text-[var(--text-muted)] pt-1">{t.privacyNote}</p>
         </form>
-      </div>
-      </FormShell>
+      </OnboardingImageLayout>
     );
   }
 
-  // ── Existing customer lookup form ─────────────────────────────────────────
+  // ── Existing customer lookup form — same onboarding composition; only the
+  // white section changes to a form. No chip/back-arrow. ────────────────────
   if (step === "customer_existing") {
     return (
-      <FormShell subtitle={t.subtitle}>
-      <div className="w-full max-w-sm mx-auto">
-        <form action={submitGateForm} onSubmit={handleSubmit} className="space-y-4">
+      <OnboardingImageLayout>
+        <h1 className="pt-6 font-display text-2xl font-extrabold leading-tight text-[#192126]">
+          أدخل رقم جوالك
+        </h1>
+        <form
+          action={submitGateForm}
+          onSubmit={handleSubmit}
+          className="w-full max-w-sm mx-auto space-y-4 pt-5 text-start"
+        >
           <input type="hidden" name="sessionId" value={sessionId} />
           <input type="hidden" name="locale" value={locale} />
           <input type="hidden" name="flow" value="customer_existing" />
-
-          <div className="flex items-center gap-2 mb-2 rtl:flex-row-reverse">
-            <BackBtn onClick={() => setStep("customer_type")} />
-            <RolePill label={t.existingCustomer} />
-          </div>
 
           {/* Not-found banner */}
           {notFound && (
@@ -462,8 +450,7 @@ export function GateForm({
           />
           <p className="text-center text-xs text-[var(--text-muted)] pt-1">{t.privacyNote}</p>
         </form>
-      </div>
-      </FormShell>
+      </OnboardingImageLayout>
     );
   }
 
@@ -471,7 +458,7 @@ export function GateForm({
   if (step === "customer_confirm") {
     const greeting = confirmGreeting ?? "";
     return (
-      <FormShell subtitle={t.subtitle}>
+      <FormShell>
       <div className="w-full max-w-sm mx-auto">
         <form action={submitGateForm} onSubmit={handleSubmit}>
           <input type="hidden" name="sessionId" value={sessionId} />
@@ -580,7 +567,6 @@ export function GateForm({
           <SubmitButton
             label={<>{t.confirmAndStart} {isRtl ? "←" : "→"}</>}
             pendingLabel={isRtl ? "جاري بدء التجربة..." : "Starting..."}
-            className="btn-cta w-full"
           />
         </form>
       </div>
@@ -591,7 +577,7 @@ export function GateForm({
   // ── Employee form ──────────────────────────────────────────────────────────
   if (step === "employee") {
     return (
-      <FormShell subtitle={t.subtitle}>
+      <FormShell>
       <div className="w-full max-w-sm mx-auto">
         <form action={submitGateForm} onSubmit={handleSubmit} className="space-y-4">
           <input type="hidden" name="sessionId" value={sessionId} />

@@ -7,14 +7,18 @@
 // never from the browser — only the typed `q` fragment is read. Returns CODE-ONLY
 // items (no stock quantities, no internal URL/JWT/secret).
 import { NextResponse } from "next/server";
+import { getLogger } from "@/lib/logger";
 import { getCurrentSeller } from "@/lib/seller/auth";
 import { callFastapiCodeSuggestions, isSellerChatEnabled } from "@/lib/seller/fastapi";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
+const log = getLogger("seller-code-suggestions");
+
 export async function GET(req: Request) {
   if (!isSellerChatEnabled()) {
+    log.warn({ errorCategory: "feature_disabled" }, "seller_code_suggestions_503");
     return NextResponse.json({ error: "الخدمة غير متاحة حالياً." }, { status: 503 });
   }
 

@@ -111,10 +111,24 @@ export interface FastapiCallResult {
   /** Parsed upstream JSON (only present on a successful 2xx JSON response). */
   data?: unknown;
   /** Failure classification when no usable success response was produced. */
-  error?: "upstream_auth" | "upstream_status" | "upstream_invalid" | "timeout" | "unreachable";
+  error?:
+    | "preflight_config"
+    | "upstream_auth"
+    | "upstream_status"
+    | "upstream_invalid"
+    | "timeout"
+    | "unreachable";
 }
 
 const REQUEST_TIMEOUT_MS = 45_000; // bounded; covers Gemini retries (FastAPI maxDuration ~60s)
+
+function isSellerFastapiPreflightError(err: unknown): boolean {
+  return (
+    err instanceof Error &&
+    (err.message.includes("EXTERNAL_SELLER_JWT_SECRET") ||
+      err.message.includes("CHATBOT_FASTAPI_URL"))
+  );
+}
 
 /**
  * Server-to-server call to FastAPI `/internal/chat` with a freshly minted
@@ -126,12 +140,13 @@ export async function callFastapiChat(
   seller: CurrentSeller,
   payload: FastapiChatPayload,
 ): Promise<FastapiCallResult> {
-  const token = await mintExternalSellerToken(seller);
   const controller = new AbortController();
   const timer = setTimeout(() => controller.abort(), REQUEST_TIMEOUT_MS);
   let res: Response;
   try {
-    res = await fetch(`${getChatbotFastapiUrl()}/internal/chat`, {
+    const token = await mintExternalSellerToken(seller);
+    const baseUrl = getChatbotFastapiUrl();
+    res = await fetch(`${baseUrl}/internal/chat`, {
       method: "POST",
       headers: {
         Authorization: `Bearer ${token}`,
@@ -144,6 +159,9 @@ export async function callFastapiChat(
   } catch (err) {
     if (err instanceof Error && err.name === "AbortError") {
       return { error: "timeout" };
+    }
+    if (isSellerFastapiPreflightError(err)) {
+      return { error: "preflight_config" };
     }
     return { error: "unreachable" };
   } finally {
@@ -202,12 +220,13 @@ export async function callFastapiCodeSuggestions(
   const query = (rawQuery ?? "").trim().slice(0, MAX_SUGGEST_QUERY);
   if (!query) return [];
 
-  const token = await mintExternalSellerToken(seller);
   const controller = new AbortController();
   const timer = setTimeout(() => controller.abort(), SUGGEST_TIMEOUT_MS);
   try {
+    const token = await mintExternalSellerToken(seller);
+    const baseUrl = getChatbotFastapiUrl();
     const res = await fetch(
-      `${getChatbotFastapiUrl()}/internal/inventory/code-suggestions?q=${encodeURIComponent(query)}`,
+      `${baseUrl}/internal/inventory/code-suggestions?q=${encodeURIComponent(query)}`,
       { headers: { Authorization: `Bearer ${token}` }, cache: "no-store", signal: controller.signal },
     );
     if (!res.ok) return [];

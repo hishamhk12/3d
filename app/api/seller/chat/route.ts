@@ -26,6 +26,7 @@ export async function POST(req: Request) {
 
   // 1) Feature flag.
   if (!isSellerChatEnabled()) {
+    log.warn({ errorCategory: "feature_disabled" }, "seller_chat_503");
     return NextResponse.json(
       { error: "خدمة المحادثة غير متاحة حالياً." },
       { status: 503 },
@@ -73,19 +74,23 @@ export async function POST(req: Request) {
     const status =
       result.error === "timeout"
         ? 504
-        : result.error === "unreachable"
+        : result.error === "unreachable" || result.error === "preflight_config"
           ? 503
           : 502; // upstream_auth | upstream_status | upstream_invalid
-    log.warn(
-      {
-        sellerId: seller.id,
-        identityDomain: "external_seller",
-        outcome: result.error,
-        upstreamStatus: result.status,
-        durationMs,
-      },
-      "seller_chat_upstream_failed",
-    );
+    if (status === 503) {
+      log.warn({ errorCategory: result.error }, "seller_chat_503");
+    } else {
+      log.warn(
+        {
+          sellerId: seller.id,
+          identityDomain: "external_seller",
+          outcome: result.error,
+          upstreamStatus: result.status,
+          durationMs,
+        },
+        "seller_chat_upstream_failed",
+      );
+    }
     return NextResponse.json(
       { error: "تعذّر الحصول على رد من المساعد. حاول مرة أخرى." },
       { status },

@@ -2,7 +2,6 @@ import { GateForm } from "./_components/gate-form";
 import { cookies } from "next/headers";
 import { isSupportedLocale, LOCALE_COOKIE_NAME, normalizeLocale } from "@/lib/i18n/config";
 import { dictionaries } from "@/lib/i18n/dictionaries";
-import { CompanyLogo } from "@/components/CompanyLogo";
 import { getLatestCustomerExperiences } from "@/lib/room-preview/customer-service";
 import type { GateFormStep, PreviousExperience } from "./_components/gate-form";
 
@@ -65,35 +64,23 @@ export default async function GatePage({ params, searchParams }: GatePageProps) 
         <span /><span /><span /><span /><span /><span />
       </div>
 
-      <div className="mx-auto flex min-h-screen max-w-2xl flex-col px-4 py-10">
-        <div className="flex-1 flex flex-col justify-center">
-          <div
-            className="tour-panel rounded-3xl p-8"
-            style={{ boxShadow: "var(--shadow-xl)" }}
-          >
-            {/* Header */}
-            <div className="text-center mb-8 flex flex-col items-center">
-              <CompanyLogo className="h-14 w-40 object-contain text-[var(--brand-navy)] mb-4" />
-              <p className="text-sm text-[var(--text-secondary)] mt-1">{t.gate.subtitle}</p>
-            </div>
-
-            <GateForm
-              sessionId={sessionId}
-              locale={locale}
-              t={t.gate}
-              initialStep={validStep}
-              confirmCustomerId={validStep === "customer_confirm" ? cid : undefined}
-              confirmGreeting={validStep === "customer_confirm" ? greeting : undefined}
-              notFound={notFound === "1"}
-              initialName={name}
-              initialCountryCode={countryCode}
-              initialPhone={phone}
-              previousExperiences={previousExperiences}
-              error={error}
-            />
-          </div>
-        </div>
-      </div>
+      {/* GateForm owns its own layout per step: the role-selection screen renders an
+          immersive hero layout, while the customer/employee form steps render inside
+          the shared glass card. */}
+      <GateForm
+        sessionId={sessionId}
+        locale={locale}
+        t={t.gate}
+        initialStep={validStep}
+        confirmCustomerId={validStep === "customer_confirm" ? cid : undefined}
+        confirmGreeting={validStep === "customer_confirm" ? greeting : undefined}
+        notFound={notFound === "1"}
+        initialName={name}
+        initialCountryCode={countryCode}
+        initialPhone={phone}
+        previousExperiences={previousExperiences}
+        error={error}
+      />
     </main>
   );
 }

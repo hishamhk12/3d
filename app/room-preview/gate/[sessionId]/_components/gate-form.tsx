@@ -1,9 +1,11 @@
 "use client";
 
 import { useState } from "react";
+import Image from "next/image";
 import { useRouter } from "next/navigation";
 import { useFormStatus } from "react-dom";
 import { ChevronLeft, ChevronRight } from "lucide-react";
+import { CompanyLogo } from "@/components/CompanyLogo";
 import { submitGateForm } from "../actions";
 import { trackClientSessionEvent } from "@/lib/room-preview/session-diagnostics-client";
 import {
@@ -55,6 +57,27 @@ interface GateFormProps {
 }
 
 // ─── Small shared pieces ───────────────────────────────────────────────────────
+
+/**
+ * Shared shell for the customer / employee form steps. Reproduces the glass card
+ * + brand header that previously lived in the gate page, so those steps look
+ * unchanged. The role-selection step renders its own immersive layout instead.
+ */
+function FormShell({ subtitle, children }: { subtitle: string; children: React.ReactNode }) {
+  return (
+    <div className="mx-auto flex min-h-screen max-w-2xl flex-col px-4 py-10">
+      <div className="flex-1 flex flex-col justify-center">
+        <div className="tour-panel rounded-3xl p-8" style={{ boxShadow: "var(--shadow-xl)" }}>
+          <div className="text-center mb-8 flex flex-col items-center">
+            <CompanyLogo className="h-14 w-40 object-contain text-[var(--brand-navy)] mb-4" />
+            <p className="text-sm text-[var(--text-secondary)] mt-1">{subtitle}</p>
+          </div>
+          {children}
+        </div>
+      </div>
+    </div>
+  );
+}
 
 function BackBtn({ onClick }: { onClick: () => void }) {
   return (
@@ -146,20 +169,6 @@ function SectionCard({
 }
 
 // ─── Icons ────────────────────────────────────────────────────────────────────
-
-const PersonIcon = (
-  <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2}
-      d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
-  </svg>
-);
-
-const EmployeeIcon = (
-  <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2}
-      d="M21 13.255A23.931 23.931 0 0112 15c-3.183 0-6.22-.62-9-1.745M16 6V4a2 2 0 00-2-2h-4a2 2 0 00-2 2v2m4 6h.01M5 20h14a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
-  </svg>
-);
 
 const NewPersonIcon = (
   <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -257,29 +266,78 @@ export function GateForm({
     );
   }
 
-  // ── Role selection ────────────────────────────────────────────────────────
+  // ── Role selection — onboarding composition mirroring Figma node 1:604 ──────
+  // Structure (top → bottom): full-bleed image (≈66.9% height) → light white fade
+  // that overlaps the image bottom and ends in solid white → one Arabic heading →
+  // two stacked pill buttons (350×56, radius 32) in the white section (no logo).
   if (step === "role") {
     return (
-      <div className="w-full max-w-sm mx-auto">
-        <p className="text-center text-sm font-medium text-[var(--text-secondary)] mb-6">
-          {t.whoAreYou}
-        </p>
-        <div className="grid grid-cols-2 gap-3">
-          {/* Customer — UNCHANGED: continues the existing customer journey. */}
-          <SectionCard
-            onClick={() => setStep("customer_type")}
-            icon={PersonIcon}
-            label={t.customer}
-            desc={t.customerDesc}
+      <div className="fixed inset-0 z-20 flex flex-col bg-white" style={{ minHeight: "100svh" }}>
+        {/* 1. Main image — edge to edge. Anchored to the BOTTOM so the lower
+            camera interface stays visible: the progress row (التقط صورة / ارفع
+            صورة / اختر المنتج / شاهد النتيجة), the instruction sentence
+            (صوّر غرفتك، اختر المنتج، وشاهد التصميم قبل التنفيذ.), the shutter and
+            the camera-switch icon. At ~70svh the visible crop is roughly source
+            15%→100%, which keeps the marketing text (source 36%–68%) too. */}
+        <div className="relative w-full shrink-0" style={{ height: "70svh" }}>
+          <Image
+            src="/room-preview/main_pic.png"
+            alt=""
+            fill
+            priority
+            unoptimized
+            sizes="100vw"
+            className="object-cover object-bottom"
           />
-          {/* Seller — opens the seller authentication flow. No seller session is
-              created here; the seller signs in on the seller login screen. */}
-          <SectionCard
-            onClick={() => router.push("/login?type=seller")}
-            icon={EmployeeIcon}
-            label={t.seller}
-            desc={t.sellerDesc}
+          {/* 2. Soft white fade — sits only below the shutter (very bottom of the
+              image). It is fully transparent through the camera UI, so the
+              instruction sentence, progress row and shutter are NOT covered; it
+              only softens the dark bottom bar into the white content section. */}
+          <div
+            aria-hidden
+            className="pointer-events-none absolute inset-x-0 bottom-0"
+            style={{
+              height: "10%",
+              background:
+                "linear-gradient(to bottom, rgba(255,255,255,0) 0%, rgba(255,255,255,0) 45%, rgba(255,255,255,0.8) 80%, #ffffff 100%)",
+            }}
           />
+        </div>
+
+        {/* White content section — the heading + both buttons move down together
+            as one group, sitting in the lower white area below the camera UI/fade
+            with a moderate amount of space beneath the seller button. */}
+        <div
+          className="flex flex-1 flex-col items-center bg-white px-5 text-center"
+          style={{ paddingBottom: "max(2rem, env(safe-area-inset-bottom))" }}
+        >
+          {/* Heading — ~24px below the fade */}
+          <h1 className="pt-6 font-display text-2xl font-extrabold leading-tight text-[#192126]">
+            كيف ترغب بالمتابعة؟
+          </h1>
+
+          {/* Two stacked buttons — ~18px under the heading, 12px between them */}
+          <div className="flex w-full flex-col gap-3 pt-[18px]">
+            {/* عميل — near-black Figma button. Continues the customer flow (UNCHANGED). */}
+            <button
+              type="button"
+              onClick={() => setStep("customer_type")}
+              className="flex h-14 w-full items-center justify-center rounded-[32px] text-base font-bold text-white transition-all duration-200 active:scale-[0.98] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#192126]/45 focus-visible:ring-offset-2"
+              style={{ background: "#192126", boxShadow: "0 10px 26px rgba(25,33,38,0.28)" }}
+            >
+              {t.customer}
+            </button>
+
+            {/* بائع — project cyan, identical geometry. Opens /login?type=seller. */}
+            <button
+              type="button"
+              onClick={() => router.push("/login?type=seller")}
+              className="flex h-14 w-full items-center justify-center rounded-[32px] text-base font-bold text-white transition-all duration-200 active:scale-[0.98] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--brand-cyan)]/60 focus-visible:ring-offset-2"
+              style={{ background: "#00AFD7", boxShadow: "0 10px 26px rgba(0,175,215,0.30)" }}
+            >
+              {t.seller}
+            </button>
+          </div>
         </div>
       </div>
     );
@@ -288,6 +346,7 @@ export function GateForm({
   // ── Customer type selection ───────────────────────────────────────────────
   if (step === "customer_type") {
     return (
+      <FormShell subtitle={t.subtitle}>
       <div className="w-full max-w-sm mx-auto">
         <div className="flex items-center gap-2 mb-6 rtl:flex-row-reverse">
           <BackBtn onClick={() => setStep("role")} />
@@ -311,12 +370,14 @@ export function GateForm({
           />
         </div>
       </div>
+      </FormShell>
     );
   }
 
   // ── New customer form ─────────────────────────────────────────────────────
   if (step === "customer_new") {
     return (
+      <FormShell subtitle={t.subtitle}>
       <div className="w-full max-w-sm mx-auto">
         <form action={submitGateForm} onSubmit={handleSubmit} className="space-y-4">
           <input type="hidden" name="sessionId" value={sessionId} />
@@ -356,12 +417,14 @@ export function GateForm({
           <p className="text-center text-xs text-[var(--text-muted)] pt-1">{t.privacyNote}</p>
         </form>
       </div>
+      </FormShell>
     );
   }
 
   // ── Existing customer lookup form ─────────────────────────────────────────
   if (step === "customer_existing") {
     return (
+      <FormShell subtitle={t.subtitle}>
       <div className="w-full max-w-sm mx-auto">
         <form action={submitGateForm} onSubmit={handleSubmit} className="space-y-4">
           <input type="hidden" name="sessionId" value={sessionId} />
@@ -400,6 +463,7 @@ export function GateForm({
           <p className="text-center text-xs text-[var(--text-muted)] pt-1">{t.privacyNote}</p>
         </form>
       </div>
+      </FormShell>
     );
   }
 
@@ -407,6 +471,7 @@ export function GateForm({
   if (step === "customer_confirm") {
     const greeting = confirmGreeting ?? "";
     return (
+      <FormShell subtitle={t.subtitle}>
       <div className="w-full max-w-sm mx-auto">
         <form action={submitGateForm} onSubmit={handleSubmit}>
           <input type="hidden" name="sessionId" value={sessionId} />
@@ -519,12 +584,14 @@ export function GateForm({
           />
         </form>
       </div>
+      </FormShell>
     );
   }
 
   // ── Employee form ──────────────────────────────────────────────────────────
   if (step === "employee") {
     return (
+      <FormShell subtitle={t.subtitle}>
       <div className="w-full max-w-sm mx-auto">
         <form action={submitGateForm} onSubmit={handleSubmit} className="space-y-4">
           <input type="hidden" name="sessionId" value={sessionId} />
@@ -578,6 +645,7 @@ export function GateForm({
           <p className="text-center text-xs text-[var(--text-muted)] pt-1">{t.privacyNote}</p>
         </form>
       </div>
+      </FormShell>
     );
   }
 

@@ -101,14 +101,44 @@ function FormShell({ children }: { children: React.ReactNode }) {
  * icon) stays visible, a soft white fade that only softens the bottom edge, and a
  * white content section. Callers pass the heading + buttons as children.
  */
-function OnboardingImageLayout({ children }: { children: React.ReactNode }) {
+/**
+ * Two variants share this single image/fade implementation:
+ *  • "selection" (role, customer_type): tall 70svh image, small bottom fade.
+ *  • "form" (customer_new, customer_existing): shorter, responsive image height
+ *    (clamp) + a larger fade that starts earlier, so the whole form fits in one
+ *    mobile viewport (no scroll) while the camera-interface look is preserved.
+ * `imageHeight` lets a caller fine-tune the form height per step.
+ */
+function OnboardingImageLayout({
+  children,
+  variant = "selection",
+  imageHeight,
+}: {
+  children: React.ReactNode;
+  variant?: "selection" | "form";
+  imageHeight?: string;
+}) {
+  const isForm = variant === "form";
+  const height = imageHeight ?? (isForm ? "clamp(230px, 42svh, 400px)" : "70svh");
+  const fade = isForm
+    ? {
+        // Larger fade, begins earlier — hides the shorter-image cut, ends in white.
+        height: "30%",
+        background:
+          "linear-gradient(to bottom, rgba(255,255,255,0) 0%, rgba(255,255,255,0.22) 38%, rgba(255,255,255,0.82) 74%, #ffffff 100%)",
+      }
+    : {
+        height: "10%",
+        background:
+          "linear-gradient(to bottom, rgba(255,255,255,0) 0%, rgba(255,255,255,0) 45%, rgba(255,255,255,0.8) 80%, #ffffff 100%)",
+      };
   return (
-    // Normal document flow with a one-screen minimum: the button screens fill
-    // exactly one viewport (no scroll); the taller form screens grow past it and
-    // the page scrolls naturally so every field/button stays reachable.
+    // Normal document flow with a one-screen minimum: screens fill exactly one
+    // viewport (no scroll in the resting state); when the keyboard opens the page
+    // scrolls naturally (no fixed positioning, no overflow lock).
     <div className="relative flex w-full flex-col bg-white" style={{ minHeight: "100svh" }}>
       {/* Main image — edge to edge, anchored bottom to keep the camera UI visible */}
-      <div className="relative w-full shrink-0" style={{ height: "70svh" }}>
+      <div className="relative w-full shrink-0" style={{ height }}>
         <Image
           src="/room-preview/main_pic.png"
           alt=""
@@ -118,22 +148,22 @@ function OnboardingImageLayout({ children }: { children: React.ReactNode }) {
           sizes="100vw"
           className="object-cover object-bottom"
         />
-        {/* Soft white fade — only below the shutter; does not cover the camera UI */}
+        {/* Soft white fade — softens the bottom edge into the white content area */}
         <div
           aria-hidden
           className="pointer-events-none absolute inset-x-0 bottom-0"
-          style={{
-            height: "10%",
-            background:
-              "linear-gradient(to bottom, rgba(255,255,255,0) 0%, rgba(255,255,255,0) 45%, rgba(255,255,255,0.8) 80%, #ffffff 100%)",
-          }}
+          style={fade}
         />
       </div>
 
       {/* White content section — heading + page-specific content */}
       <div
         className="flex flex-1 flex-col items-center bg-white px-5 text-center"
-        style={{ paddingBottom: "max(2rem, env(safe-area-inset-bottom))" }}
+        style={{
+          paddingBottom: isForm
+            ? "max(1.25rem, env(safe-area-inset-bottom))"
+            : "max(2rem, env(safe-area-inset-bottom))",
+        }}
       >
         {children}
       </div>
@@ -254,7 +284,7 @@ export function GateForm({
           <select
             value={selectedCountry.countryCode}
             onChange={(e) => setSelectedCountry(getCountryByCode(e.target.value))}
-            className="ds-input shrink-0 px-2 text-sm"
+            className="ds-input shrink-0 min-h-[48px] px-2 text-sm"
             style={{ width: "130px" }}
             dir="ltr"
           >
@@ -276,7 +306,7 @@ export function GateForm({
             required
             defaultValue={defaultPhone}
             placeholder={t.phoneLocalPlaceholder}
-            className="ds-input flex-1 min-w-0"
+            className="ds-input min-h-[48px] flex-1 min-w-0"
             dir="ltr"
           />
         </div>
@@ -363,14 +393,14 @@ export function GateForm({
   // changes to a form. No chip/back-arrow. ──────────────────────────────────
   if (step === "customer_new") {
     return (
-      <OnboardingImageLayout>
-        <h1 className="pt-6 font-display text-2xl font-extrabold leading-tight text-[#192126]">
+      <OnboardingImageLayout variant="form" imageHeight="clamp(220px, 40svh, 380px)">
+        <h1 className="pt-4 font-display text-2xl font-extrabold leading-tight text-[#192126]">
           أدخل بياناتك
         </h1>
         <form
           action={submitGateForm}
           onSubmit={handleSubmit}
-          className="w-full max-w-sm mx-auto space-y-4 pt-5 text-start"
+          className="w-full max-w-sm mx-auto space-y-3 pt-4 text-start"
         >
           <input type="hidden" name="sessionId" value={sessionId} />
           <input type="hidden" name="locale" value={locale} />
@@ -391,7 +421,7 @@ export function GateForm({
               defaultValue={initialName}
               placeholder={t.namePlaceholder}
               dir="auto"
-              className="ds-input"
+              className="ds-input min-h-[48px]"
             />
           </div>
 
@@ -401,7 +431,7 @@ export function GateForm({
             label={<>{t.submitBtn} {isRtl ? "←" : "→"}</>}
             pendingLabel={isRtl ? "جاري بدء التجربة..." : "Starting..."}
           />
-          <p className="text-center text-xs text-[var(--text-muted)] pt-1">{t.privacyNote}</p>
+          <p className="text-center text-xs text-[var(--text-muted)] pt-0.5">{t.privacyNote}</p>
         </form>
       </OnboardingImageLayout>
     );
@@ -411,14 +441,14 @@ export function GateForm({
   // white section changes to a form. No chip/back-arrow. ────────────────────
   if (step === "customer_existing") {
     return (
-      <OnboardingImageLayout>
-        <h1 className="pt-6 font-display text-2xl font-extrabold leading-tight text-[#192126]">
+      <OnboardingImageLayout variant="form" imageHeight="clamp(240px, 44svh, 410px)">
+        <h1 className="pt-4 font-display text-2xl font-extrabold leading-tight text-[#192126]">
           أدخل رقم جوالك
         </h1>
         <form
           action={submitGateForm}
           onSubmit={handleSubmit}
-          className="w-full max-w-sm mx-auto space-y-4 pt-5 text-start"
+          className="w-full max-w-sm mx-auto space-y-3 pt-4 text-start"
         >
           <input type="hidden" name="sessionId" value={sessionId} />
           <input type="hidden" name="locale" value={locale} />

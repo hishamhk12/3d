@@ -249,3 +249,47 @@ model Event {
   @@index([eventType])
   @@index([createdAt])
 }
+
+// ─── Seller Authentication (Phase 1 — ADDITIVE, 3d database only) ─────────────
+// Owns ONLY seller identity/auth in the 3d database. Inventory, technical docs,
+// and chatbot data stay in the separate chatbot DB (served by FastAPI). Seller
+// identity, status, role, and showroom are ALWAYS re-derived from these rows on
+// each protected request — never trusted from the cookie or the browser body.
+
+enum SellerStatus {
+  active
+  disabled
+}
+
+/// A physical showroom. `code` is the human-entered showroom code at login,
+/// stored canonical-normalized (trimmed + uppercased). The same normalization is
+/// applied at creation and at login so lookups are case-insensitive.
+model Showroom {
+  id        String   @id @default(cuid())
+  code      String   @unique
+  name      String
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  sellers Seller[]
+}
+
+/// A seller account. `sellerCode` is globally unique and stored canonical-
+/// normalized. `passwordHash` is a bcrypt hash only — plaintext is never stored
+/// or returned. New sellers default to `disabled` until an admin activates them.
+model Seller {
+  id           String       @id @default(cuid())
+  sellerCode   String       @unique
+  name         String
+  passwordHash String
+  status       SellerStatus @default(disabled)
+  /// Bumped to revoke all existing sessions; compared on every protected request.
+  tokenVersion Int          @default(0)
+  showroomId   String
+  showroom     Showroom     @relation(fields: [showroomId], references: [id])
+  createdAt    DateTime     @default(now())
+  updatedAt    DateTime     @updatedAt
+
+  @@index([showroomId])
+  @@index([status])
+}

@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { useRouter } from "next/navigation";
 import { useFormStatus } from "react-dom";
 import { ChevronLeft, ChevronRight } from "lucide-react";
 import { submitGateForm } from "../actions";
@@ -191,6 +192,7 @@ export function GateForm({
   error,
 }: GateFormProps) {
   const isRtl = locale === "ar";
+  const router = useRouter();
 
   const [step, setStep] = useState<InternalStep>(() => initialStep ?? "role");
   const [selectedCountry, setSelectedCountry] = useState<CountryDialOption>(() =>
@@ -262,15 +264,22 @@ export function GateForm({
         <p className="text-center text-sm font-medium text-[var(--text-secondary)] mb-6">
           {t.whoAreYou}
         </p>
-        <div className="flex justify-center">
-          <div className="w-40">
-            <SectionCard
-              onClick={() => setStep("customer_type")}
-              icon={PersonIcon}
-              label={t.customer}
-              desc={t.customerDesc}
-            />
-          </div>
+        <div className="grid grid-cols-2 gap-3">
+          {/* Customer — UNCHANGED: continues the existing customer journey. */}
+          <SectionCard
+            onClick={() => setStep("customer_type")}
+            icon={PersonIcon}
+            label={t.customer}
+            desc={t.customerDesc}
+          />
+          {/* Seller — opens the seller authentication flow. No seller session is
+              created here; the seller signs in on the seller login screen. */}
+          <SectionCard
+            onClick={() => router.push("/login?type=seller")}
+            icon={EmployeeIcon}
+            label={t.seller}
+            desc={t.sellerDesc}
+          />
         </div>
       </div>
     );

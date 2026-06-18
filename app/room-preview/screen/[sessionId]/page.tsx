@@ -1,4 +1,4 @@
-import { cookies } from "next/headers";
+import { cookies, headers } from "next/headers";
 import Link from "next/link";
 import os from "os";
 import { House } from "lucide-react";
@@ -9,6 +9,7 @@ import { LOCALE_COOKIE_NAME, normalizeLocale } from "@/lib/i18n/config";
 import { dictionaries } from "@/lib/i18n/dictionaries";
 import { ROOM_PREVIEW_ROUTES } from "@/lib/room-preview/constants";
 import { SCREEN_TOKEN_COOKIE } from "@/lib/room-preview/cookies";
+import { originFromHeaders, resolveBaseUrl } from "@/lib/room-preview/request-origin";
 import { trackSessionEvent } from "@/lib/room-preview/session-diagnostics";
 import GlassBackground from "@/components/GlassBackground";
 
@@ -46,17 +47,23 @@ type ScreenSessionPageProps = {
 export default async function ScreenSessionPage({ params }: ScreenSessionPageProps) {
   const { sessionId } = await params;
   const cookieStore = await cookies();
+  const headerStore = await headers();
   const locale = normalizeLocale(cookieStore.get(LOCALE_COOKIE_NAME)?.value);
   const token = cookieStore.get(SCREEN_TOKEN_COOKIE)?.value ?? null;
   const t = dictionaries[locale];
 
-  let baseUrl = process.env.NEXT_PUBLIC_BASE_URL?.replace(/\/$/, "") ?? "";
-
-  if (process.env.NODE_ENV === "development" && (!baseUrl || baseUrl.includes("localhost"))) {
-    const localIp = getLocalNetworkIp();
-    const port = process.env.PORT || "3000";
-    baseUrl = `http://${localIp}:${port}`;
-  }
+  // The QR must target the CURRENT deployment origin so a Preview deployment's
+  // QR opens that same Preview (not the baked-in Production domain). Use the
+  // incoming request host first; NEXT_PUBLIC_BASE_URL is only a fallback, and in
+  // dev a localhost host is swapped for the LAN IP so phones can reach it.
+  const baseUrl =
+    resolveBaseUrl({
+      headerOrigin: originFromHeaders((name) => headerStore.get(name)),
+      nodeEnv: process.env.NODE_ENV,
+      publicBaseUrl: process.env.NEXT_PUBLIC_BASE_URL,
+      localIp: process.env.NODE_ENV === "development" ? getLocalNetworkIp() : undefined,
+      port: process.env.PORT || "3000",
+    }) ?? "";
 
   // The QR code points directly to the activate API route with the token as a
   // query param. The server verifies it, sets the HttpOnly cookie, and

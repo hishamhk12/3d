@@ -3,7 +3,6 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import Image from "next/image";
 import { Camera, LoaderCircle, QrCode, RotateCcw } from "lucide-react";
-import { AnimatedButton } from "@/components/ui/AnimatedButton";
 import { parseProductCodeFromQrValue } from "@/lib/room-preview/product-qr";
 import { useI18n } from "@/lib/i18n/provider";
 import type { RoomPreviewProduct } from "@/lib/room-preview/types";
@@ -42,6 +41,13 @@ async function fetchProductByCode(productCode: string) {
   return data.product;
 }
 
+// Matches the approved room upload primary button family in RoomStep.
+const PILL_BTN =
+  "flex h-14 w-full items-center justify-center rounded-[32px] text-lg font-bold text-white " +
+  "transition-all duration-200 active:scale-[0.98] focus-visible:outline-none focus-visible:ring-2 " +
+  "focus-visible:ring-offset-2 disabled:opacity-40 disabled:cursor-not-allowed";
+const PRIMARY_BTN_STYLE = { background: "#192126", boxShadow: "0 10px 26px rgba(25,33,38,0.28)" } as const;
+
 export default function ProductQrStep({
   initialProductCode,
   isBusy,
@@ -50,7 +56,7 @@ export default function ProductQrStep({
   onProductResolved,
   onGenerateWithProductCode,
 }: ProductQrStepProps) {
-  const { dir, locale } = useI18n();
+  const { locale } = useI18n();
   const isAr = locale === "ar";
   const videoRef = useRef<HTMLVideoElement | null>(null);
   const scannerRef = useRef<{ stop: () => void; destroy: () => void } | null>(null);
@@ -156,123 +162,155 @@ export default function ProductQrStep({
     setError(null);
   };
 
-  const alignClass = dir === "rtl" ? "text-right" : "text-left";
-
   return (
     <section
-      className={`mt-8 rounded-[28px] border border-[var(--border)] bg-[var(--bg-surface)] p-5 ${alignClass}`}
+      className="flex min-h-[calc(100svh-2.25rem)] w-full flex-col items-center justify-center py-6 text-center"
       data-mobile-step="scan_product_qr"
     >
-      <p className="text-xs font-semibold uppercase tracking-[0.18em] text-[var(--brand-cyan)]">
-        {isAr ? "QR المنتج" : "Product QR"}
-      </p>
-      <h2 className="font-display mt-2 text-2xl font-semibold text-[var(--text-primary)]">
-        {isAr ? "امسح QR المنتج" : "Scan the product QR"}
-      </h2>
-      <p className="mt-3 text-sm leading-7 text-[var(--text-secondary)]">
-        {isAr
-          ? "افتح الكاميرا ووجهها إلى QR المطبوع على المنتج."
-          : "Open the camera and point it at the printed QR on the physical product."}
-      </p>
+      <div className="mx-auto flex w-full max-w-[345px] flex-col items-center">
+        <h2 className="font-display text-center text-2xl font-semibold text-[var(--text-primary)]">
+          {isAr ? "امسح QR المنتج" : "Scan the product QR"}
+        </h2>
+        <p className="mx-auto mt-3 max-w-xs text-center text-sm leading-7 text-[var(--text-secondary)]">
+          {isAr
+            ? "افتح الكاميرا ووجهها إلى QR المطبوع على المنتج."
+            : "Open the camera and point it at the printed QR on the physical product."}
+        </p>
 
-      {!product ? (
-        <>
-          <div className="mt-6 overflow-hidden rounded-[24px] border border-[var(--border)] bg-black">
-            <video
-              ref={videoRef}
-              className="aspect-square w-full object-cover"
-              muted
-              playsInline
-            />
-          </div>
+        {!product ? (
+          <>
+            <div className="group mt-6 flex w-full flex-col items-center justify-center gap-4 rounded-[40px] border border-[var(--border)] bg-[var(--bg-surface)] p-3 shadow-[var(--shadow-lg)] transition-all duration-300">
+              <div className="relative flex min-h-[180px] w-full overflow-hidden rounded-[32px] border border-[var(--brand-cyan)]/25 bg-[var(--brand-cyan)]/[0.05]">
+                <video
+                  ref={videoRef}
+                  className={`absolute inset-0 h-full w-full object-cover transition-opacity duration-300 ${
+                    scannerStatus === "idle" ? "opacity-0" : "opacity-100"
+                  }`}
+                  muted
+                  playsInline
+                />
 
-          <div className="mt-4 grid gap-3">
-            <AnimatedButton
+                {scannerStatus === "idle" ? (
+                  <div className="absolute inset-0 flex flex-col items-center justify-center gap-3 px-6 text-center">
+                    <QrCode className="size-9 text-[var(--brand-cyan)]" strokeWidth={2.1} />
+                    <p className="text-sm font-semibold text-[var(--text-secondary)]">
+                      {isAr ? "QR المنتج" : "Product QR"}
+                    </p>
+                  </div>
+                ) : null}
+
+                {scannerStatus === "starting" || isLookingUp ? (
+                  <div className="absolute inset-0 flex flex-col items-center justify-center gap-3 bg-[var(--bg-page)]/80 backdrop-blur-sm">
+                    <LoaderCircle className="size-7 animate-spin text-[var(--brand-cyan)]" />
+                    <span className="text-sm font-semibold text-[var(--text-secondary)]">
+                      {isLookingUp
+                        ? isAr
+                          ? "جاري التحقق من المنتج..."
+                          : "Checking product..."
+                        : isAr
+                          ? "جاري فتح الكاميرا..."
+                          : "Opening camera..."}
+                    </span>
+                  </div>
+                ) : null}
+              </div>
+            </div>
+
+            <button
               type="button"
               onClick={() => void startScanner()}
               disabled={isBusy || isLookingUp || scannerStatus !== "idle"}
-              className="flex w-full items-center justify-center gap-2 rounded-[20px] bg-[var(--brand-navy)] py-3 text-sm font-bold text-white transition hover:opacity-90 disabled:opacity-50"
+              className={`${PILL_BTN} mt-5 gap-2 focus-visible:ring-[#192126]/45`}
+              style={PRIMARY_BTN_STYLE}
             >
               {scannerStatus === "starting" || isLookingUp ? (
-                <LoaderCircle className="size-4 animate-spin" />
+                <LoaderCircle className="size-5 animate-spin" />
               ) : (
-                <Camera className="size-4" />
+                <Camera className="size-5" />
               )}
               {scannerStatus === "scanning"
-                ? isAr ? "جاري المسح..." : "Scanning..."
-                : isAr ? "فتح الكاميرا" : "Open camera"}
-            </AnimatedButton>
+                ? isAr
+                  ? "جاري المسح..."
+                  : "Scanning..."
+                : isAr
+                  ? "فتح الكاميرا"
+                  : "Open camera"}
+            </button>
 
             {scannerStatus === "scanning" ? (
               <button
                 type="button"
                 onClick={stopScanner}
-                className="flex w-full items-center justify-center gap-2 rounded-[20px] border border-[var(--border)] bg-[var(--bg-surface-2)] py-3 text-sm font-semibold text-[var(--text-secondary)]"
+                className="mt-3 flex h-12 w-full items-center justify-center gap-2 rounded-[24px] border border-[var(--border)] bg-[var(--bg-surface)] text-sm font-semibold text-[var(--text-secondary)] transition-colors hover:bg-[var(--bg-surface-2)]"
               >
                 <RotateCcw className="size-4" />
                 {isAr ? "إيقاف الكاميرا" : "Stop camera"}
               </button>
             ) : null}
+          </>
+        ) : (
+          <>
+            <div className="mt-6 flex w-full flex-col items-center justify-center gap-4 rounded-[40px] border border-[var(--border)] bg-[var(--bg-surface)] p-3 shadow-[var(--shadow-lg)] transition-all duration-300">
+              <div className="flex min-h-[180px] w-full flex-col items-center justify-center gap-3 rounded-[32px] border border-[var(--brand-cyan)]/25 bg-[var(--brand-cyan)]/[0.05] px-6 py-6">
+                <div className="relative aspect-square w-full max-w-[160px] overflow-hidden rounded-[24px] border border-[var(--border)] bg-white">
+                  <Image
+                    src={product.imageUrl}
+                    alt={product.name}
+                    fill
+                    unoptimized
+                    className="object-contain p-3"
+                    sizes="160px"
+                  />
+                </div>
+                <div className="flex items-center justify-center gap-2 text-[var(--brand-cyan)]">
+                  <QrCode className="size-5" />
+                  <span className="text-sm font-semibold">
+                    {isAr ? "تم اختيار المنتج" : "Product QR found"}
+                  </span>
+                </div>
+                <p className="break-all font-mono text-2xl font-black text-[var(--text-primary)]">
+                  {product.id}
+                </p>
+              </div>
+            </div>
 
-          </div>
-        </>
-      ) : (
-        <div className="mt-6 rounded-[24px] border border-[var(--border)] bg-[var(--bg-surface-2)] p-4 text-center">
-          <div className="relative mx-auto aspect-square w-full max-w-[280px] overflow-hidden rounded-[22px] border border-[var(--border)] bg-white">
-            <Image
-              src={product.imageUrl}
-              alt={product.name}
-              fill
-              unoptimized
-              className="object-contain p-3"
-              sizes="280px"
-            />
-          </div>
-          <div className="mt-4 flex items-center justify-center gap-2 text-[var(--brand-cyan)]">
-            <QrCode className="size-5" />
-            <span className="text-sm font-semibold">
-              {isAr ? "تم اختيار المنتج" : "Product QR found"}
-            </span>
-          </div>
-          <p className="mt-2 break-all font-mono text-3xl font-black text-[var(--text-primary)]">
-            {product.id}
+            <button
+              type="button"
+              onClick={() => void onGenerateWithProductCode(product.id)}
+              disabled={isBusy}
+              className={`${PILL_BTN} mt-5 gap-2 focus-visible:ring-[#192126]/45`}
+              style={PRIMARY_BTN_STYLE}
+            >
+              {isBusy ? <LoaderCircle className="size-5 animate-spin" /> : null}
+              {isAr ? "إنشاء" : "Generate"}
+            </button>
+            <button
+              type="button"
+              onClick={resetProduct}
+              disabled={isBusy}
+              className="mt-3 h-12 w-full rounded-[24px] border border-[var(--border)] bg-[var(--bg-surface)] text-sm font-semibold text-[var(--text-secondary)] transition-colors hover:bg-[var(--bg-surface-2)] disabled:opacity-50"
+            >
+              {isAr ? "مسح منتج آخر" : "Scan another product"}
+            </button>
+          </>
+        )}
+
+        {error ? (
+          <p className="mt-4 w-full rounded-[18px] border border-red-400/25 bg-red-50 px-4 py-3 text-center text-sm leading-6 text-red-700 dark:bg-red-500/08 dark:text-red-300">
+            {error}
           </p>
+        ) : null}
 
-          <AnimatedButton
-            type="button"
-            onClick={() => void onGenerateWithProductCode(product.id)}
-            disabled={isBusy}
-            className="mt-5 flex w-full items-center justify-center gap-2 rounded-[22px] bg-[var(--brand-gold)] py-4 text-lg font-black text-[var(--text-on-gold)] shadow-[var(--shadow-md)] disabled:opacity-50"
-          >
-            {isBusy ? <LoaderCircle className="size-5 animate-spin" /> : null}
-            {isAr ? "إنشاء" : "Generate"}
-          </AnimatedButton>
+        {canUseProductListFallback ? (
           <button
             type="button"
-            onClick={resetProduct}
-            disabled={isBusy}
-            className="mt-3 w-full rounded-[18px] border border-[var(--border)] bg-[var(--bg-surface)] py-3 text-sm font-semibold text-[var(--text-secondary)] disabled:opacity-50"
+            onClick={onUseProductListFallback}
+            className="mt-4 text-xs font-semibold text-[var(--text-muted)] underline underline-offset-4"
           >
-            {isAr ? "مسح منتج آخر" : "Scan another product"}
+            {isAr ? "استخدام قائمة المنتجات القديمة" : "Use old product list fallback"}
           </button>
-        </div>
-      )}
-
-      {error ? (
-        <p className="mt-4 rounded-[18px] border border-red-400/25 bg-red-50 px-4 py-3 text-sm text-red-700 dark:bg-red-500/08 dark:text-red-300">
-          {error}
-        </p>
-      ) : null}
-
-      {canUseProductListFallback ? (
-        <button
-          type="button"
-          onClick={onUseProductListFallback}
-          className="mt-4 text-xs font-semibold text-[var(--text-muted)] underline underline-offset-4"
-        >
-          {isAr ? "استخدام قائمة المنتجات القديمة" : "Use old product list fallback"}
-        </button>
-      ) : null}
+        ) : null}
+      </div>
     </section>
   );
 }

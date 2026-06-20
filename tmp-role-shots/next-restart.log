@@ -1,0 +1,2992 @@
+
+> 3d@0.1.0 dev
+> next dev --hostname 0.0.0.0 --webpack
+
+▲ Next.js 16.2.1 (webpack)
+- Local:         http://localhost:3000
+- Network:       http://0.0.0.0:3000
+- Environments: .env.local, .env
+✓ Ready in 325ms
+[next.config] LAN origins allowlisted for dev: 192.168.0.123, 192.168.0.123:3000
+[@sentry/nextjs] It seems like you don't have a global error handler set up. It is recommended that you add a 'global-error.js' file with Sentry instrumentation so that React rendering errors are reported to Sentry. Read more: https://docs.sentry.io/platforms/javascript/guides/nextjs/manual-setup/#react-render-errors-in-app-router (you can suppress this warning by setting SENTRY_SUPPRESS_GLOBAL_ERROR_HANDLER_FILE_WARNING=1 as environment variable)
+- Experiments (use with caution):
+  · clientTraceMetadata
+
+[room-preview] Rate limiting disabled for development
+[room-preview] create_session_called {
+  existingSessionId: null,
+  route: '/api/room-preview/sessions',
+  source: 'unknown',
+  timestamp: '2026-06-18T13:03:11.354Z'
+}
+[13:03:11.357] [32mINFO[39m: [36msessions-api › Room Preview session create request received[39m
+    [35mmodule[39m: "sessions-api"
+    [35mip[39m: "127.0.0.1"
+    [35msource[39m: "unknown"
+ POST /api/room-preview/sessions 201 in 4.4s (next.js: 2.8s, proxy.ts: 298ms, application-code: 1306ms)
+ GET /api/room-preview/sessions/cmqjig2v40000es3xn9grm5oc/activate?t=S-RjEsvFZIJO-avmw2Ts_YA1l4UDUceg9Jro4Zw0BaQ&lang=ar 302 in 3.4s (next.js: 3.4s, proxy.ts: 15ms, application-code: 17ms)
+[13:03:16.087] [32mINFO[39m: [36mactivate-mobile-api › Mobile activated via QR (GET)[39m
+    [35mmodule[39m: "activate-mobile-api"
+    [35msessionId[39m: "cmqjig2v40000es3xn9grm5oc"
+    [35mhost[39m: "127.0.0.1:3000"
+ GET /room-preview/mobile/cmqjig2v40000es3xn9grm5oc 200 in 4.6s (next.js: 3.5s, proxy.ts: 10ms, application-code: 1025ms)
+[13:03:20.871] [32mINFO[39m: [36mmobile-page › Mobile page SSR render[39m
+    [35mmodule[39m: "mobile-page"
+    [35msessionId[39m: "cmqjig2v40000es3xn9grm5oc"
+    [35muserAgent[39m: "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) HeadlessChrome/147.0.7727.15 Safari/537.36"
+    [35mip[39m: "127.0.0.1"
+ GET /room-preview/mobile/cmqjig2v40000es3xn9grm5oc?devEntry=1&lang=ar 200 in 228ms (next.js: 12ms, proxy.ts: 154ms, application-code: 63ms)
+[room-preview] create_session_called {
+  existingSessionId: null,
+  route: '/api/room-preview/sessions',
+  source: 'unknown',
+  timestamp: '2026-06-18T13:03:58.703Z'
+}
+[13:03:58.705] [32mINFO[39m: [36msessions-api › Room Preview session create request received[39m
+    [35mmodule[39m: "sessions-api"
+    [35mip[39m: "127.0.0.1"
+    [35msource[39m: "unknown"
+ POST /api/room-preview/sessions 201 in 701ms (next.js: 75ms, proxy.ts: 6ms, application-code: 619ms)
+ GET /api/room-preview/sessions/cmqjih3aq0004es3xx4753q6i/activate?t=fHUMLXiUUEbG2rIWqGbM9fGv2-UjcP71GQZS6hhOyrI&lang=ar 302 in 76ms (next.js: 65ms, proxy.ts: 5ms, application-code: 7ms)
+[13:03:59.400] [32mINFO[39m: [36mactivate-mobile-api › Mobile activated via QR (GET)[39m
+    [35mmodule[39m: "activate-mobile-api"
+    [35msessionId[39m: "cmqjih3aq0004es3xx4753q6i"
+    [35mhost[39m: "127.0.0.1:3000"
+ GET /room-preview/mobile/cmqjih3aq0004es3xx4753q6i 200 in 593ms (next.js: 9ms, proxy.ts: 4ms, application-code: 580ms)
+[13:04:00.691] [32mINFO[39m: [36mmobile-page › Mobile page SSR render[39m
+    [35mmodule[39m: "mobile-page"
+    [35msessionId[39m: "cmqjih3aq0004es3xx4753q6i"
+    [35muserAgent[39m: "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) HeadlessChrome/147.0.7727.15 Safari/537.36"
+    [35mip[39m: "127.0.0.1"
+ GET /room-preview/mobile/cmqjih3aq0004es3xx4753q6i?devEntry=1&lang=ar 200 in 54ms (next.js: 8ms, proxy.ts: 5ms, application-code: 41ms)
+[room-preview] create_session_called {
+  existingSessionId: null,
+  route: '/api/room-preview/sessions',
+  source: 'unknown',
+  timestamp: '2026-06-18T13:04:32.030Z'
+}
+[13:04:32.031] [32mINFO[39m: [36msessions-api › Room Preview session create request received[39m
+    [35mmodule[39m: "sessions-api"
+    [35mip[39m: "127.0.0.1"
+    [35msource[39m: "unknown"
+ POST /api/room-preview/sessions 201 in 815ms (next.js: 4ms, proxy.ts: 11ms, application-code: 800ms)
+ GET /api/room-preview/sessions/cmqjiht0h0008es3xulhwpkp6/activate?t=cwZA-3mnlYOmC5L81_2LWxNbskPFjjca8bH0H9chy0I&lang=ar 302 in 23ms (next.js: 10ms, proxy.ts: 7ms, application-code: 6ms)
+[13:04:33.160] [32mINFO[39m: [36mactivate-mobile-api › Mobile activated via QR (GET)[39m
+    [35mmodule[39m: "activate-mobile-api"
+    [35msessionId[39m: "cmqjiht0h0008es3xulhwpkp6"
+    [35mhost[39m: "localhost:3000"
+ GET /room-preview/mobile/cmqjiht0h0008es3xulhwpkp6 200 in 997ms (next.js: 8ms, proxy.ts: 5ms, application-code: 984ms)
+[13:04:34.207] [32mINFO[39m: [36mmobile-page › Mobile page SSR render[39m
+    [35mmodule[39m: "mobile-page"
+    [35msessionId[39m: "cmqjiht0h0008es3xulhwpkp6"
+    [35muserAgent[39m: "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) HeadlessChrome/147.0.7727.15 Safari/537.36"
+    [35mip[39m: "127.0.0.1"
+ GET /room-preview/mobile/cmqjiht0h0008es3xulhwpkp6?devEntry=1&lang=ar 200 in 56ms (next.js: 8ms, proxy.ts: 4ms, application-code: 43ms)
+ GET /api/room-preview/sessions/cmqjiht0h0008es3xulhwpkp6 200 in 4.4s (next.js: 4.2s, proxy.ts: 11ms, application-code: 153ms)
+ POST /api/room-preview/sessions/cmqjiht0h0008es3xulhwpkp6/heartbeat 200 in 4.5s (next.js: 4.2s, proxy.ts: 9ms, application-code: 308ms)
+ POST /api/room-preview/sessions/cmqjiht0h0008es3xulhwpkp6/diagnostics 200 in 5.1s (next.js: 4.3s, proxy.ts: 9ms, application-code: 775ms)
+ POST /api/room-preview/sessions/cmqjiht0h0008es3xulhwpkp6/diagnostics 200 in 5.1s (next.js: 4.3s, proxy.ts: 10ms, application-code: 776ms)
+ POST /api/room-preview/sessions/cmqjiht0h0008es3xulhwpkp6/diagnostics 200 in 5.1s (next.js: 4.3s, proxy.ts: 10ms, application-code: 777ms)
+ POST /api/room-preview/sessions/cmqjiht0h0008es3xulhwpkp6/diagnostics 200 in 2.5s (next.js: 2.3s, proxy.ts: 8ms, application-code: 162ms)
+ POST /api/room-preview/sessions/cmqjiht0h0008es3xulhwpkp6/connect 200 in 3.9s (next.js: 3.2s, proxy.ts: 7ms, application-code: 708ms)
+[13:04:43.454] [33mWARN[39m: [36msession-events › Redis not configured — publishing to in-memory bus only. Set REDIS_URL.[39m
+    [35mmodule[39m: "session-events"
+    [35msessionId[39m: "cmqjiht0h0008es3xulhwpkp6"
+    [35meventType[39m: "session_updated"
+ POST /api/room-preview/sessions/cmqjiht0h0008es3xulhwpkp6/diagnostics 200 in 18ms (next.js: 9ms, proxy.ts: 6ms, application-code: 4ms)
+ POST /api/room-preview/sessions/cmqjiht0h0008es3xulhwpkp6/heartbeat 200 in 930ms (next.js: 38ms, proxy.ts: 5ms, application-code: 888ms)
+[room-preview] create_session_called {
+  existingSessionId: null,
+  route: '/api/room-preview/sessions',
+  source: 'unknown',
+  timestamp: '2026-06-18T13:05:05.892Z'
+}
+[13:05:05.896] [32mINFO[39m: [36msessions-api › Room Preview session create request received[39m
+    [35mmodule[39m: "sessions-api"
+    [35mip[39m: "127.0.0.1"
+    [35msource[39m: "unknown"
+ POST /api/room-preview/sessions 201 in 715ms (next.js: 70ms, proxy.ts: 10ms, application-code: 636ms)
+ GET /api/room-preview/sessions/cmqjiij54000jes3xjdwdnnp7/activate?t=drPmUPNQHiavIV38ekXOXQoXAzWedZUnuoI8rJ7A3MM&lang=ar 302 in 84ms (next.js: 69ms, proxy.ts: 7ms, application-code: 8ms)
+[13:05:06.936] [32mINFO[39m: [36mactivate-mobile-api › Mobile activated via QR (GET)[39m
+    [35mmodule[39m: "activate-mobile-api"
+    [35msessionId[39m: "cmqjiij54000jes3xjdwdnnp7"
+    [35mhost[39m: "localhost:3000"
+ GET /room-preview/mobile/cmqjiij54000jes3xjdwdnnp7 200 in 984ms (next.js: 101ms, proxy.ts: 4ms, application-code: 879ms)
+[13:05:08.043] [32mINFO[39m: [36mmobile-page › Mobile page SSR render[39m
+    [35mmodule[39m: "mobile-page"
+    [35msessionId[39m: "cmqjiij54000jes3xjdwdnnp7"
+    [35muserAgent[39m: "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) HeadlessChrome/147.0.7727.15 Safari/537.36"
+    [35mip[39m: "127.0.0.1"
+ GET /room-preview/mobile/cmqjiij54000jes3xjdwdnnp7?devEntry=1&lang=ar 200 in 66ms (next.js: 8ms, proxy.ts: 4ms, application-code: 55ms)
+ POST /api/room-preview/sessions/cmqjiij54000jes3xjdwdnnp7/diagnostics 200 in 167ms (next.js: 22ms, proxy.ts: 11ms, application-code: 134ms)
+ POST /api/room-preview/sessions/cmqjiij54000jes3xjdwdnnp7/heartbeat 200 in 288ms (next.js: 32ms, proxy.ts: 11ms, application-code: 245ms)
+ POST /api/room-preview/sessions/cmqjiij54000jes3xjdwdnnp7/diagnostics 200 in 624ms (next.js: 34ms, proxy.ts: 12ms, application-code: 578ms)
+ GET /api/room-preview/sessions/cmqjiij54000jes3xjdwdnnp7 200 in 675ms (next.js: 118ms, proxy.ts: 14ms, application-code: 543ms)
+ POST /api/room-preview/sessions/cmqjiij54000jes3xjdwdnnp7/diagnostics 200 in 30ms (next.js: 17ms, proxy.ts: 7ms, application-code: 5ms)
+ POST /api/room-preview/sessions/cmqjiij54000jes3xjdwdnnp7/diagnostics 200 in 718ms (next.js: 39ms, proxy.ts: 12ms, application-code: 666ms)
+ POST /api/room-preview/sessions/cmqjiij54000jes3xjdwdnnp7/connect 200 in 1065ms (next.js: 11ms, proxy.ts: 7ms, application-code: 1047ms)
+[13:05:10.773] [33mWARN[39m: [36msession-events › Redis not configured — publishing to in-memory bus only. Set REDIS_URL.[39m
+    [35mmodule[39m: "session-events"
+    [35msessionId[39m: "cmqjiij54000jes3xjdwdnnp7"
+    [35meventType[39m: "session_updated"
+ POST /api/room-preview/sessions/cmqjiij54000jes3xjdwdnnp7/diagnostics 200 in 17ms (next.js: 8ms, proxy.ts: 4ms, application-code: 4ms)
+ POST /api/room-preview/sessions/cmqjiij54000jes3xjdwdnnp7/heartbeat 200 in 230ms (next.js: 8ms, proxy.ts: 4ms, application-code: 218ms)
+[cleanup] expired=0 idleExpired=7 stuckFailed=0 completed=0
+[13:07:43.231] [33mWARN[39m: [36msession-events › Redis not configured — publishing to in-memory bus only. Set REDIS_URL.[39m
+    [35mmodule[39m: "session-events"
+    [35msessionId[39m: "cmqjig2v40000es3xn9grm5oc"
+    [35meventType[39m: "session_updated"
+[13:07:43.232] [33mWARN[39m: [36msession-events › Redis not configured — publishing to in-memory bus only. Set REDIS_URL.[39m
+    [35mmodule[39m: "session-events"
+    [35msessionId[39m: "cmqjih3aq0004es3xx4753q6i"
+    [35meventType[39m: "session_updated"
+[13:07:43.232] [33mWARN[39m: [36msession-events › Redis not configured — publishing to in-memory bus only. Set REDIS_URL.[39m
+    [35mmodule[39m: "session-events"
+    [35msessionId[39m: "cmqjib8sg0034a83x4s1ycy9w"
+    [35meventType[39m: "session_updated"
+[13:07:43.232] [33mWARN[39m: [36msession-events › Redis not configured — publishing to in-memory bus only. Set REDIS_URL.[39m
+    [35mmodule[39m: "session-events"
+    [35msessionId[39m: "cmqjibvsv0038a83x7bg85mk1"
+    [35meventType[39m: "session_updated"
+[13:07:43.232] [33mWARN[39m: [36msession-events › Redis not configured — publishing to in-memory bus only. Set REDIS_URL.[39m
+    [35mmodule[39m: "session-events"
+    [35msessionId[39m: "cmqjica6i003ca83x7xxo7y89"
+    [35meventType[39m: "session_updated"
+[13:07:43.232] [33mWARN[39m: [36msession-events › Redis not configured — publishing to in-memory bus only. Set REDIS_URL.[39m
+    [35mmodule[39m: "session-events"
+    [35msessionId[39m: "cmqjicqxb003ya83xl2gi1675"
+    [35meventType[39m: "session_updated"
+[13:07:43.232] [33mWARN[39m: [36msession-events › Redis not configured — publishing to in-memory bus only. Set REDIS_URL.[39m
+    [35mmodule[39m: "session-events"
+    [35msessionId[39m: "cmqjielns0042a83xncesmaot"
+    [35meventType[39m: "session_updated"
+[room-preview] create_session_called {
+  existingSessionId: null,
+  route: '/api/room-preview/sessions',
+  source: 'unknown',
+  timestamp: '2026-06-18T13:10:19.657Z'
+}
+[13:10:19.659] [32mINFO[39m: [36msessions-api › Room Preview session create request received[39m
+    [35mmodule[39m: "sessions-api"
+    [35mip[39m: "127.0.0.1"
+    [35msource[39m: "unknown"
+ POST /api/room-preview/sessions 201 in 2.1s (next.js: 1368ms, proxy.ts: 8ms, application-code: 774ms)
+ GET /api/room-preview/sessions/cmqjip98s001fes3xm4snxpf7/activate?t=DYyAzeM1mSrU8CB8oh-u1W-e-jiKVlh3jY9lc7_WJLo&lang=ar 302 in 806ms (next.js: 790ms, proxy.ts: 7ms, application-code: 8ms)
+[13:10:21.559] [32mINFO[39m: [36mactivate-mobile-api › Mobile activated via QR (GET)[39m
+    [35mmodule[39m: "activate-mobile-api"
+    [35msessionId[39m: "cmqjip98s001fes3xm4snxpf7"
+    [35mhost[39m: "localhost:3000"
+ GET /room-preview/mobile/cmqjip98s001fes3xm4snxpf7 200 in 951ms (next.js: 87ms, proxy.ts: 4ms, application-code: 861ms)
+[13:10:22.882] [32mINFO[39m: [36mmobile-page › Mobile page SSR render[39m
+    [35mmodule[39m: "mobile-page"
+    [35msessionId[39m: "cmqjip98s001fes3xm4snxpf7"
+    [35muserAgent[39m: "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) HeadlessChrome/147.0.7727.15 Safari/537.36"
+    [35mip[39m: "127.0.0.1"
+ GET /room-preview/mobile/cmqjip98s001fes3xm4snxpf7?devEntry=1&lang=ar 200 in 68ms (next.js: 8ms, proxy.ts: 3ms, application-code: 56ms)
+ GET /api/room-preview/sessions/cmqjip98s001fes3xm4snxpf7 200 in 2.3s (next.js: 2.1s, proxy.ts: 11ms, application-code: 148ms)
+ POST /api/room-preview/sessions/cmqjip98s001fes3xm4snxpf7/heartbeat 200 in 2.4s (next.js: 2.1s, proxy.ts: 9ms, application-code: 309ms)
+ POST /api/room-preview/sessions/cmqjip98s001fes3xm4snxpf7/diagnostics 200 in 3.2s (next.js: 2.1s, proxy.ts: 10ms, application-code: 1111ms)
+ POST /api/room-preview/sessions/cmqjip98s001fes3xm4snxpf7/diagnostics 200 in 3.2s (next.js: 2.1s, proxy.ts: 10ms, application-code: 1112ms)
+ POST /api/room-preview/sessions/cmqjip98s001fes3xm4snxpf7/diagnostics 200 in 3.3s (next.js: 2.1s, proxy.ts: 9ms, application-code: 1112ms)
+ POST /api/room-preview/sessions/cmqjip98s001fes3xm4snxpf7/diagnostics 200 in 2.4s (next.js: 2.2s, proxy.ts: 11ms, application-code: 146ms)
+ POST /api/room-preview/sessions/cmqjip98s001fes3xm4snxpf7/connect 200 in 2.9s (next.js: 2.2s, proxy.ts: 10ms, application-code: 669ms)
+[13:10:29.074] [33mWARN[39m: [36msession-events › Redis not configured — publishing to in-memory bus only. Set REDIS_URL.[39m
+    [35mmodule[39m: "session-events"
+    [35msessionId[39m: "cmqjip98s001fes3xm4snxpf7"
+    [35meventType[39m: "session_updated"
+ POST /api/room-preview/sessions/cmqjip98s001fes3xm4snxpf7/diagnostics 200 in 17ms (next.js: 6ms, proxy.ts: 6ms, application-code: 5ms)
+ POST /api/room-preview/sessions/cmqjip98s001fes3xm4snxpf7/heartbeat 200 in 836ms (next.js: 105ms, proxy.ts: 6ms, application-code: 724ms)
+[room-preview] create_session_called {
+  existingSessionId: null,
+  route: '/api/room-preview/sessions',
+  source: 'unknown',
+  timestamp: '2026-06-18T13:10:30.427Z'
+}
+[13:10:30.429] [32mINFO[39m: [36msessions-api › Room Preview session create request received[39m
+    [35mmodule[39m: "sessions-api"
+    [35mip[39m: "127.0.0.1"
+    [35msource[39m: "unknown"
+ POST /api/room-preview/sessions 201 in 211ms (next.js: 69ms, proxy.ts: 5ms, application-code: 138ms)
+ GET /api/room-preview/sessions/cmqjiphjy001qes3xbqppw5rx/activate?t=CdHXnMgWFYhM1M4SyvPI3hOKNL70SnfHO86tgsdTYUc&lang=ar 302 in 83ms (next.js: 76ms, proxy.ts: 3ms, application-code: 4ms)
+[13:10:30.955] [32mINFO[39m: [36mactivate-mobile-api › Mobile activated via QR (GET)[39m
+    [35mmodule[39m: "activate-mobile-api"
+    [35msessionId[39m: "cmqjiphjy001qes3xbqppw5rx"
+    [35mhost[39m: "localhost:3000"
+ GET /room-preview/mobile/cmqjiphjy001qes3xbqppw5rx 200 in 388ms (next.js: 59ms, proxy.ts: 3ms, application-code: 326ms)
+[13:10:31.390] [32mINFO[39m: [36mmobile-page › Mobile page SSR render[39m
+    [35mmodule[39m: "mobile-page"
+    [35msessionId[39m: "cmqjiphjy001qes3xbqppw5rx"
+    [35muserAgent[39m: "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) HeadlessChrome/147.0.7727.15 Safari/537.36"
+    [35mip[39m: "127.0.0.1"
+ GET /room-preview/mobile/cmqjiphjy001qes3xbqppw5rx?devEntry=1&lang=ar 200 in 74ms (next.js: 5ms, proxy.ts: 4ms, application-code: 66ms)
+ POST /api/room-preview/sessions/cmqjiphjy001qes3xbqppw5rx/diagnostics 200 in 164ms (next.js: 19ms, proxy.ts: 8ms, application-code: 137ms)
+ POST /api/room-preview/sessions/cmqjiphjy001qes3xbqppw5rx/diagnostics 200 in 163ms (next.js: 32ms, proxy.ts: 9ms, application-code: 123ms)
+ POST /api/room-preview/sessions/cmqjiphjy001qes3xbqppw5rx/diagnostics 200 in 171ms (next.js: 28ms, proxy.ts: 10ms, application-code: 134ms)
+ POST /api/room-preview/sessions/cmqjiphjy001qes3xbqppw5rx/heartbeat 200 in 311ms (next.js: 27ms, proxy.ts: 8ms, application-code: 276ms)
+ GET /api/room-preview/sessions/cmqjiphjy001qes3xbqppw5rx 200 in 747ms (next.js: 107ms, proxy.ts: 8ms, application-code: 631ms)
+ POST /api/room-preview/sessions/cmqjiphjy001qes3xbqppw5rx/diagnostics 200 in 36ms (next.js: 21ms, proxy.ts: 8ms, application-code: 6ms)
+ POST /api/room-preview/sessions/cmqjiphjy001qes3xbqppw5rx/connect 200 in 631ms (next.js: 14ms, proxy.ts: 8ms, application-code: 609ms)
+[13:10:33.953] [33mWARN[39m: [36msession-events › Redis not configured — publishing to in-memory bus only. Set REDIS_URL.[39m
+    [35mmodule[39m: "session-events"
+    [35msessionId[39m: "cmqjiphjy001qes3xbqppw5rx"
+    [35meventType[39m: "session_updated"
+ POST /api/room-preview/sessions/cmqjiphjy001qes3xbqppw5rx/diagnostics 200 in 21ms (next.js: 13ms, proxy.ts: 4ms, application-code: 4ms)
+ POST /api/room-preview/sessions/cmqjiphjy001qes3xbqppw5rx/heartbeat 200 in 295ms (next.js: 21ms, proxy.ts: 5ms, application-code: 270ms)
+[room-preview] create_session_called {
+  existingSessionId: null,
+  route: '/api/room-preview/sessions',
+  source: 'unknown',
+  timestamp: '2026-06-18T13:10:35.267Z'
+}
+[13:10:35.268] [32mINFO[39m: [36msessions-api › Room Preview session create request received[39m
+    [35mmodule[39m: "sessions-api"
+    [35mip[39m: "127.0.0.1"
+    [35msource[39m: "unknown"
+ POST /api/room-preview/sessions 201 in 149ms (next.js: 2ms, proxy.ts: 4ms, application-code: 142ms)
+ GET /api/room-preview/sessions/cmqjiplad0021es3xzmg0ucme/activate?t=sv1SRyI7LkNCSUvZq7WR0AWnyV5K9_V7GKJ8iLm5Uo0&lang=ar 302 in 20ms (next.js: 10ms, proxy.ts: 7ms, application-code: 3ms)
+[13:10:35.739] [32mINFO[39m: [36mactivate-mobile-api › Mobile activated via QR (GET)[39m
+    [35mmodule[39m: "activate-mobile-api"
+    [35msessionId[39m: "cmqjiplad0021es3xzmg0ucme"
+    [35mhost[39m: "localhost:3000"
+ GET /room-preview/mobile/cmqjiplad0021es3xzmg0ucme 200 in 166ms (next.js: 9ms, proxy.ts: 4ms, application-code: 154ms)
+[13:10:36.012] [32mINFO[39m: [36mmobile-page › Mobile page SSR render[39m
+    [35mmodule[39m: "mobile-page"
+    [35msessionId[39m: "cmqjiplad0021es3xzmg0ucme"
+    [35muserAgent[39m: "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) HeadlessChrome/147.0.7727.15 Safari/537.36"
+    [35mip[39m: "127.0.0.1"
+ GET /room-preview/mobile/cmqjiplad0021es3xzmg0ucme?devEntry=1&lang=ar 200 in 60ms (next.js: 5ms, proxy.ts: 6ms, application-code: 49ms)
+ POST /api/room-preview/sessions/cmqjiplad0021es3xzmg0ucme/diagnostics 200 in 192ms (next.js: 28ms, proxy.ts: 8ms, application-code: 156ms)
+ POST /api/room-preview/sessions/cmqjiplad0021es3xzmg0ucme/diagnostics 200 in 193ms (next.js: 47ms, proxy.ts: 12ms, application-code: 134ms)
+ GET /api/room-preview/sessions/cmqjiplad0021es3xzmg0ucme 200 in 203ms (next.js: 43ms, proxy.ts: 11ms, application-code: 149ms)
+ POST /api/room-preview/sessions/cmqjiplad0021es3xzmg0ucme/diagnostics 200 in 209ms (next.js: 39ms, proxy.ts: 9ms, application-code: 161ms)
+ POST /api/room-preview/sessions/cmqjiplad0021es3xzmg0ucme/diagnostics 200 in 30ms (next.js: 19ms, proxy.ts: 6ms, application-code: 5ms)
+ POST /api/room-preview/sessions/cmqjiplad0021es3xzmg0ucme/heartbeat 200 in 326ms (next.js: 36ms, proxy.ts: 8ms, application-code: 282ms)
+ POST /api/room-preview/sessions/cmqjiplad0021es3xzmg0ucme/connect 200 in 724ms (next.js: 13ms, proxy.ts: 6ms, application-code: 705ms)
+[13:10:38.006] [33mWARN[39m: [36msession-events › Redis not configured — publishing to in-memory bus only. Set REDIS_URL.[39m
+    [35mmodule[39m: "session-events"
+    [35msessionId[39m: "cmqjiplad0021es3xzmg0ucme"
+    [35meventType[39m: "session_updated"
+ POST /api/room-preview/sessions/cmqjiplad0021es3xzmg0ucme/diagnostics 200 in 24ms (next.js: 13ms, proxy.ts: 5ms, application-code: 5ms)
+ POST /api/room-preview/sessions/cmqjiplad0021es3xzmg0ucme/heartbeat 200 in 311ms (next.js: 32ms, proxy.ts: 6ms, application-code: 274ms)
+[room-preview] create_session_called {
+  existingSessionId: null,
+  route: '/api/room-preview/sessions',
+  source: 'unknown',
+  timestamp: '2026-06-18T13:10:39.932Z'
+}
+[13:10:39.933] [32mINFO[39m: [36msessions-api › Room Preview session create request received[39m
+    [35mmodule[39m: "sessions-api"
+    [35mip[39m: "127.0.0.1"
+    [35msource[39m: "unknown"
+ POST /api/room-preview/sessions 201 in 152ms (next.js: 4ms, proxy.ts: 5ms, application-code: 143ms)
+ GET /api/room-preview/sessions/cmqjipovy002ces3xqgy64ng5/activate?t=KK8pRJg48Or9fNgf6BhtoFYekYs77ZGMR-IWo2kjdJM&lang=ar 302 in 19ms (next.js: 8ms, proxy.ts: 7ms, application-code: 4ms)
+[13:10:40.403] [32mINFO[39m: [36mactivate-mobile-api › Mobile activated via QR (GET)[39m
+    [35mmodule[39m: "activate-mobile-api"
+    [35msessionId[39m: "cmqjipovy002ces3xqgy64ng5"
+    [35mhost[39m: "localhost:3000"
+ GET /room-preview/mobile/cmqjipovy002ces3xqgy64ng5 200 in 171ms (next.js: 8ms, proxy.ts: 3ms, application-code: 160ms)
+[13:10:40.673] [32mINFO[39m: [36mmobile-page › Mobile page SSR render[39m
+    [35mmodule[39m: "mobile-page"
+    [35msessionId[39m: "cmqjipovy002ces3xqgy64ng5"
+    [35muserAgent[39m: "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) HeadlessChrome/147.0.7727.15 Safari/537.36"
+    [35mip[39m: "127.0.0.1"
+ GET /room-preview/mobile/cmqjipovy002ces3xqgy64ng5?devEntry=1&lang=ar 200 in 54ms (next.js: 5ms, proxy.ts: 5ms, application-code: 45ms)
+ POST /api/room-preview/sessions/cmqjipovy002ces3xqgy64ng5/diagnostics 200 in 167ms (next.js: 21ms, proxy.ts: 7ms, application-code: 139ms)
+ POST /api/room-preview/sessions/cmqjipovy002ces3xqgy64ng5/diagnostics 200 in 182ms (next.js: 29ms, proxy.ts: 9ms, application-code: 144ms)
+ POST /api/room-preview/sessions/cmqjipovy002ces3xqgy64ng5/diagnostics 200 in 186ms (next.js: 31ms, proxy.ts: 11ms, application-code: 144ms)
+ GET /api/room-preview/sessions/cmqjipovy002ces3xqgy64ng5 200 in 195ms (next.js: 35ms, proxy.ts: 11ms, application-code: 149ms)
+ POST /api/room-preview/sessions/cmqjipovy002ces3xqgy64ng5/diagnostics 200 in 31ms (next.js: 17ms, proxy.ts: 8ms, application-code: 7ms)
+ POST /api/room-preview/sessions/cmqjipovy002ces3xqgy64ng5/heartbeat 200 in 315ms (next.js: 29ms, proxy.ts: 7ms, application-code: 279ms)
+ POST /api/room-preview/sessions/cmqjipovy002ces3xqgy64ng5/connect 200 in 682ms (next.js: 10ms, proxy.ts: 8ms, application-code: 664ms)
+[13:10:42.660] [33mWARN[39m: [36msession-events › Redis not configured — publishing to in-memory bus only. Set REDIS_URL.[39m
+    [35mmodule[39m: "session-events"
+    [35msessionId[39m: "cmqjipovy002ces3xqgy64ng5"
+    [35meventType[39m: "session_updated"
+ POST /api/room-preview/sessions/cmqjipovy002ces3xqgy64ng5/diagnostics 200 in 21ms (next.js: 8ms, proxy.ts: 7ms, application-code: 6ms)
+ POST /api/room-preview/sessions/cmqjipovy002ces3xqgy64ng5/heartbeat 200 in 257ms (next.js: 7ms, proxy.ts: 7ms, application-code: 244ms)
+[room-preview] create_session_called {
+  existingSessionId: null,
+  route: '/api/room-preview/sessions',
+  source: 'unknown',
+  timestamp: '2026-06-18T13:10:44.665Z'
+}
+[13:10:44.666] [32mINFO[39m: [36msessions-api › Room Preview session create request received[39m
+    [35mmodule[39m: "sessions-api"
+    [35mip[39m: "127.0.0.1"
+    [35msource[39m: "unknown"
+ POST /api/room-preview/sessions 201 in 146ms (next.js: 3ms, proxy.ts: 7ms, application-code: 136ms)
+ GET /api/room-preview/sessions/cmqjipsjf002nes3xo6go54uz/activate?t=Ma1ATjerllIkrZTDk4FmKvhDIH57BLbuNa2xIz-FxIM&lang=ar 302 in 19ms (next.js: 8ms, proxy.ts: 7ms, application-code: 4ms)
+[13:10:45.139] [32mINFO[39m: [36mactivate-mobile-api › Mobile activated via QR (GET)[39m
+    [35mmodule[39m: "activate-mobile-api"
+    [35msessionId[39m: "cmqjipsjf002nes3xo6go54uz"
+    [35mhost[39m: "localhost:3000"
+ GET /room-preview/mobile/cmqjipsjf002nes3xo6go54uz 200 in 154ms (next.js: 8ms, proxy.ts: 4ms, application-code: 143ms)
+[13:10:45.406] [32mINFO[39m: [36mmobile-page › Mobile page SSR render[39m
+    [35mmodule[39m: "mobile-page"
+    [35msessionId[39m: "cmqjipsjf002nes3xo6go54uz"
+    [35muserAgent[39m: "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) HeadlessChrome/147.0.7727.15 Safari/537.36"
+    [35mip[39m: "127.0.0.1"
+ GET /room-preview/mobile/cmqjipsjf002nes3xo6go54uz?devEntry=1&lang=ar 200 in 54ms (next.js: 5ms, proxy.ts: 5ms, application-code: 45ms)
+ POST /api/room-preview/sessions/cmqjipsjf002nes3xo6go54uz/diagnostics 200 in 181ms (next.js: 21ms, proxy.ts: 8ms, application-code: 152ms)
+ GET /api/room-preview/sessions/cmqjipsjf002nes3xo6go54uz 200 in 186ms (next.js: 37ms, proxy.ts: 9ms, application-code: 140ms)
+ POST /api/room-preview/sessions/cmqjipsjf002nes3xo6go54uz/diagnostics 200 in 196ms (next.js: 30ms, proxy.ts: 9ms, application-code: 156ms)
+ POST /api/room-preview/sessions/cmqjipsjf002nes3xo6go54uz/diagnostics 200 in 197ms (next.js: 33ms, proxy.ts: 9ms, application-code: 155ms)
+ POST /api/room-preview/sessions/cmqjipsjf002nes3xo6go54uz/diagnostics 200 in 35ms (next.js: 24ms, proxy.ts: 8ms, application-code: 4ms)
+ POST /api/room-preview/sessions/cmqjipsjf002nes3xo6go54uz/heartbeat 200 in 334ms (next.js: 30ms, proxy.ts: 8ms, application-code: 297ms)
+ POST /api/room-preview/sessions/cmqjipsjf002nes3xo6go54uz/connect 200 in 665ms (next.js: 16ms, proxy.ts: 8ms, application-code: 641ms)
+[13:10:47.369] [33mWARN[39m: [36msession-events › Redis not configured — publishing to in-memory bus only. Set REDIS_URL.[39m
+    [35mmodule[39m: "session-events"
+    [35msessionId[39m: "cmqjipsjf002nes3xo6go54uz"
+    [35meventType[39m: "session_updated"
+ POST /api/room-preview/sessions/cmqjipsjf002nes3xo6go54uz/diagnostics 200 in 25ms (next.js: 13ms, proxy.ts: 7ms, application-code: 4ms)
+ POST /api/room-preview/sessions/cmqjipsjf002nes3xo6go54uz/heartbeat 200 in 309ms (next.js: 19ms, proxy.ts: 10ms, application-code: 281ms)
+[13:12:42.698] [33mWARN[39m: [36msession-events › Redis not configured — publishing to in-memory bus only. Set REDIS_URL.[39m
+    [35mmodule[39m: "session-events"
+    [35msessionId[39m: "cmqjibs6j000704laqqwixe1h"
+    [35meventType[39m: "session_updated"
+[cleanup] expired=0 idleExpired=1 stuckFailed=0 completed=0
+[13:12:42.825] [33mWARN[39m: [36msession-events › Redis not configured — publishing to in-memory bus only. Set REDIS_URL.[39m
+    [35mmodule[39m: "session-events"
+    [35msessionId[39m: "cmqjibs6j000704laqqwixe1h"
+    [35meventType[39m: "session_updated"
+[13:17:42.661] [33mWARN[39m: [36msession-events › Redis not configured — publishing to in-memory bus only. Set REDIS_URL.[39m
+    [35mmodule[39m: "session-events"
+    [35msessionId[39m: "cmqjimclw000404laop32se54"
+    [35meventType[39m: "session_updated"
+[cleanup] expired=0 idleExpired=1 stuckFailed=0 completed=0
+[13:17:42.782] [33mWARN[39m: [36msession-events › Redis not configured — publishing to in-memory bus only. Set REDIS_URL.[39m
+    [35mmodule[39m: "session-events"
+    [35msessionId[39m: "cmqjimclw000404laop32se54"
+    [35meventType[39m: "session_updated"
+ GET /dev/error-states 404 in 2.3s (next.js: 1851ms, proxy.ts: 5ms, application-code: 472ms)
+ GET /dev/error-states 404 in 33ms (next.js: 5ms, proxy.ts: 5ms, application-code: 24ms)
+ GET /dev/error-states 404 in 33ms (next.js: 5ms, proxy.ts: 5ms, application-code: 24ms)
+ GET /dev/error-states 404 in 32ms (next.js: 4ms, proxy.ts: 4ms, application-code: 23ms)
+ GET /dev/error-states 404 in 32ms (next.js: 4ms, proxy.ts: 4ms, application-code: 24ms)
+[13:27:42.643] [33mWARN[39m: [36msession-events › Redis not configured — publishing to in-memory bus only. Set REDIS_URL.[39m
+    [35mmodule[39m: "session-events"
+    [35msessionId[39m: "cmqjiww32000604kwb5jkjl3k"
+    [35meventType[39m: "session_updated"
+[13:27:42.643] [33mWARN[39m: [36msession-events › Redis not configured — publishing to in-memory bus only. Set REDIS_URL.[39m
+    [35mmodule[39m: "session-events"
+    [35msessionId[39m: "cmqjh5yvt001ka83xoy6wzbl0"
+    [35meventType[39m: "session_updated"
+[cleanup] expired=2 idleExpired=0 stuckFailed=0 completed=0
+[13:27:42.978] [33mWARN[39m: [36msession-events › Redis not configured — publishing to in-memory bus only. Set REDIS_URL.[39m
+    [35mmodule[39m: "session-events"
+    [35msessionId[39m: "cmqjiww32000604kwb5jkjl3k"
+    [35meventType[39m: "session_updated"
+ GET /dev/error-states 404 in 37ms (next.js: 6ms, proxy.ts: 4ms, application-code: 26ms)
+ GET /dev/error-states 404 in 35ms (next.js: 4ms, proxy.ts: 5ms, application-code: 26ms)
+ GET /dev/error-states 404 in 38ms (next.js: 6ms, proxy.ts: 5ms, application-code: 27ms)
+ GET /dev/error-states 404 in 41ms (next.js: 7ms, proxy.ts: 5ms, application-code: 29ms)
+[cleanup] expired=1 idleExpired=0 stuckFailed=0 completed=0
+[13:32:42.565] [33mWARN[39m: [36msession-events › Redis not configured — publishing to in-memory bus only. Set REDIS_URL.[39m
+    [35mmodule[39m: "session-events"
+    [35msessionId[39m: "cmqjj7gic000004jpo9w8m75d"
+    [35meventType[39m: "session_updated"
+ GET /dev/error-states 404 in 2.1s (next.js: 1300ms, proxy.ts: 6ms, application-code: 762ms)
+ GET /dev/room-upload-lifecycle 200 in 2.4s (next.js: 1885ms, proxy.ts: 11ms, application-code: 456ms)
+ GET /dev/error-states 404 in 43ms (next.js: 12ms, proxy.ts: 5ms, application-code: 27ms)
+ GET /dev/room-upload-lifecycle 200 in 43ms (next.js: 4ms, proxy.ts: 6ms, application-code: 33ms)
+ GET /dev/room-upload-lifecycle 200 in 56ms (next.js: 2ms, proxy.ts: 8ms, application-code: 46ms)
+ GET /dev/room-upload-lifecycle 200 in 429ms (next.js: 58ms, proxy.ts: 4ms, application-code: 367ms)
+ GET /dev/room-upload-lifecycle 200 in 44ms (next.js: 8ms, proxy.ts: 5ms, application-code: 32ms)
+[cleanup] expired=0 idleExpired=1 stuckFailed=0 completed=0
+[13:37:42.708] [33mWARN[39m: [36msession-events › Redis not configured — publishing to in-memory bus only. Set REDIS_URL.[39m
+    [35mmodule[39m: "session-events"
+    [35msessionId[39m: "cmqjji0ho000504jp367jasms"
+    [35meventType[39m: "session_updated"
+ GET /dev/room-upload-lifecycle 200 in 40ms (next.js: 3ms, proxy.ts: 5ms, application-code: 31ms)
+ GET /api/room-preview/dev-entry?lang=ar 302 in 3.4s (next.js: 2.8s, proxy.ts: 10ms, application-code: 611ms)
+[13:53:14.690] [32mINFO[39m: [36mdev-entry-api › Dev-entry created new session[39m
+    [35mmodule[39m: "dev-entry-api"
+    [35mevent[39m: "dev_entry_create"
+    [35msessionId[39m: "cmqjk8fos003fes3xwx0pt0cr"
+ GET /room-preview/mobile/cmqjk8fos003fes3xwx0pt0cr?lang=ar 200 in 1079ms (next.js: 110ms, proxy.ts: 4ms, application-code: 965ms)
+ GET /room-preview/gate/cmqjk8fos003fes3xwx0pt0cr?lang=ar 200 in 3.1s (next.js: 2.6s, proxy.ts: 4ms, application-code: 490ms)
+ GET /api/room-preview/dev-entry?lang=ar 302 in 782ms (next.js: 44ms, proxy.ts: 5ms, application-code: 732ms)
+[13:54:23.459] [32mINFO[39m: [36mdev-entry-api › Dev-entry created new session[39m
+    [35mmodule[39m: "dev-entry-api"
+    [35mevent[39m: "dev_entry_create"
+    [35msessionId[39m: "cmqjk9wnj003hes3xfahzfnvz"
+ GET /room-preview/mobile/cmqjk9wnj003hes3xfahzfnvz?lang=ar 200 in 729ms (next.js: 79ms, proxy.ts: 3ms, application-code: 647ms)
+[13:54:24.273] [32mINFO[39m: [36mmobile-page › Mobile page SSR render[39m
+    [35mmodule[39m: "mobile-page"
+    [35msessionId[39m: "cmqjk9wnj003hes3xfahzfnvz"
+    [35muserAgent[39m: "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) HeadlessChrome/147.0.7727.15 Safari/537.36"
+    [35mip[39m: "127.0.0.1"
+ GET /room-preview/mobile/cmqjk9wnj003hes3xfahzfnvz?lang=ar&devEntry=1 200 in 71ms (next.js: 5ms, proxy.ts: 4ms, application-code: 62ms)
+○ Compiling /api/room-preview/sessions/[sessionId] ...
+ GET /api/room-preview/sessions/cmqjk9wnj003hes3xfahzfnvz 200 in 4.8s (next.js: 4.4s, proxy.ts: 20ms, application-code: 367ms)
+[13:54:30.129] [32mINFO[39m: [36mmobile-page › Mobile page SSR render[39m
+    [35mmodule[39m: "mobile-page"
+    [35msessionId[39m: "cmqjk9wnj003hes3xfahzfnvz"
+    [35muserAgent[39m: "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) HeadlessChrome/147.0.7727.15 Safari/537.36"
+    [35mip[39m: "127.0.0.1"
+ GET /room-preview/mobile/cmqjk9wnj003hes3xfahzfnvz?lang=ar&devEntry=1 200 in 381ms (next.js: 219ms, proxy.ts: 10ms, application-code: 152ms)
+ POST /api/room-preview/sessions/cmqjk9wnj003hes3xfahzfnvz/heartbeat 200 in 4.9s (next.js: 4.4s, proxy.ts: 13ms, application-code: 486ms)
+ POST /api/room-preview/sessions/cmqjk9wnj003hes3xfahzfnvz/diagnostics 200 in 5.9s (next.js: 4.4s, proxy.ts: 13ms, application-code: 1505ms)
+ POST /api/room-preview/sessions/cmqjk9wnj003hes3xfahzfnvz/diagnostics 200 in 5.9s (next.js: 4.4s, proxy.ts: 13ms, application-code: 1506ms)
+ POST /api/room-preview/sessions/cmqjk9wnj003hes3xfahzfnvz/diagnostics 200 in 5.9s (next.js: 4.4s, proxy.ts: 15ms, application-code: 1507ms)
+ POST /api/room-preview/sessions/cmqjk9wnj003hes3xfahzfnvz/diagnostics 200 in 1121ms (next.js: 10ms, proxy.ts: 9ms, application-code: 1102ms)
+ POST /api/room-preview/sessions/cmqjk9wnj003hes3xfahzfnvz/connect 200 in 2.6s (next.js: 1956ms, proxy.ts: 7ms, application-code: 611ms)
+[13:54:32.756] [33mWARN[39m: [36msession-events › Redis not configured — publishing to in-memory bus only. Set REDIS_URL.[39m
+    [35mmodule[39m: "session-events"
+    [35msessionId[39m: "cmqjk9wnj003hes3xfahzfnvz"
+    [35meventType[39m: "session_updated"
+ POST /api/room-preview/sessions/cmqjk9wnj003hes3xfahzfnvz/diagnostics 200 in 231ms (next.js: 89ms, proxy.ts: 5ms, application-code: 137ms)
+ POST /api/room-preview/sessions/cmqjk9wnj003hes3xfahzfnvz/heartbeat 200 in 432ms (next.js: 179ms, proxy.ts: 5ms, application-code: 248ms)
+ GET /api/room-preview/dev-entry?lang=ar 302 in 636ms (next.js: 37ms, proxy.ts: 6ms, application-code: 593ms)
+[13:55:08.635] [32mINFO[39m: [36mdev-entry-api › Dev-entry created new session[39m
+    [35mmodule[39m: "dev-entry-api"
+    [35mevent[39m: "dev_entry_create"
+    [35msessionId[39m: "cmqjkavma003ses3xg3kdrx6w"
+ GET /room-preview/mobile/cmqjkavma003ses3xg3kdrx6w?lang=ar 200 in 1041ms (next.js: 122ms, proxy.ts: 5ms, application-code: 914ms)
+[13:55:09.735] [32mINFO[39m: [36mmobile-page › Mobile page SSR render[39m
+    [35mmodule[39m: "mobile-page"
+    [35msessionId[39m: "cmqjkavma003ses3xg3kdrx6w"
+    [35muserAgent[39m: "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) HeadlessChrome/147.0.7727.15 Safari/537.36"
+    [35mip[39m: "127.0.0.1"
+ GET /room-preview/mobile/cmqjkavma003ses3xg3kdrx6w?lang=ar&devEntry=1 200 in 73ms (next.js: 7ms, proxy.ts: 4ms, application-code: 62ms)
+ POST /api/room-preview/sessions/cmqjkavma003ses3xg3kdrx6w/diagnostics 200 in 151ms (next.js: 18ms, proxy.ts: 9ms, application-code: 125ms)
+ POST /api/room-preview/sessions/cmqjkavma003ses3xg3kdrx6w/heartbeat 200 in 267ms (next.js: 26ms, proxy.ts: 9ms, application-code: 232ms)
+ POST /api/room-preview/sessions/cmqjkavma003ses3xg3kdrx6w/diagnostics 200 in 638ms (next.js: 34ms, proxy.ts: 10ms, application-code: 594ms)
+ POST /api/room-preview/sessions/cmqjkavma003ses3xg3kdrx6w/diagnostics 200 in 656ms (next.js: 28ms, proxy.ts: 10ms, application-code: 618ms)
+ GET /api/room-preview/sessions/cmqjkavma003ses3xg3kdrx6w 200 in 725ms (next.js: 121ms, proxy.ts: 11ms, application-code: 592ms)
+ POST /api/room-preview/sessions/cmqjkavma003ses3xg3kdrx6w/diagnostics 200 in 23ms (next.js: 7ms, proxy.ts: 9ms, application-code: 7ms)
+ POST /api/room-preview/sessions/cmqjkavma003ses3xg3kdrx6w/connect 200 in 619ms (next.js: 23ms, proxy.ts: 9ms, application-code: 587ms)
+[13:55:12.042] [33mWARN[39m: [36msession-events › Redis not configured — publishing to in-memory bus only. Set REDIS_URL.[39m
+    [35mmodule[39m: "session-events"
+    [35msessionId[39m: "cmqjkavma003ses3xg3kdrx6w"
+    [35meventType[39m: "session_updated"
+ POST /api/room-preview/sessions/cmqjkavma003ses3xg3kdrx6w/diagnostics 200 in 22ms (next.js: 14ms, proxy.ts: 4ms, application-code: 4ms)
+ POST /api/room-preview/sessions/cmqjkavma003ses3xg3kdrx6w/heartbeat 200 in 313ms (next.js: 21ms, proxy.ts: 6ms, application-code: 286ms)
+ GET /api/room-preview/dev-entry?lang=ar 302 in 782ms (next.js: 2ms, proxy.ts: 5ms, application-code: 775ms)
+[13:55:56.401] [32mINFO[39m: [36mdev-entry-api › Dev-entry created new session[39m
+    [35mmodule[39m: "dev-entry-api"
+    [35mevent[39m: "dev_entry_create"
+    [35msessionId[39m: "cmqjkbwc20042es3x09xlg06k"
+ GET /room-preview/mobile/cmqjkbwc20042es3x09xlg06k?lang=ar 200 in 662ms (next.js: 13ms, proxy.ts: 3ms, application-code: 646ms)
+[13:55:57.147] [32mINFO[39m: [36mmobile-page › Mobile page SSR render[39m
+    [35mmodule[39m: "mobile-page"
+    [35msessionId[39m: "cmqjkbwc20042es3x09xlg06k"
+    [35muserAgent[39m: "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) HeadlessChrome/147.0.7727.15 Safari/537.36"
+    [35mip[39m: "127.0.0.1"
+ GET /room-preview/mobile/cmqjkbwc20042es3x09xlg06k?lang=ar&devEntry=1 200 in 54ms (next.js: 4ms, proxy.ts: 6ms, application-code: 45ms)
+ POST /api/room-preview/sessions/cmqjkbwc20042es3x09xlg06k/diagnostics 200 in 170ms (next.js: 21ms, proxy.ts: 8ms, application-code: 142ms)
+ POST /api/room-preview/sessions/cmqjkbwc20042es3x09xlg06k/heartbeat 200 in 291ms (next.js: 29ms, proxy.ts: 8ms, application-code: 254ms)
+ POST /api/room-preview/sessions/cmqjkbwc20042es3x09xlg06k/diagnostics 200 in 683ms (next.js: 30ms, proxy.ts: 11ms, application-code: 642ms)
+ POST /api/room-preview/sessions/cmqjkbwc20042es3x09xlg06k/diagnostics 200 in 708ms (next.js: 39ms, proxy.ts: 14ms, application-code: 655ms)
+ GET /api/room-preview/sessions/cmqjkbwc20042es3x09xlg06k 200 in 735ms (next.js: 34ms, proxy.ts: 13ms, application-code: 688ms)
+ POST /api/room-preview/sessions/cmqjkbwc20042es3x09xlg06k/diagnostics 200 in 37ms (next.js: 22ms, proxy.ts: 7ms, application-code: 8ms)
+ POST /api/room-preview/sessions/cmqjkbwc20042es3x09xlg06k/connect 200 in 622ms (next.js: 14ms, proxy.ts: 6ms, application-code: 602ms)
+[13:55:59.455] [33mWARN[39m: [36msession-events › Redis not configured — publishing to in-memory bus only. Set REDIS_URL.[39m
+    [35mmodule[39m: "session-events"
+    [35msessionId[39m: "cmqjkbwc20042es3x09xlg06k"
+    [35meventType[39m: "session_updated"
+ POST /api/room-preview/sessions/cmqjkbwc20042es3x09xlg06k/diagnostics 200 in 20ms (next.js: 12ms, proxy.ts: 4ms, application-code: 4ms)
+ POST /api/room-preview/sessions/cmqjkbwc20042es3x09xlg06k/diagnostics 200 in 229ms (next.js: 201ms, proxy.ts: 21ms, application-code: 7ms)
+ POST /api/room-preview/sessions/cmqjkbwc20042es3x09xlg06k/diagnostics 200 in 242ms (next.js: 213ms, proxy.ts: 21ms, application-code: 7ms)
+ POST /api/room-preview/sessions/cmqjkbwc20042es3x09xlg06k/heartbeat 200 in 443ms (next.js: 19ms, proxy.ts: 4ms, application-code: 419ms)
+ POST /api/room-preview/sessions/cmqjkbwc20042es3x09xlg06k/diagnostics 200 in 275ms (next.js: 225ms, proxy.ts: 43ms, application-code: 7ms)
+[13:56:03.611] [32mINFO[39m: [36mmobile-page › Mobile page SSR render[39m
+    [35mmodule[39m: "mobile-page"
+    [35msessionId[39m: "cmqjkbwc20042es3x09xlg06k"
+    [35muserAgent[39m: "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) HeadlessChrome/147.0.7727.15 Safari/537.36"
+    [35mip[39m: "127.0.0.1"
+ GET /room-preview/mobile/cmqjkbwc20042es3x09xlg06k?lang=ar&devEntry=1 200 in 210ms (next.js: 140ms, proxy.ts: 5ms, application-code: 65ms)
+ POST /api/room-preview/sessions/cmqjkbwc20042es3x09xlg06k/diagnostics 200 in 272ms (next.js: 116ms, proxy.ts: 6ms, application-code: 151ms)
+ POST /api/room-preview/sessions/cmqjkbwc20042es3x09xlg06k/room/upload-url 501 in 4.7s (next.js: 4.6s, proxy.ts: 43ms, application-code: 6ms)
+[13:56:07.395] [33mWARN[39m: [36msession-events › Redis not configured — publishing to in-memory bus only. Set REDIS_URL.[39m
+    [35mmodule[39m: "session-events"
+    [35msessionId[39m: "cmqjkbwc20042es3x09xlg06k"
+    [35meventType[39m: "session_updated"
+[13:56:07.407] [32mINFO[39m: [36mmobile-page › Mobile page SSR render[39m
+    [35mmodule[39m: "mobile-page"
+    [35msessionId[39m: "cmqjkbwc20042es3x09xlg06k"
+    [35muserAgent[39m: "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) HeadlessChrome/147.0.7727.15 Safari/537.36"
+    [35mip[39m: "127.0.0.1"
+ GET /room-preview/mobile/cmqjkbwc20042es3x09xlg06k?lang=ar&devEntry=1 200 in 192ms (next.js: 125ms, proxy.ts: 5ms, application-code: 62ms)
+[13:56:07.521] [32mINFO[39m: [36mroom-api › Room saved[39m
+    [35mmodule[39m: "room-api"
+    [35mevent[39m: "room_image_uploaded_url"
+    [35mroomImageUrl[39m: "/uploads/room-preview/cmqjkbwc20042es3x09xlg06k-gallery-e8f23b83-36b7-422e-a8ad-b6d78868848e.png"
+    [35msessionId[39m: "cmqjkbwc20042es3x09xlg06k"
+    [35msource[39m: "gallery"
+    [35mdemoRoomId[39m: null
+    [35mstatus[39m: "room_selected"
+ POST /api/room-preview/sessions/cmqjkbwc20042es3x09xlg06k/room 200 in 4.2s (next.js: 2.4s, proxy.ts: 16ms, application-code: 1780ms)
+ POST /api/room-preview/sessions/cmqjkbwc20042es3x09xlg06k/diagnostics 200 in 223ms (next.js: 72ms, proxy.ts: 4ms, application-code: 148ms)
+[13:56:08.928] [32mINFO[39m: [36mmobile-page › Mobile page SSR render[39m
+    [35mmodule[39m: "mobile-page"
+    [35msessionId[39m: "cmqjkbwc20042es3x09xlg06k"
+    [35muserAgent[39m: "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) HeadlessChrome/147.0.7727.15 Safari/537.36"
+    [35mip[39m: "127.0.0.1"
+ GET /room-preview/mobile/cmqjkbwc20042es3x09xlg06k?lang=ar&devEntry=1 200 in 50ms (next.js: 9ms, proxy.ts: 4ms, application-code: 36ms)
+ POST /api/room-preview/sessions/cmqjkbwc20042es3x09xlg06k/diagnostics 200 in 14ms (next.js: 5ms, proxy.ts: 5ms, application-code: 4ms)
+ POST /api/room-preview/sessions/cmqjkbwc20042es3x09xlg06k/heartbeat 200 in 148ms (next.js: 128ms, proxy.ts: 6ms, application-code: 13ms)
+ GET /api/room-preview/dev-entry?lang=ar 302 in 176ms (next.js: 43ms, proxy.ts: 4ms, application-code: 129ms)
+[13:56:09.939] [32mINFO[39m: [36mdev-entry-api › Dev-entry created new session[39m
+    [35mmodule[39m: "dev-entry-api"
+    [35mevent[39m: "dev_entry_create"
+    [35msessionId[39m: "cmqjkc7a0004qes3xtr7zlec4"
+ GET /room-preview/mobile/cmqjkc7a0004qes3xtr7zlec4?lang=ar 200 in 496ms (next.js: 7ms, proxy.ts: 4ms, application-code: 485ms)
+[13:56:11.050] [32mINFO[39m: [36mmobile-page › Mobile page SSR render[39m
+    [35mmodule[39m: "mobile-page"
+    [35msessionId[39m: "cmqjkc7a0004qes3xtr7zlec4"
+    [35muserAgent[39m: "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) HeadlessChrome/147.0.7727.15 Safari/537.36"
+    [35mip[39m: "127.0.0.1"
+ GET /room-preview/mobile/cmqjkc7a0004qes3xtr7zlec4?lang=ar&devEntry=1 200 in 75ms (next.js: 8ms, proxy.ts: 4ms, application-code: 63ms)
+ POST /api/room-preview/sessions/cmqjkc7a0004qes3xtr7zlec4/diagnostics 200 in 161ms (next.js: 23ms, proxy.ts: 9ms, application-code: 129ms)
+ GET /api/room-preview/sessions/cmqjkc7a0004qes3xtr7zlec4 200 in 265ms (next.js: 123ms, proxy.ts: 9ms, application-code: 133ms)
+ POST /api/room-preview/sessions/cmqjkc7a0004qes3xtr7zlec4/diagnostics 200 in 77ms (next.js: 64ms, proxy.ts: 6ms, application-code: 7ms)
+ POST /api/room-preview/sessions/cmqjkc7a0004qes3xtr7zlec4/heartbeat 200 in 357ms (next.js: 31ms, proxy.ts: 9ms, application-code: 317ms)
+ POST /api/room-preview/sessions/cmqjkc7a0004qes3xtr7zlec4/diagnostics 200 in 764ms (next.js: 128ms, proxy.ts: 9ms, application-code: 627ms)
+ POST /api/room-preview/sessions/cmqjkc7a0004qes3xtr7zlec4/diagnostics 200 in 890ms (next.js: 133ms, proxy.ts: 9ms, application-code: 748ms)
+ POST /api/room-preview/sessions/cmqjkc7a0004qes3xtr7zlec4/connect 200 in 662ms (next.js: 54ms, proxy.ts: 6ms, application-code: 602ms)
+[13:56:12.979] [33mWARN[39m: [36msession-events › Redis not configured — publishing to in-memory bus only. Set REDIS_URL.[39m
+    [35mmodule[39m: "session-events"
+    [35msessionId[39m: "cmqjkc7a0004qes3xtr7zlec4"
+    [35meventType[39m: "session_updated"
+ POST /api/room-preview/sessions/cmqjkc7a0004qes3xtr7zlec4/diagnostics 200 in 36ms (next.js: 20ms, proxy.ts: 9ms, application-code: 8ms)
+ POST /api/room-preview/sessions/cmqjkc7a0004qes3xtr7zlec4/heartbeat 200 in 323ms (next.js: 39ms, proxy.ts: 10ms, application-code: 274ms)
+ POST /api/room-preview/sessions/cmqjkc7a0004qes3xtr7zlec4/diagnostics 200 in 176ms (next.js: 156ms, proxy.ts: 15ms, application-code: 5ms)
+ POST /api/room-preview/sessions/cmqjkc7a0004qes3xtr7zlec4/diagnostics 200 in 187ms (next.js: 167ms, proxy.ts: 15ms, application-code: 5ms)
+ POST /api/room-preview/sessions/cmqjkc7a0004qes3xtr7zlec4/diagnostics 200 in 197ms (next.js: 177ms, proxy.ts: 15ms, application-code: 5ms)
+ POST /api/room-preview/sessions/cmqjkc7a0004qes3xtr7zlec4/diagnostics 200 in 203ms (next.js: 179ms, proxy.ts: 20ms, application-code: 4ms)
+ POST /api/room-preview/sessions/cmqjkc7a0004qes3xtr7zlec4/diagnostics 200 in 202ms (next.js: 64ms, proxy.ts: 134ms, application-code: 5ms)
+[13:56:13.943] [32mINFO[39m: [36mmobile-page › Mobile page SSR render[39m
+    [35mmodule[39m: "mobile-page"
+    [35msessionId[39m: "cmqjkc7a0004qes3xtr7zlec4"
+    [35muserAgent[39m: "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) HeadlessChrome/147.0.7727.15 Safari/537.36"
+    [35mip[39m: "127.0.0.1"
+ GET /room-preview/mobile/cmqjkc7a0004qes3xtr7zlec4?lang=ar&devEntry=1 200 in 198ms (next.js: 17ms, proxy.ts: 13ms, application-code: 168ms)
+[13:56:14.171] [32mINFO[39m: [36mmobile-page › Mobile page SSR render[39m
+    [35mmodule[39m: "mobile-page"
+    [35msessionId[39m: "cmqjkc7a0004qes3xtr7zlec4"
+    [35muserAgent[39m: "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) HeadlessChrome/147.0.7727.15 Safari/537.36"
+    [35mip[39m: "127.0.0.1"
+ GET /room-preview/mobile/cmqjkc7a0004qes3xtr7zlec4?lang=ar&devEntry=1 200 in 50ms (next.js: 6ms, proxy.ts: 7ms, application-code: 36ms)
+ POST /api/room-preview/sessions/cmqjkc7a0004qes3xtr7zlec4/heartbeat 200 in 735ms (next.js: 8ms, proxy.ts: 6ms, application-code: 721ms)
+ GET /api/room-preview/dev-entry?lang=ar 302 in 1097ms (next.js: 368ms, proxy.ts: 6ms, application-code: 723ms)
+[13:57:25.193] [32mINFO[39m: [36mdev-entry-api › Dev-entry created new session[39m
+    [35mmodule[39m: "dev-entry-api"
+    [35mevent[39m: "dev_entry_create"
+    [35msessionId[39m: "cmqjkdsw00057es3xk7a3by9a"
+ GET /room-preview/mobile/cmqjkdsw00057es3xk7a3by9a?lang=ar 200 in 1106ms (next.js: 120ms, proxy.ts: 4ms, application-code: 981ms)
+[13:57:26.476] [32mINFO[39m: [36mmobile-page › Mobile page SSR render[39m
+    [35mmodule[39m: "mobile-page"
+    [35msessionId[39m: "cmqjkdsw00057es3xk7a3by9a"
+    [35muserAgent[39m: "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) HeadlessChrome/147.0.7727.15 Safari/537.36"
+    [35mip[39m: "127.0.0.1"
+ GET /room-preview/mobile/cmqjkdsw00057es3xk7a3by9a?lang=ar&devEntry=1 200 in 108ms (next.js: 9ms, proxy.ts: 4ms, application-code: 95ms)
+ POST /api/room-preview/sessions/cmqjkdsw00057es3xk7a3by9a/diagnostics 200 in 368ms (next.js: 102ms, proxy.ts: 17ms, application-code: 249ms)
+ POST /api/room-preview/sessions/cmqjkdsw00057es3xk7a3by9a/heartbeat 200 in 511ms (next.js: 208ms, proxy.ts: 17ms, application-code: 286ms)
+ POST /api/room-preview/sessions/cmqjkdsw00057es3xk7a3by9a/diagnostics 200 in 859ms (next.js: 212ms, proxy.ts: 12ms, application-code: 636ms)
+ GET /api/room-preview/sessions/cmqjkdsw00057es3xk7a3by9a 200 in 977ms (next.js: 334ms, proxy.ts: 14ms, application-code: 630ms)
+ POST /api/room-preview/sessions/cmqjkdsw00057es3xk7a3by9a/diagnostics 200 in 984ms (next.js: 217ms, proxy.ts: 12ms, application-code: 755ms)
+ POST /api/room-preview/sessions/cmqjkdsw00057es3xk7a3by9a/diagnostics 200 in 149ms (next.js: 121ms, proxy.ts: 21ms, application-code: 7ms)
+ POST /api/room-preview/sessions/cmqjkdsw00057es3xk7a3by9a/connect 200 in 742ms (next.js: 110ms, proxy.ts: 21ms, application-code: 612ms)
+[13:57:29.332] [33mWARN[39m: [36msession-events › Redis not configured — publishing to in-memory bus only. Set REDIS_URL.[39m
+    [35mmodule[39m: "session-events"
+    [35msessionId[39m: "cmqjkdsw00057es3xk7a3by9a"
+    [35meventType[39m: "session_updated"
+ POST /api/room-preview/sessions/cmqjkdsw00057es3xk7a3by9a/diagnostics 200 in 24ms (next.js: 13ms, proxy.ts: 6ms, application-code: 5ms)
+ POST /api/room-preview/sessions/cmqjkdsw00057es3xk7a3by9a/heartbeat 200 in 313ms (next.js: 14ms, proxy.ts: 20ms, application-code: 279ms)
+ POST /api/room-preview/sessions/cmqjkdsw00057es3xk7a3by9a/diagnostics 200 in 286ms (next.js: 248ms, proxy.ts: 29ms, application-code: 9ms)
+ POST /api/room-preview/sessions/cmqjkdsw00057es3xk7a3by9a/diagnostics 200 in 314ms (next.js: 274ms, proxy.ts: 29ms, application-code: 10ms)
+ POST /api/room-preview/sessions/cmqjkdsw00057es3xk7a3by9a/diagnostics 200 in 327ms (next.js: 295ms, proxy.ts: 26ms, application-code: 7ms)
+ POST /api/room-preview/sessions/cmqjkdsw00057es3xk7a3by9a/room/upload-url 501 in 444ms (next.js: 389ms, proxy.ts: 45ms, application-code: 9ms)
+[13:57:30.448] [32mINFO[39m: [36mmobile-page › Mobile page SSR render[39m
+    [35mmodule[39m: "mobile-page"
+    [35msessionId[39m: "cmqjkdsw00057es3xk7a3by9a"
+    [35muserAgent[39m: "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) HeadlessChrome/147.0.7727.15 Safari/537.36"
+    [35mip[39m: "127.0.0.1"
+ GET /room-preview/mobile/cmqjkdsw00057es3xk7a3by9a?lang=ar&devEntry=1 200 in 396ms (next.js: 36ms, proxy.ts: 13ms, application-code: 347ms)
+[13:57:30.943] [32mINFO[39m: [36mmobile-page › Mobile page SSR render[39m
+    [35mmodule[39m: "mobile-page"
+    [35msessionId[39m: "cmqjkdsw00057es3xk7a3by9a"
+    [35muserAgent[39m: "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) HeadlessChrome/147.0.7727.15 Safari/537.36"
+    [35mip[39m: "127.0.0.1"
+ GET /room-preview/mobile/cmqjkdsw00057es3xk7a3by9a?lang=ar&devEntry=1 200 in 115ms (next.js: 16ms, proxy.ts: 12ms, application-code: 87ms)
+[13:57:30.972] [33mWARN[39m: [36msession-events › Redis not configured — publishing to in-memory bus only. Set REDIS_URL.[39m
+    [35mmodule[39m: "session-events"
+    [35msessionId[39m: "cmqjkdsw00057es3xk7a3by9a"
+    [35meventType[39m: "session_updated"
+[13:57:31.108] [32mINFO[39m: [36mroom-api › Room saved[39m
+    [35mmodule[39m: "room-api"
+    [35mevent[39m: "room_image_uploaded_url"
+    [35mroomImageUrl[39m: "/uploads/room-preview/cmqjkdsw00057es3xk7a3by9a-gallery-fa6b3bcb-3ee9-4476-b2c7-eece51c8e6d0.png"
+    [35msessionId[39m: "cmqjkdsw00057es3xk7a3by9a"
+    [35msource[39m: "gallery"
+    [35mdemoRoomId[39m: null
+    [35mstatus[39m: "room_selected"
+ POST /api/room-preview/sessions/cmqjkdsw00057es3xk7a3by9a/room 200 in 2.0s (next.js: 117ms, proxy.ts: 35ms, application-code: 1875ms)
+ POST /api/room-preview/sessions/cmqjkdsw00057es3xk7a3by9a/diagnostics 200 in 21ms (next.js: 11ms, proxy.ts: 5ms, application-code: 5ms)
+[13:57:32.856] [32mINFO[39m: [36mmobile-page › Mobile page SSR render[39m
+    [35mmodule[39m: "mobile-page"
+    [35msessionId[39m: "cmqjkdsw00057es3xk7a3by9a"
+    [35muserAgent[39m: "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) HeadlessChrome/147.0.7727.15 Safari/537.36"
+    [35mip[39m: "127.0.0.1"
+ GET /room-preview/mobile/cmqjkdsw00057es3xk7a3by9a?lang=ar&devEntry=1 200 in 64ms (next.js: 11ms, proxy.ts: 6ms, application-code: 46ms)
+ POST /api/room-preview/sessions/cmqjkdsw00057es3xk7a3by9a/heartbeat 200 in 62ms (next.js: 11ms, proxy.ts: 8ms, application-code: 43ms)
+○ Compiling /_error ...
+ GET /api/room-preview/dev-entry?lang=ar 500 in 7.1s (next.js: 7.0s, proxy.ts: 16ms, application-code: 113ms)
+[cleanup] expired=0 idleExpired=1 stuckFailed=0 completed=0
+[13:57:42.669] [33mWARN[39m: [36msession-events › Redis not configured — publishing to in-memory bus only. Set REDIS_URL.[39m
+    [35mmodule[39m: "session-events"
+    [35msessionId[39m: "cmqjk8fos003fes3xwx0pt0cr"
+    [35meventType[39m: "session_updated"
+ GET /api/room-preview/dev-entry?lang=ar 302 in 1313ms (next.js: 289ms, proxy.ts: 398ms, application-code: 626ms)
+[13:58:23.351] [32mINFO[39m: [36mdev-entry-api › Dev-entry created new session[39m
+    [35mmodule[39m: "dev-entry-api"
+    [35mevent[39m: "dev_entry_create"
+    [35msessionId[39m: "cmqjkf1u6005wes3x84n2y2ll"
+ GET /api/room-preview/dev-entry?lang=ar 302 in 139ms (next.js: 3ms, proxy.ts: 5ms, application-code: 131ms)
+[13:58:28.420] [32mINFO[39m: [36mdev-entry-api › Dev-entry created new session[39m
+    [35mmodule[39m: "dev-entry-api"
+    [35mevent[39m: "dev_entry_create"
+    [35msessionId[39m: "cmqjkf64l005yes3x0m0dp9jg"
+[room-preview] create_session_called {
+  existingSessionId: null,
+  route: '/api/room-preview/sessions',
+  source: 'unknown',
+  timestamp: '2026-06-18T13:59:10.089Z'
+}
+[13:59:10.091] [32mINFO[39m: [36msessions-api › Room Preview session create request received[39m
+    [35mmodule[39m: "sessions-api"
+    [35mip[39m: "127.0.0.1"
+    [35msource[39m: "unknown"
+ POST /api/room-preview/sessions 201 in 3.3s (next.js: 2.6s, proxy.ts: 9ms, application-code: 752ms)
+[13:59:11.623] [32mINFO[39m: [36mmobile-page › Mobile page SSR render[39m
+    [35mmodule[39m: "mobile-page"
+    [35msessionId[39m: "cmqjkg2dp0060es3xcyg415sr"
+    [35muserAgent[39m: "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) HeadlessChrome/147.0.7727.15 Safari/537.36"
+    [35mip[39m: "127.0.0.1"
+ GET /room-preview/mobile/cmqjkg2dp0060es3xcyg415sr?lang=ar&devEntry=1 200 in 454ms (next.js: 111ms, proxy.ts: 6ms, application-code: 337ms)
+ POST /api/room-preview/sessions/cmqjkg2dp0060es3xcyg415sr/heartbeat 401 in 2.3s (next.js: 2.3s, proxy.ts: 9ms, application-code: 27ms)
+ GET /api/room-preview/sessions/cmqjkg2dp0060es3xcyg415sr 200 in 2.4s (next.js: 2.3s, proxy.ts: 13ms, application-code: 165ms)
+ POST /api/room-preview/sessions/cmqjkg2dp0060es3xcyg415sr/diagnostics 200 in 3.3s (next.js: 2.3s, proxy.ts: 10ms, application-code: 1045ms)
+ POST /api/room-preview/sessions/cmqjkg2dp0060es3xcyg415sr/diagnostics 200 in 3.3s (next.js: 2.3s, proxy.ts: 10ms, application-code: 1046ms)
+ POST /api/room-preview/sessions/cmqjkg2dp0060es3xcyg415sr/diagnostics 200 in 3.3s (next.js: 2.3s, proxy.ts: 9ms, application-code: 1046ms)
+ POST /api/room-preview/sessions/cmqjkg2dp0060es3xcyg415sr/diagnostics 200 in 1062ms (next.js: 8ms, proxy.ts: 9ms, application-code: 1045ms)
+ POST /api/room-preview/sessions/cmqjkg2dp0060es3xcyg415sr/connect 401 in 2.8s (next.js: 2.7s, proxy.ts: 10ms, application-code: 12ms)
+ POST /api/room-preview/sessions/cmqjkg2dp0060es3xcyg415sr/diagnostics 200 in 2.9s (next.js: 2.7s, proxy.ts: 10ms, application-code: 145ms)
+ POST /api/room-preview/sessions/cmqjkg2dp0060es3xcyg415sr/diagnostics 200 in 190ms (next.js: 22ms, proxy.ts: 28ms, application-code: 140ms)
+ POST /api/room-preview/sessions/cmqjkg2dp0060es3xcyg415sr/diagnostics 200 in 203ms (next.js: 42ms, proxy.ts: 28ms, application-code: 132ms)
+ POST /api/room-preview/sessions/cmqjkg2dp0060es3xcyg415sr/diagnostics 200 in 210ms (next.js: 32ms, proxy.ts: 28ms, application-code: 150ms)
+ POST /api/room-preview/sessions/cmqjkg2dp0060es3xcyg415sr/diagnostics 200 in 226ms (next.js: 61ms, proxy.ts: 28ms, application-code: 137ms)
+ POST /api/room-preview/sessions/cmqjkg2dp0060es3xcyg415sr/diagnostics 200 in 702ms (next.js: 54ms, proxy.ts: 28ms, application-code: 620ms)
+[room-preview] create_session_called {
+  existingSessionId: null,
+  route: '/api/room-preview/sessions',
+  source: 'unknown',
+  timestamp: '2026-06-18T13:59:53.781Z'
+}
+[13:59:53.782] [32mINFO[39m: [36msessions-api › Room Preview session create request received[39m
+    [35mmodule[39m: "sessions-api"
+    [35mip[39m: "127.0.0.1"
+    [35msource[39m: "unknown"
+ POST /api/room-preview/sessions 201 in 633ms (next.js: 46ms, proxy.ts: 4ms, application-code: 583ms)
+[13:59:55.152] [32mINFO[39m: [36mmobile-page › Mobile page SSR render[39m
+    [35mmodule[39m: "mobile-page"
+    [35msessionId[39m: "cmqjkh03b006des3xgqgtf9ld"
+    [35muserAgent[39m: "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) HeadlessChrome/147.0.7727.15 Safari/537.36"
+    [35mip[39m: "127.0.0.1"
+ GET /room-preview/mobile/cmqjkh03b006des3xgqgtf9ld?lang=ar&devEntry=1 200 in 425ms (next.js: 76ms, proxy.ts: 19ms, application-code: 330ms)
+ POST /api/room-preview/sessions/cmqjkh03b006des3xgqgtf9ld/heartbeat 401 in 114ms (next.js: 97ms, proxy.ts: 13ms, application-code: 4ms)
+ POST /api/room-preview/sessions/cmqjkh03b006des3xgqgtf9ld/diagnostics 200 in 212ms (next.js: 20ms, proxy.ts: 13ms, application-code: 179ms)
+ POST /api/room-preview/sessions/cmqjkh03b006des3xgqgtf9ld/diagnostics 200 in 25ms (next.js: 5ms, proxy.ts: 15ms, application-code: 5ms)
+ GET /api/room-preview/sessions/cmqjkh03b006des3xgqgtf9ld 200 in 848ms (next.js: 179ms, proxy.ts: 17ms, application-code: 653ms)
+ POST /api/room-preview/sessions/cmqjkh03b006des3xgqgtf9ld/diagnostics 200 in 860ms (next.js: 104ms, proxy.ts: 15ms, application-code: 742ms)
+ POST /api/room-preview/sessions/cmqjkh03b006des3xgqgtf9ld/diagnostics 200 in 877ms (next.js: 185ms, proxy.ts: 17ms, application-code: 674ms)
+ POST /api/room-preview/sessions/cmqjkh03b006des3xgqgtf9ld/connect 401 in 50ms (next.js: 26ms, proxy.ts: 16ms, application-code: 8ms)
+ POST /api/room-preview/sessions/cmqjkh03b006des3xgqgtf9ld/diagnostics 200 in 66ms (next.js: 41ms, proxy.ts: 16ms, application-code: 9ms)
+ POST /api/room-preview/sessions/cmqjkh03b006des3xgqgtf9ld/diagnostics 200 in 70ms (next.js: 39ms, proxy.ts: 24ms, application-code: 7ms)
+ POST /api/room-preview/sessions/cmqjkh03b006des3xgqgtf9ld/diagnostics 200 in 86ms (next.js: 53ms, proxy.ts: 24ms, application-code: 9ms)
+ POST /api/room-preview/sessions/cmqjkh03b006des3xgqgtf9ld/diagnostics 200 in 100ms (next.js: 69ms, proxy.ts: 24ms, application-code: 7ms)
+ POST /api/room-preview/sessions/cmqjkh03b006des3xgqgtf9ld/diagnostics 200 in 114ms (next.js: 82ms, proxy.ts: 24ms, application-code: 8ms)
+ POST /api/room-preview/sessions/cmqjkh03b006des3xgqgtf9ld/diagnostics 200 in 130ms (next.js: 96ms, proxy.ts: 24ms, application-code: 10ms)
+[room-preview] create_session_called {
+  existingSessionId: null,
+  route: '/api/room-preview/sessions',
+  source: 'unknown',
+  timestamp: '2026-06-18T14:00:38.412Z'
+}
+[14:00:38.414] [32mINFO[39m: [36msessions-api › Room Preview session create request received[39m
+    [35mmodule[39m: "sessions-api"
+    [35mip[39m: "127.0.0.1"
+    [35msource[39m: "unknown"
+ POST /api/room-preview/sessions 201 in 803ms (next.js: 5ms, proxy.ts: 6ms, application-code: 792ms)
+ GET /room-preview/mobile/cmqjkhyj4006qes3xz46cj1ai?lang=ar&t=U2sTkUpDEXu_aKYWG2YLjIXMJPx5UAQpkIDc6-V0aM0 200 in 67ms (next.js: 10ms, proxy.ts: 4ms, application-code: 53ms)
+ GET /api/room-preview/sessions/cmqjkhyj4006qes3xz46cj1ai/activate?t=U2sTkUpDEXu_aKYWG2YLjIXMJPx5UAQpkIDc6-V0aM0&lang=ar 302 in 2.4s (next.js: 2.4s, proxy.ts: 5ms, application-code: 11ms)
+[14:00:42.981] [32mINFO[39m: [36mactivate-mobile-api › Mobile activated via QR (GET)[39m
+    [35mmodule[39m: "activate-mobile-api"
+    [35msessionId[39m: "cmqjkhyj4006qes3xz46cj1ai"
+    [35mhost[39m: "localhost:3000"
+ GET /api/room-preview/sessions/cmqjkhyj4006qes3xz46cj1ai/activate?t=U2sTkUpDEXu_aKYWG2YLjIXMJPx5UAQpkIDc6-V0aM0&lang=ar 302 in 448ms (next.js: 436ms, proxy.ts: 9ms, application-code: 3ms)
+[14:00:43.438] [32mINFO[39m: [36mactivate-mobile-api › Mobile activated via QR (GET)[39m
+    [35mmodule[39m: "activate-mobile-api"
+    [35msessionId[39m: "cmqjkhyj4006qes3xz46cj1ai"
+    [35mhost[39m: "localhost:3000"
+ GET /room-preview/mobile/cmqjkhyj4006qes3xz46cj1ai 200 in 1092ms (next.js: 132ms, proxy.ts: 8ms, application-code: 951ms)
+ GET /room-preview/gate/cmqjkhyj4006qes3xz46cj1ai 200 in 372ms (next.js: 293ms, proxy.ts: 4ms, application-code: 76ms)
+[room-preview] create_session_called {
+  existingSessionId: null,
+  route: '/api/room-preview/sessions',
+  source: 'unknown',
+  timestamp: '2026-06-18T14:01:47.056Z'
+}
+[14:01:47.058] [32mINFO[39m: [36msessions-api › Room Preview session create request received[39m
+    [35mmodule[39m: "sessions-api"
+    [35mip[39m: "127.0.0.1"
+    [35msource[39m: "unknown"
+ POST /api/room-preview/sessions 201 in 915ms (next.js: 113ms, proxy.ts: 9ms, application-code: 792ms)
+ GET /api/room-preview/sessions/cmqjkjfhw006ues3xjez9m5ge/activate?t=sdQ95lUS63NJKudQYQM7CkBpdu67Xk4qteXivS4gUJw&lang=ar 302 in 17ms (next.js: 9ms, proxy.ts: 4ms, application-code: 4ms)
+[14:01:48.225] [32mINFO[39m: [36mactivate-mobile-api › Mobile activated via QR (GET)[39m
+    [35mmodule[39m: "activate-mobile-api"
+    [35msessionId[39m: "cmqjkjfhw006ues3xjez9m5ge"
+    [35mhost[39m: "localhost:3000"
+ GET /room-preview/mobile/cmqjkjfhw006ues3xjez9m5ge 200 in 676ms (next.js: 10ms, proxy.ts: 4ms, application-code: 661ms)
+[14:01:49.561] [32mINFO[39m: [36mmobile-page › Mobile page SSR render[39m
+    [35mmodule[39m: "mobile-page"
+    [35msessionId[39m: "cmqjkjfhw006ues3xjez9m5ge"
+    [35muserAgent[39m: "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) HeadlessChrome/147.0.7727.15 Safari/537.36"
+    [35mip[39m: "127.0.0.1"
+ GET /room-preview/mobile/cmqjkjfhw006ues3xjez9m5ge?lang=ar&devEntry=1 200 in 140ms (next.js: 16ms, proxy.ts: 8ms, application-code: 116ms)
+ POST /api/room-preview/sessions/cmqjkjfhw006ues3xjez9m5ge/diagnostics 200 in 294ms (next.js: 127ms, proxy.ts: 9ms, application-code: 159ms)
+ POST /api/room-preview/sessions/cmqjkjfhw006ues3xjez9m5ge/diagnostics 200 in 300ms (next.js: 284ms, proxy.ts: 11ms, application-code: 4ms)
+ POST /api/room-preview/sessions/cmqjkjfhw006ues3xjez9m5ge/heartbeat 200 in 638ms (next.js: 272ms, proxy.ts: 9ms, application-code: 357ms)
+ POST /api/room-preview/sessions/cmqjkjfhw006ues3xjez9m5ge/diagnostics 200 in 1044ms (next.js: 273ms, proxy.ts: 11ms, application-code: 761ms)
+ GET /api/room-preview/sessions/cmqjkjfhw006ues3xjez9m5ge 200 in 1121ms (next.js: 470ms, proxy.ts: 10ms, application-code: 642ms)
+ POST /api/room-preview/sessions/cmqjkjfhw006ues3xjez9m5ge/diagnostics 200 in 180ms (next.js: 162ms, proxy.ts: 12ms, application-code: 7ms)
+ POST /api/room-preview/sessions/cmqjkjfhw006ues3xjez9m5ge/connect 200 in 1033ms (next.js: 151ms, proxy.ts: 12ms, application-code: 870ms)
+[14:01:52.938] [33mWARN[39m: [36msession-events › Redis not configured — publishing to in-memory bus only. Set REDIS_URL.[39m
+    [35mmodule[39m: "session-events"
+    [35msessionId[39m: "cmqjkjfhw006ues3xjez9m5ge"
+    [35meventType[39m: "session_updated"
+ POST /api/room-preview/sessions/cmqjkjfhw006ues3xjez9m5ge/diagnostics 200 in 30ms (next.js: 16ms, proxy.ts: 6ms, application-code: 7ms)
+ POST /api/room-preview/sessions/cmqjkjfhw006ues3xjez9m5ge/heartbeat 200 in 309ms (next.js: 16ms, proxy.ts: 9ms, application-code: 284ms)
+ POST /api/room-preview/sessions/cmqjkjfhw006ues3xjez9m5ge/diagnostics 200 in 102ms (next.js: 79ms, proxy.ts: 19ms, application-code: 4ms)
+ POST /api/room-preview/sessions/cmqjkjfhw006ues3xjez9m5ge/diagnostics 200 in 114ms (next.js: 88ms, proxy.ts: 19ms, application-code: 7ms)
+ POST /api/room-preview/sessions/cmqjkjfhw006ues3xjez9m5ge/diagnostics 200 in 241ms (next.js: 206ms, proxy.ts: 27ms, application-code: 8ms)
+○ Compiling /api/room-preview/sessions/[sessionId]/room/upload-url ...
+ POST /api/room-preview/sessions/cmqjkjfhw006ues3xjez9m5ge/room/upload-url 501 in 5.7s (next.js: 5.7s, proxy.ts: 36ms, application-code: 12ms)
+[14:01:59.170] [32mINFO[39m: [36mmobile-page › Mobile page SSR render[39m
+    [35mmodule[39m: "mobile-page"
+    [35msessionId[39m: "cmqjkjfhw006ues3xjez9m5ge"
+    [35muserAgent[39m: "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) HeadlessChrome/147.0.7727.15 Safari/537.36"
+    [35mip[39m: "127.0.0.1"
+ GET /room-preview/mobile/cmqjkjfhw006ues3xjez9m5ge?lang=ar&devEntry=1 200 in 262ms (next.js: 151ms, proxy.ts: 5ms, application-code: 105ms)
+ POST /api/room-preview/sessions/cmqjkjfhw006ues3xjez9m5ge/diagnostics 200 in 538ms (next.js: 87ms, proxy.ts: 221ms, application-code: 230ms)
+[14:02:02.507] [33mWARN[39m: [36msession-events › Redis not configured — publishing to in-memory bus only. Set REDIS_URL.[39m
+    [35mmodule[39m: "session-events"
+    [35msessionId[39m: "cmqjkjfhw006ues3xjez9m5ge"
+    [35meventType[39m: "session_updated"
+[14:02:02.711] [32mINFO[39m: [36mroom-api › Room saved[39m
+    [35mmodule[39m: "room-api"
+    [35mevent[39m: "room_image_uploaded_url"
+    [35mroomImageUrl[39m: "/uploads/room-preview/cmqjkjfhw006ues3xjez9m5ge-gallery-52e076e7-9306-4fc2-aaf3-421e86c0b050.png"
+    [35msessionId[39m: "cmqjkjfhw006ues3xjez9m5ge"
+    [35msource[39m: "gallery"
+    [35mdemoRoomId[39m: null
+    [35mstatus[39m: "room_selected"
+[14:02:02.717] [32mINFO[39m: [36mmobile-page › Mobile page SSR render[39m
+    [35mmodule[39m: "mobile-page"
+    [35msessionId[39m: "cmqjkjfhw006ues3xjez9m5ge"
+    [35muserAgent[39m: "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) HeadlessChrome/147.0.7727.15 Safari/537.36"
+    [35mip[39m: "127.0.0.1"
+ GET /room-preview/mobile/cmqjkjfhw006ues3xjez9m5ge?lang=ar&devEntry=1 200 in 222ms (next.js: 130ms, proxy.ts: 8ms, application-code: 84ms)
+ POST /api/room-preview/sessions/cmqjkjfhw006ues3xjez9m5ge/room 200 in 4.8s (next.js: 2.9s, proxy.ts: 230ms, application-code: 1722ms)
+ POST /api/room-preview/sessions/cmqjkjfhw006ues3xjez9m5ge/diagnostics 200 in 16ms (next.js: 8ms, proxy.ts: 4ms, application-code: 4ms)
+[14:02:04.074] [32mINFO[39m: [36mmobile-page › Mobile page SSR render[39m
+    [35mmodule[39m: "mobile-page"
+    [35msessionId[39m: "cmqjkjfhw006ues3xjez9m5ge"
+    [35muserAgent[39m: "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) HeadlessChrome/147.0.7727.15 Safari/537.36"
+    [35mip[39m: "127.0.0.1"
+ GET /room-preview/mobile/cmqjkjfhw006ues3xjez9m5ge?lang=ar&devEntry=1 200 in 47ms (next.js: 11ms, proxy.ts: 5ms, application-code: 31ms)
+ POST /api/room-preview/sessions/cmqjkjfhw006ues3xjez9m5ge/heartbeat 200 in 203ms (next.js: 188ms, proxy.ts: 6ms, application-code: 9ms)
+[room-preview] create_session_called {
+  existingSessionId: null,
+  route: '/api/room-preview/sessions',
+  source: 'unknown',
+  timestamp: '2026-06-18T14:02:04.791Z'
+}
+[14:02:04.793] [32mINFO[39m: [36msessions-api › Room Preview session create request received[39m
+    [35mmodule[39m: "sessions-api"
+    [35mip[39m: "127.0.0.1"
+    [35msource[39m: "unknown"
+ POST /api/room-preview/sessions 201 in 243ms (next.js: 88ms, proxy.ts: 6ms, application-code: 149ms)
+ GET /api/room-preview/sessions/cmqjkjt6i007ies3xcbiawu85/activate?t=h9YqHSKiGF898DrPSaZnF0MQ9BHsXTVmFATCOm9_ec4&lang=ar 302 in 102ms (next.js: 94ms, proxy.ts: 4ms, application-code: 5ms)
+[14:02:05.414] [32mINFO[39m: [36mactivate-mobile-api › Mobile activated via QR (GET)[39m
+    [35mmodule[39m: "activate-mobile-api"
+    [35msessionId[39m: "cmqjkjt6i007ies3xcbiawu85"
+    [35mhost[39m: "localhost:3000"
+ GET /room-preview/mobile/cmqjkjt6i007ies3xcbiawu85 200 in 502ms (next.js: 10ms, proxy.ts: 4ms, application-code: 487ms)
+[14:02:06.505] [32mINFO[39m: [36mmobile-page › Mobile page SSR render[39m
+    [35mmodule[39m: "mobile-page"
+    [35msessionId[39m: "cmqjkjt6i007ies3xcbiawu85"
+    [35muserAgent[39m: "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) HeadlessChrome/147.0.7727.15 Safari/537.36"
+    [35mip[39m: "127.0.0.1"
+ GET /room-preview/mobile/cmqjkjt6i007ies3xcbiawu85?lang=ar&devEntry=1 200 in 128ms (next.js: 18ms, proxy.ts: 8ms, application-code: 102ms)
+ POST /api/room-preview/sessions/cmqjkjt6i007ies3xcbiawu85/diagnostics 200 in 252ms (next.js: 19ms, proxy.ts: 10ms, application-code: 223ms)
+ POST /api/room-preview/sessions/cmqjkjt6i007ies3xcbiawu85/heartbeat 200 in 391ms (next.js: 30ms, proxy.ts: 10ms, application-code: 351ms)
+ POST /api/room-preview/sessions/cmqjkjt6i007ies3xcbiawu85/diagnostics 200 in 731ms (next.js: 33ms, proxy.ts: 10ms, application-code: 688ms)
+ POST /api/room-preview/sessions/cmqjkjt6i007ies3xcbiawu85/diagnostics 200 in 847ms (next.js: 228ms, proxy.ts: 11ms, application-code: 608ms)
+ GET /api/room-preview/sessions/cmqjkjt6i007ies3xcbiawu85 200 in 891ms (next.js: 222ms, proxy.ts: 10ms, application-code: 659ms)
+ POST /api/room-preview/sessions/cmqjkjt6i007ies3xcbiawu85/diagnostics 200 in 116ms (next.js: 98ms, proxy.ts: 11ms, application-code: 7ms)
+ POST /api/room-preview/sessions/cmqjkjt6i007ies3xcbiawu85/connect 200 in 693ms (next.js: 89ms, proxy.ts: 11ms, application-code: 593ms)
+[14:02:09.303] [33mWARN[39m: [36msession-events › Redis not configured — publishing to in-memory bus only. Set REDIS_URL.[39m
+    [35mmodule[39m: "session-events"
+    [35msessionId[39m: "cmqjkjt6i007ies3xcbiawu85"
+    [35meventType[39m: "session_updated"
+ POST /api/room-preview/sessions/cmqjkjt6i007ies3xcbiawu85/diagnostics 200 in 17ms (next.js: 8ms, proxy.ts: 4ms, application-code: 5ms)
+ POST /api/room-preview/sessions/cmqjkjt6i007ies3xcbiawu85/heartbeat 200 in 273ms (next.js: 9ms, proxy.ts: 15ms, application-code: 249ms)
+ POST /api/room-preview/sessions/cmqjkjt6i007ies3xcbiawu85/diagnostics 200 in 179ms (next.js: 157ms, proxy.ts: 18ms, application-code: 4ms)
+ POST /api/room-preview/sessions/cmqjkjt6i007ies3xcbiawu85/diagnostics 200 in 187ms (next.js: 165ms, proxy.ts: 18ms, application-code: 4ms)
+ POST /api/room-preview/sessions/cmqjkjt6i007ies3xcbiawu85/diagnostics 200 in 197ms (next.js: 174ms, proxy.ts: 18ms, application-code: 5ms)
+ POST /api/room-preview/sessions/cmqjkjt6i007ies3xcbiawu85/diagnostics 200 in 197ms (next.js: 72ms, proxy.ts: 119ms, application-code: 7ms)
+ POST /api/room-preview/sessions/cmqjkjt6i007ies3xcbiawu85/diagnostics 200 in 95ms (next.js: 50ms, proxy.ts: 41ms, application-code: 4ms)
+ POST /api/room-preview/sessions/cmqjkjt6i007ies3xcbiawu85/diagnostics 200 in 75ms (next.js: 50ms, proxy.ts: 17ms, application-code: 8ms)
+ POST /api/room-preview/sessions/cmqjkjt6i007ies3xcbiawu85/diagnostics 200 in 86ms (next.js: 63ms, proxy.ts: 17ms, application-code: 6ms)
+[14:02:10.122] [34mDEBUG[39m: [36mdiagnostics-api › Diagnostics deduped[39m
+    [35mmodule[39m: "diagnostics-api"
+    [35msessionId[39m: "cmqjkjt6i007ies3xcbiawu85"
+    [35meventType[39m: "mobile_tap_detected"
+    [35mreason[39m: "diagnostics_event_deduped"
+[14:02:10.134] [34mDEBUG[39m: [36mdiagnostics-api › Diagnostics deduped[39m
+    [35mmodule[39m: "diagnostics-api"
+    [35msessionId[39m: "cmqjkjt6i007ies3xcbiawu85"
+    [35meventType[39m: "room_upload_started"
+    [35mreason[39m: "diagnostics_event_deduped"
+ POST /api/room-preview/sessions/cmqjkjt6i007ies3xcbiawu85/room/upload-url 501 in 165ms (next.js: 137ms, proxy.ts: 24ms, application-code: 4ms)
+ POST /api/room-preview/sessions/cmqjkjt6i007ies3xcbiawu85/diagnostics 200 in 178ms (next.js: 146ms, proxy.ts: 24ms, application-code: 8ms)
+[14:02:10.231] [34mDEBUG[39m: [36mdiagnostics-api › Diagnostics deduped[39m
+    [35mmodule[39m: "diagnostics-api"
+    [35msessionId[39m: "cmqjkjt6i007ies3xcbiawu85"
+    [35meventType[39m: "room_image_compressed"
+    [35mreason[39m: "diagnostics_event_deduped"
+[14:02:10.322] [32mINFO[39m: [36mmobile-page › Mobile page SSR render[39m
+    [35mmodule[39m: "mobile-page"
+    [35msessionId[39m: "cmqjkjt6i007ies3xcbiawu85"
+    [35muserAgent[39m: "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) HeadlessChrome/147.0.7727.15 Safari/537.36"
+    [35mip[39m: "127.0.0.1"
+ GET /room-preview/mobile/cmqjkjt6i007ies3xcbiawu85?lang=ar&devEntry=1 200 in 406ms (next.js: 166ms, proxy.ts: 28ms, application-code: 211ms)
+[14:02:10.700] [32mINFO[39m: [36mmobile-page › Mobile page SSR render[39m
+    [35mmodule[39m: "mobile-page"
+    [35msessionId[39m: "cmqjkjt6i007ies3xcbiawu85"
+    [35muserAgent[39m: "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) HeadlessChrome/147.0.7727.15 Safari/537.36"
+    [35mip[39m: "127.0.0.1"
+ GET /room-preview/mobile/cmqjkjt6i007ies3xcbiawu85?lang=ar&devEntry=1 200 in 82ms (next.js: 12ms, proxy.ts: 8ms, application-code: 62ms)
+[14:02:10.873] [33mWARN[39m: [36msession-events › Redis not configured — publishing to in-memory bus only. Set REDIS_URL.[39m
+    [35mmodule[39m: "session-events"
+    [35msessionId[39m: "cmqjkjt6i007ies3xcbiawu85"
+    [35meventType[39m: "session_updated"
+[14:02:10.990] [32mINFO[39m: [36mroom-api › Room saved[39m
+    [35mmodule[39m: "room-api"
+    [35mevent[39m: "room_image_uploaded_url"
+    [35mroomImageUrl[39m: "/uploads/room-preview/cmqjkjt6i007ies3xcbiawu85-gallery-bb9d5630-9699-41dd-9d73-9e82cdc1716d.png"
+    [35msessionId[39m: "cmqjkjt6i007ies3xcbiawu85"
+    [35msource[39m: "gallery"
+    [35mdemoRoomId[39m: null
+    [35mstatus[39m: "room_selected"
+ POST /api/room-preview/sessions/cmqjkjt6i007ies3xcbiawu85/room 200 in 1833ms (next.js: 36ms, proxy.ts: 176ms, application-code: 1620ms)
+ POST /api/room-preview/sessions/cmqjkjt6i007ies3xcbiawu85/diagnostics 200 in 16ms (next.js: 8ms, proxy.ts: 4ms, application-code: 4ms)
+[14:02:12.725] [32mINFO[39m: [36mmobile-page › Mobile page SSR render[39m
+    [35mmodule[39m: "mobile-page"
+    [35msessionId[39m: "cmqjkjt6i007ies3xcbiawu85"
+    [35muserAgent[39m: "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) HeadlessChrome/147.0.7727.15 Safari/537.36"
+    [35mip[39m: "127.0.0.1"
+ GET /room-preview/mobile/cmqjkjt6i007ies3xcbiawu85?lang=ar&devEntry=1 200 in 50ms (next.js: 10ms, proxy.ts: 5ms, application-code: 34ms)
+ POST /api/room-preview/sessions/cmqjkjt6i007ies3xcbiawu85/heartbeat 200 in 62ms (next.js: 13ms, proxy.ts: 6ms, application-code: 43ms)
+[14:02:42.734] [33mWARN[39m: [36msession-events › Redis not configured — publishing to in-memory bus only. Set REDIS_URL.[39m
+    [35mmodule[39m: "session-events"
+    [35msessionId[39m: "cmqjicamk003ea83x7inofq4f"
+    [35meventType[39m: "session_updated"
+[cleanup] expired=1 idleExpired=5 stuckFailed=0 completed=0
+[14:02:43.519] [33mWARN[39m: [36msession-events › Redis not configured — publishing to in-memory bus only. Set REDIS_URL.[39m
+    [35mmodule[39m: "session-events"
+    [35msessionId[39m: "cmqjkh03b006des3xgqgtf9ld"
+    [35meventType[39m: "session_updated"
+[14:02:43.520] [33mWARN[39m: [36msession-events › Redis not configured — publishing to in-memory bus only. Set REDIS_URL.[39m
+    [35mmodule[39m: "session-events"
+    [35msessionId[39m: "cmqjkhyj4006qes3xz46cj1ai"
+    [35meventType[39m: "session_updated"
+[14:02:43.520] [33mWARN[39m: [36msession-events › Redis not configured — publishing to in-memory bus only. Set REDIS_URL.[39m
+    [35mmodule[39m: "session-events"
+    [35msessionId[39m: "cmqjkf1u6005wes3x84n2y2ll"
+    [35meventType[39m: "session_updated"
+[14:02:43.520] [33mWARN[39m: [36msession-events › Redis not configured — publishing to in-memory bus only. Set REDIS_URL.[39m
+    [35mmodule[39m: "session-events"
+    [35msessionId[39m: "cmqjkf64l005yes3x0m0dp9jg"
+    [35meventType[39m: "session_updated"
+[14:02:43.520] [33mWARN[39m: [36msession-events › Redis not configured — publishing to in-memory bus only. Set REDIS_URL.[39m
+    [35mmodule[39m: "session-events"
+    [35msessionId[39m: "cmqjkg2dp0060es3xcyg415sr"
+    [35meventType[39m: "session_updated"
+[room-preview] create_session_called {
+  existingSessionId: null,
+  route: '/api/room-preview/sessions',
+  source: 'unknown',
+  timestamp: '2026-06-18T14:03:52.961Z'
+}
+[14:03:52.964] [32mINFO[39m: [36msessions-api › Room Preview session create request received[39m
+    [35mmodule[39m: "sessions-api"
+    [35mip[39m: "127.0.0.1"
+    [35msource[39m: "unknown"
+ POST /api/room-preview/sessions 201 in 990ms (next.js: 344ms, proxy.ts: 6ms, application-code: 640ms)
+ GET /api/room-preview/sessions/cmqjkm4n9008nes3x05a98d6t/activate?t=eY4jNbQdZlYTY062EQ3JfyuDE3sVZfDNLLNVcuXfddE&lang=ar 302 in 92ms (next.js: 83ms, proxy.ts: 4ms, application-code: 5ms)
+[14:03:54.772] [32mINFO[39m: [36mactivate-mobile-api › Mobile activated via QR (GET)[39m
+    [35mmodule[39m: "activate-mobile-api"
+    [35msessionId[39m: "cmqjkm4n9008nes3x05a98d6t"
+    [35mhost[39m: "localhost:3000"
+ GET /room-preview/mobile/cmqjkm4n9008nes3x05a98d6t 200 in 1452ms (next.js: 241ms, proxy.ts: 4ms, application-code: 1207ms)
+ GET /room-preview/gate/cmqjkm4n9008nes3x05a98d6t 200 in 380ms (next.js: 336ms, proxy.ts: 7ms, application-code: 37ms)
+[14:03:57.205] [32mINFO[39m: [36mmobile-page › Mobile page SSR render[39m
+    [35mmodule[39m: "mobile-page"
+    [35msessionId[39m: "cmqjkm4n9008nes3x05a98d6t"
+    [35muserAgent[39m: "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) HeadlessChrome/147.0.7727.15 Safari/537.36"
+    [35mip[39m: "127.0.0.1"
+ GET /room-preview/mobile/cmqjkm4n9008nes3x05a98d6t?lang=ar&devEntry=1 200 in 150ms (next.js: 10ms, proxy.ts: 42ms, application-code: 97ms)
+ POST /api/room-preview/sessions/cmqjkm4n9008nes3x05a98d6t/diagnostics 200 in 852ms (next.js: 401ms, proxy.ts: 11ms, application-code: 440ms)
+ POST /api/room-preview/sessions/cmqjkm4n9008nes3x05a98d6t/heartbeat 200 in 858ms (next.js: 288ms, proxy.ts: 11ms, application-code: 560ms)
+ POST /api/room-preview/sessions/cmqjkm4n9008nes3x05a98d6t/diagnostics 200 in 1603ms (next.js: 403ms, proxy.ts: 15ms, application-code: 1184ms)
+ POST /api/room-preview/sessions/cmqjkm4n9008nes3x05a98d6t/diagnostics 200 in 1610ms (next.js: 405ms, proxy.ts: 16ms, application-code: 1190ms)
+ GET /api/room-preview/sessions/cmqjkm4n9008nes3x05a98d6t 200 in 1607ms (next.js: 815ms, proxy.ts: 10ms, application-code: 783ms)
+ POST /api/room-preview/sessions/cmqjkm4n9008nes3x05a98d6t/diagnostics 200 in 283ms (next.js: 266ms, proxy.ts: 11ms, application-code: 6ms)
+ POST /api/room-preview/sessions/cmqjkm4n9008nes3x05a98d6t/connect 200 in 926ms (next.js: 253ms, proxy.ts: 11ms, application-code: 661ms)
+[14:04:01.014] [33mWARN[39m: [36msession-events › Redis not configured — publishing to in-memory bus only. Set REDIS_URL.[39m
+    [35mmodule[39m: "session-events"
+    [35msessionId[39m: "cmqjkm4n9008nes3x05a98d6t"
+    [35meventType[39m: "session_updated"
+ POST /api/room-preview/sessions/cmqjkm4n9008nes3x05a98d6t/diagnostics 200 in 22ms (next.js: 7ms, proxy.ts: 7ms, application-code: 7ms)
+ POST /api/room-preview/sessions/cmqjkm4n9008nes3x05a98d6t/heartbeat 200 in 276ms (next.js: 11ms, proxy.ts: 6ms, application-code: 260ms)
+ POST /api/room-preview/sessions/cmqjkm4n9008nes3x05a98d6t/diagnostics 200 in 49ms (next.js: 31ms, proxy.ts: 11ms, application-code: 6ms)
+ POST /api/room-preview/sessions/cmqjkm4n9008nes3x05a98d6t/diagnostics 200 in 64ms (next.js: 44ms, proxy.ts: 11ms, application-code: 8ms)
+ POST /api/room-preview/sessions/cmqjkm4n9008nes3x05a98d6t/diagnostics 200 in 75ms (next.js: 52ms, proxy.ts: 15ms, application-code: 8ms)
+ POST /api/room-preview/sessions/cmqjkm4n9008nes3x05a98d6t/room/upload-url 501 in 211ms (next.js: 186ms, proxy.ts: 19ms, application-code: 7ms)
+[14:04:02.214] [33mWARN[39m: [36msession-events › Redis not configured — publishing to in-memory bus only. Set REDIS_URL.[39m
+    [35mmodule[39m: "session-events"
+    [35msessionId[39m: "cmqjkm4n9008nes3x05a98d6t"
+    [35meventType[39m: "session_updated"
+[14:04:03.085] [32mINFO[39m: [36mroom-api › Room saved[39m
+    [35mmodule[39m: "room-api"
+    [35mevent[39m: "room_image_uploaded_url"
+    [35mroomImageUrl[39m: "/uploads/room-preview/cmqjkm4n9008nes3x05a98d6t-gallery-1d70952a-d7ec-45e6-836c-a24cd01a1644.png"
+    [35msessionId[39m: "cmqjkm4n9008nes3x05a98d6t"
+    [35msource[39m: "gallery"
+    [35mdemoRoomId[39m: null
+    [35mstatus[39m: "room_selected"
+[14:04:03.162] [32mINFO[39m: [36mmobile-page › Mobile page SSR render[39m
+    [35mmodule[39m: "mobile-page"
+    [35msessionId[39m: "cmqjkm4n9008nes3x05a98d6t"
+    [35muserAgent[39m: "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) HeadlessChrome/147.0.7727.15 Safari/537.36"
+    [35mip[39m: "127.0.0.1"
+ GET /room-preview/mobile/cmqjkm4n9008nes3x05a98d6t?lang=ar&devEntry=1 200 in 76ms (next.js: 13ms, proxy.ts: 6ms, application-code: 57ms)
+ POST /api/room-preview/sessions/cmqjkm4n9008nes3x05a98d6t/room 200 in 2.7s (next.js: 133ms, proxy.ts: 13ms, application-code: 2.5s)
+ POST /api/room-preview/sessions/cmqjkm4n9008nes3x05a98d6t/diagnostics 200 in 15ms (next.js: 7ms, proxy.ts: 4ms, application-code: 4ms)
+ GET / 200 in 3.1s (next.js: 2.9s, proxy.ts: 7ms, application-code: 227ms)
+○ Compiling /room-preview ...
+ GET /room-preview 200 in 3.6s (next.js: 3.3s, proxy.ts: 6ms, application-code: 260ms)
+ GET /room-preview/screen?source=hero_try_button 200 in 1540ms (next.js: 1447ms, proxy.ts: 5ms, application-code: 88ms)
+ GET /api/room-preview/sessions/cmqjg5l65000za83xj78zxlwi 410 in 2.7s (next.js: 1802ms, proxy.ts: 5ms, application-code: 862ms)
+○ Compiling /api/room-preview/sessions ...
+[room-preview] create_session_called {
+  existingSessionId: null,
+  route: '/api/room-preview/sessions',
+  source: 'hero_try_button',
+  timestamp: '2026-06-18T14:05:42.338Z'
+}
+[14:05:42.341] [32mINFO[39m: [36msessions-api › Room Preview session create request received[39m
+    [35mmodule[39m: "sessions-api"
+    [35mip[39m: "127.0.0.1"
+    [35msource[39m: "hero_try_button"
+ POST /api/room-preview/sessions 201 in 3.6s (next.js: 3.4s, proxy.ts: 8ms, application-code: 146ms)
+○ Compiling /api/room-preview/sessions/[sessionId]/diagnostics ...
+ POST /api/room-preview/sessions/cmqjkoh1i0098es3x1x2udani/diagnostics 200 in 6.7s (next.js: 6.5s, proxy.ts: 7ms, application-code: 190ms)
+ GET /room-preview/screen/cmqjkoh1i0098es3x1x2udani 200 in 4.0s (next.js: 3.0s, proxy.ts: 659ms, application-code: 376ms)
+○ Compiling /api/room-preview/sessions/[sessionId]/heartbeat ...
+ GET /%D8%B5%D9%88%D8%B1%20%D8%A7%D9%84%D9%85%D9%88%D9%82%D8%B9/michael-guo-1YS9heKaRsg-unsplash.jpg 404 in 4.1s (next.js: 3.7s, application-code: 431ms)
+ POST /api/room-preview/sessions/cmqjkoh1i0098es3x1x2udani/heartbeat 200 in 4.4s (next.js: 3.6s, proxy.ts: 32ms, application-code: 761ms)
+ GET /api/room-preview/sessions/cmqjkoh1i0098es3x1x2udani 200 in 2.1s (next.js: 179ms, proxy.ts: 895ms, application-code: 1017ms)
+ GET /api/room-preview/sessions/cmqjkoh1i0098es3x1x2udani 200 in 2.1s (next.js: 185ms, proxy.ts: 895ms, application-code: 1016ms)
+ POST /api/room-preview/sessions/cmqjkoh1i0098es3x1x2udani/diagnostics 200 in 2.1s (next.js: 287ms, proxy.ts: 896ms, application-code: 919ms)
+ POST /api/room-preview/sessions/cmqjkoh1i0098es3x1x2udani/heartbeat 200 in 2.2s (next.js: 188ms, proxy.ts: 896ms, application-code: 1140ms)
+ GET /api/room-preview/dev-entry?sessionId=cmqjkoh1i0098es3x1x2udani&lang=ar 302 in 3.0s (next.js: 2.9s, proxy.ts: 7ms, application-code: 10ms)
+[14:05:59.874] [32mINFO[39m: [36mdev-entry-api › Dev-entry reusing existing session[39m
+    [35mmodule[39m: "dev-entry-api"
+    [35mevent[39m: "dev_entry_reuse"
+    [35msessionId[39m: "cmqjkoh1i0098es3x1x2udani"
+ POST /api/room-preview/sessions/cmqjkoh1i0098es3x1x2udani/diagnostics 200 in 557ms (next.js: 278ms, proxy.ts: 275ms, application-code: 4ms)
+[14:06:00.173] [34mDEBUG[39m: [36mdiagnostics-api › Diagnostics deduped[39m
+    [35mmodule[39m: "diagnostics-api"
+    [35msessionId[39m: "cmqjkoh1i0098es3x1x2udani"
+    [35meventType[39m: "screen_render_branch_changed"
+    [35mreason[39m: "diagnostics_event_deduped"
+ POST /api/room-preview/sessions/cmqjkoh1i0098es3x1x2udani/diagnostics 200 in 606ms (next.js: 67ms, proxy.ts: 275ms, application-code: 264ms)
+ POST /api/room-preview/sessions/cmqjkoh1i0098es3x1x2udani/diagnostics 200 in 616ms (next.js: 74ms, proxy.ts: 275ms, application-code: 267ms)
+ POST /api/room-preview/sessions/cmqjkoh1i0098es3x1x2udani/heartbeat 200 in 833ms (next.js: 272ms, proxy.ts: 275ms, application-code: 286ms)
+○ Compiling /api/room-preview/sessions/[sessionId]/events ...
+ GET /api/room-preview/sessions/cmqjkoh1i0098es3x1x2udani/events 200 in 6.3s (next.js: 5.9s, proxy.ts: 274ms, application-code: 104ms)
+ GET /room-preview/screen/cmqjkoh1i0098es3x1x2udani 200 in 1280ms (next.js: 804ms, proxy.ts: 177ms, application-code: 299ms)
+ GET /room-preview/screen/cmqjkoh1i0098es3x1x2udani 200 in 116ms (next.js: 23ms, proxy.ts: 35ms, application-code: 58ms)
+[14:06:05.984] [33mWARN[39m: [36msession-events › Redis not configured — SSE falling back to in-memory bus. Events will NOT propagate across serverless instances. Set REDIS_URL.[39m
+    [35mmodule[39m: "session-events"
+    [35msessionId[39m: "cmqjkoh1i0098es3x1x2udani"
+ GET /room-preview/mobile/cmqjkoh1i0098es3x1x2udani?lang=ar 200 in 6.0s (next.js: 462ms, proxy.ts: 4.8s, application-code: 738ms)
+ GET /room-preview/gate/cmqjkoh1i0098es3x1x2udani?lang=ar 200 in 430ms (next.js: 364ms, proxy.ts: 7ms, application-code: 59ms)
+[room-preview] customer_info_submit_started { sessionId: 'cmqjkoh1i0098es3x1x2udani', flow: 'customer_existing' }
+[room-preview] customer_existing_lookup { sessionId: 'cmqjkoh1i0098es3x1x2udani', phone: '+966****0554' }
+ POST /api/room-preview/sessions/cmqjkoh1i0098es3x1x2udani/diagnostics 200 in 321ms (next.js: 168ms, proxy.ts: 17ms, application-code: 135ms)
+[room-preview] customer_existing_found {
+  sessionId: 'cmqjkoh1i0098es3x1x2udani',
+  customerId: 'cmolaypj9000a443xq2avclyx'
+}
+ GET /room-preview/gate/cmqjkoh1i0098es3x1x2udani?step=customer_confirm&greeting=Hhsisusgsgsvs&cid=cmolaypj9000a443xq2avclyx&lang=ar 200 in 213ms (next.js: 6ms, proxy.ts: 6ms, application-code: 201ms)
+ POST /room-preview/gate/cmqjkoh1i0098es3x1x2udani?lang=ar 303 in 789ms (next.js: 15ms, proxy.ts: 17ms, application-code: 757ms)
+  └─ ƒ submitGateForm({}) in 423ms ..//app/room-preview/gate/[sessionId]/actions.ts
+[room-preview] customer_info_submit_started { sessionId: 'cmqjkoh1i0098es3x1x2udani', flow: 'customer_confirm' }
+[room-preview] customer_info_submit_success {
+  flow: 'customer_confirm',
+  sessionId: 'cmqjkoh1i0098es3x1x2udani',
+  userSessionId: 'cmqjkp8vw009nes3x5bygv0nc',
+  customerId: 'cmolaypj9000a443xq2avclyx'
+}
+[room-preview] mobile_connect_started {
+  mode: 'gate_action_after_customer_info',
+  sessionId: 'cmqjkoh1i0098es3x1x2udani'
+}
+[room-preview] mobile_connect_success {
+  mode: 'gate_action_after_customer_info',
+  sessionId: 'cmqjkoh1i0098es3x1x2udani',
+  statusAfter: 'mobile_connected'
+}
+[14:06:19.868] [33mWARN[39m: [36msession-events › Redis not configured — publishing to in-memory bus only. Set REDIS_URL.[39m
+    [35mmodule[39m: "session-events"
+    [35msessionId[39m: "cmqjkoh1i0098es3x1x2udani"
+    [35meventType[39m: "session_updated"
+[14:06:20.081] [32mINFO[39m: [36mmobile-page › Mobile page SSR render[39m
+    [35mmodule[39m: "mobile-page"
+    [35msessionId[39m: "cmqjkoh1i0098es3x1x2udani"
+    [35muserAgent[39m: "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/149.0.0.0 Safari/537.36"
+    [35mip[39m: "127.0.0.1"
+ GET /room-preview/mobile/cmqjkoh1i0098es3x1x2udani 200 in 53ms (next.js: 8ms, proxy.ts: 7ms, application-code: 37ms)
+ POST /room-preview/gate/cmqjkoh1i0098es3x1x2udani?step=customer_confirm&greeting=Hhsisusgsgsvs&cid=cmolaypj9000a443xq2avclyx&lang=ar 303 in 2.2s (next.js: 8ms, proxy.ts: 5ms, application-code: 2.2s)
+  └─ ƒ submitGateForm({}) in 2140ms ..//app/room-preview/gate/[sessionId]/actions.ts
+ POST /api/room-preview/sessions/cmqjkoh1i0098es3x1x2udani/diagnostics 200 in 32ms (next.js: 16ms, proxy.ts: 10ms, application-code: 6ms)
+ POST /api/room-preview/sessions/cmqjkoh1i0098es3x1x2udani/diagnostics 200 in 220ms (next.js: 203ms, proxy.ts: 13ms, application-code: 4ms)
+ POST /api/room-preview/sessions/cmqjkoh1i0098es3x1x2udani/diagnostics 200 in 35ms (next.js: 16ms, proxy.ts: 13ms, application-code: 7ms)
+ POST /api/room-preview/sessions/cmqjkoh1i0098es3x1x2udani/diagnostics 200 in 46ms (next.js: 27ms, proxy.ts: 13ms, application-code: 6ms)
+ POST /api/room-preview/sessions/cmqjkoh1i0098es3x1x2udani/diagnostics 200 in 30ms (next.js: 12ms, proxy.ts: 10ms, application-code: 8ms)
+ POST /api/room-preview/sessions/cmqjkoh1i0098es3x1x2udani/diagnostics 200 in 45ms (next.js: 28ms, proxy.ts: 10ms, application-code: 7ms)
+[14:06:20.949] [34mDEBUG[39m: [36mdiagnostics-api › Diagnostics deduped[39m
+    [35mmodule[39m: "diagnostics-api"
+    [35msessionId[39m: "cmqjkoh1i0098es3x1x2udani"
+    [35meventType[39m: "mobile_page_mounted"
+    [35mreason[39m: "diagnostics_event_deduped"
+ POST /api/room-preview/sessions/cmqjkoh1i0098es3x1x2udani/heartbeat 200 in 578ms (next.js: 202ms, proxy.ts: 10ms, application-code: 366ms)
+ POST /api/room-preview/sessions/cmqjkoh1i0098es3x1x2udani/heartbeat 200 in 624ms (next.js: 202ms, proxy.ts: 9ms, application-code: 413ms)
+ GET /api/room-preview/sessions/cmqjkoh1i0098es3x1x2udani 200 in 837ms (next.js: 195ms, proxy.ts: 14ms, application-code: 627ms)
+ GET /api/room-preview/sessions/cmqjkoh1i0098es3x1x2udani 200 in 653ms (next.js: 8ms, proxy.ts: 12ms, application-code: 632ms)
+ POST /api/room-preview/sessions/cmqjkoh1i0098es3x1x2udani/heartbeat 200 in 269ms (next.js: 6ms, proxy.ts: 4ms, application-code: 258ms)
+ POST /api/room-preview/sessions/cmqjkoh1i0098es3x1x2udani/diagnostics 200 in 21ms (next.js: 11ms, proxy.ts: 5ms, application-code: 4ms)
+ POST /api/room-preview/sessions/cmqjkoh1i0098es3x1x2udani/diagnostics 200 in 29ms (next.js: 19ms, proxy.ts: 5ms, application-code: 5ms)
+ POST /api/room-preview/sessions/cmqjkoh1i0098es3x1x2udani/heartbeat 200 in 896ms (next.js: 9ms, proxy.ts: 7ms, application-code: 880ms)
+[14:07:13.875] [32mINFO[39m: [36mmobile-page › Mobile page SSR render[39m
+    [35mmodule[39m: "mobile-page"
+    [35msessionId[39m: "cmqjkoh1i0098es3x1x2udani"
+    [35muserAgent[39m: "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/149.0.0.0 Safari/537.36"
+    [35mip[39m: "127.0.0.1"
+ POST /api/room-preview/sessions/cmqjkoh1i0098es3x1x2udani/diagnostics 200 in 647ms (next.js: 10ms, proxy.ts: 5ms, application-code: 633ms)
+ GET /room-preview/mobile/cmqjkoh1i0098es3x1x2udani 200 in 709ms (next.js: 9ms, proxy.ts: 6ms, application-code: 694ms)
+ POST /api/room-preview/sessions/cmqjkoh1i0098es3x1x2udani/diagnostics 200 in 636ms (next.js: 13ms, proxy.ts: 9ms, application-code: 615ms)
+ POST /api/room-preview/sessions/cmqjkoh1i0098es3x1x2udani/diagnostics 200 in 626ms (next.js: 5ms, proxy.ts: 16ms, application-code: 605ms)
+ POST /api/room-preview/sessions/cmqjkoh1i0098es3x1x2udani/diagnostics 200 in 652ms (next.js: 18ms, proxy.ts: 9ms, application-code: 625ms)
+ POST /api/room-preview/sessions/cmqjkoh1i0098es3x1x2udani/diagnostics 200 in 90ms (next.js: 66ms, proxy.ts: 18ms, application-code: 7ms)
+ POST /api/room-preview/sessions/cmqjkoh1i0098es3x1x2udani/diagnostics 200 in 105ms (next.js: 79ms, proxy.ts: 18ms, application-code: 8ms)
+ POST /api/room-preview/sessions/cmqjkoh1i0098es3x1x2udani/diagnostics 200 in 120ms (next.js: 95ms, proxy.ts: 18ms, application-code: 7ms)
+ GET /api/room-preview/sessions/cmqjkoh1i0098es3x1x2udani 200 in 175ms (next.js: 36ms, proxy.ts: 16ms, application-code: 124ms)
+ POST /api/room-preview/sessions/cmqjkoh1i0098es3x1x2udani/heartbeat 200 in 320ms (next.js: 50ms, proxy.ts: 18ms, application-code: 252ms)
+ POST /api/room-preview/sessions/cmqjkoh1i0098es3x1x2udani/heartbeat 200 in 274ms (next.js: 7ms, proxy.ts: 5ms, application-code: 261ms)
+ POST /api/room-preview/sessions/cmqjkoh1i0098es3x1x2udani/diagnostics 200 in 41ms (next.js: 27ms, proxy.ts: 9ms, application-code: 5ms)
+ POST /api/room-preview/sessions/cmqjkoh1i0098es3x1x2udani/diagnostics 200 in 48ms (next.js: 35ms, proxy.ts: 9ms, application-code: 4ms)
+○ Compiling /api/room-preview/sessions/[sessionId]/room/upload-url ...
+ POST /api/room-preview/sessions/cmqjkoh1i0098es3x1x2udani/room/upload-url 501 in 6.8s (next.js: 6.8s, proxy.ts: 11ms, application-code: 14ms)
+ POST /api/room-preview/sessions/cmqjkoh1i0098es3x1x2udani/diagnostics 200 in 7.0s (next.js: 6.8s, proxy.ts: 11ms, application-code: 177ms)
+[14:07:30.874] [33mWARN[39m: [36msession-events › Redis not configured — publishing to in-memory bus only. Set REDIS_URL.[39m
+    [35mmodule[39m: "session-events"
+    [35msessionId[39m: "cmqjkoh1i0098es3x1x2udani"
+    [35meventType[39m: "session_updated"
+[14:07:31.107] [32mINFO[39m: [36mroom-api › Room saved[39m
+    [35mmodule[39m: "room-api"
+    [35mevent[39m: "room_image_uploaded_url"
+    [35mroomImageUrl[39m: "/uploads/room-preview/cmqjkoh1i0098es3x1x2udani-gallery-578987fc-0e67-4491-8356-3c9b32d5f42b.jpg"
+    [35msessionId[39m: "cmqjkoh1i0098es3x1x2udani"
+    [35msource[39m: "gallery"
+    [35mdemoRoomId[39m: null
+    [35mstatus[39m: "room_selected"
+[14:07:31.740] [32mINFO[39m: [36mmobile-page › Mobile page SSR render[39m
+    [35mmodule[39m: "mobile-page"
+    [35msessionId[39m: "cmqjkoh1i0098es3x1x2udani"
+    [35muserAgent[39m: "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/149.0.0.0 Safari/537.36"
+    [35mip[39m: "127.0.0.1"
+ GET /room-preview/mobile/cmqjkoh1i0098es3x1x2udani 200 in 849ms (next.js: 153ms, proxy.ts: 9ms, application-code: 687ms)
+ POST /api/room-preview/sessions/cmqjkoh1i0098es3x1x2udani/diagnostics 200 in 247ms (next.js: 98ms, proxy.ts: 7ms, application-code: 142ms)
+ POST /api/room-preview/sessions/cmqjkoh1i0098es3x1x2udani/room 200 in 5.2s (next.js: 2.7s, proxy.ts: 11ms, application-code: 2.5s)
+ POST /api/room-preview/sessions/cmqjkoh1i0098es3x1x2udani/diagnostics 200 in 12ms (next.js: 4ms, proxy.ts: 4ms, application-code: 4ms)
+ POST /api/room-preview/sessions/cmqjkoh1i0098es3x1x2udani/heartbeat 200 in 394ms (next.js: 133ms, proxy.ts: 5ms, application-code: 256ms)
+[cleanup] expired=2 idleExpired=0 stuckFailed=0 completed=0
+[14:07:42.465] [33mWARN[39m: [36msession-events › Redis not configured — publishing to in-memory bus only. Set REDIS_URL.[39m
+    [35mmodule[39m: "session-events"
+    [35msessionId[39m: "cmqjiht0h0008es3xulhwpkp6"
+    [35meventType[39m: "session_updated"
+[14:07:42.466] [33mWARN[39m: [36msession-events › Redis not configured — publishing to in-memory bus only. Set REDIS_URL.[39m
+    [35mmodule[39m: "session-events"
+    [35msessionId[39m: "cmqjiij54000jes3xjdwdnnp7"
+    [35meventType[39m: "session_updated"
+ POST /api/room-preview/sessions/cmqjkoh1i0098es3x1x2udani/diagnostics 200 in 189ms (next.js: 175ms, proxy.ts: 10ms, application-code: 5ms)
+ POST /api/room-preview/sessions/cmqjkoh1i0098es3x1x2udani/diagnostics 200 in 12ms (next.js: 4ms, proxy.ts: 4ms, application-code: 4ms)
+ GET /api/room-preview/sessions/cmqjkoh1i0098es3x1x2udani 200 in 310ms (next.js: 166ms, proxy.ts: 9ms, application-code: 136ms)
+ POST /api/room-preview/sessions/cmqjkoh1i0098es3x1x2udani/diagnostics 200 in 12ms (next.js: 4ms, proxy.ts: 4ms, application-code: 4ms)
+ POST /api/room-preview/sessions/cmqjkoh1i0098es3x1x2udani/diagnostics 200 in 24ms (next.js: 10ms, proxy.ts: 9ms, application-code: 5ms)
+ POST /api/room-preview/sessions/cmqjkoh1i0098es3x1x2udani/diagnostics 200 in 32ms (next.js: 19ms, proxy.ts: 9ms, application-code: 4ms)
+ POST /api/room-preview/sessions/cmqjkoh1i0098es3x1x2udani/diagnostics 200 in 23ms (next.js: 11ms, proxy.ts: 5ms, application-code: 7ms)
+ POST /api/room-preview/sessions/cmqjkoh1i0098es3x1x2udani/diagnostics 200 in 29ms (next.js: 15ms, proxy.ts: 6ms, application-code: 7ms)
+[cleanup] expired=5 idleExpired=0 stuckFailed=0 completed=0
+[14:12:43.259] [33mWARN[39m: [36msession-events › Redis not configured — publishing to in-memory bus only. Set REDIS_URL.[39m
+    [35mmodule[39m: "session-events"
+    [35msessionId[39m: "cmqjipovy002ces3xqgy64ng5"
+    [35meventType[39m: "session_updated"
+[14:12:43.259] [33mWARN[39m: [36msession-events › Redis not configured — publishing to in-memory bus only. Set REDIS_URL.[39m
+    [35mmodule[39m: "session-events"
+    [35msessionId[39m: "cmqjiplad0021es3xzmg0ucme"
+    [35meventType[39m: "session_updated"
+[14:12:43.259] [33mWARN[39m: [36msession-events › Redis not configured — publishing to in-memory bus only. Set REDIS_URL.[39m
+    [35mmodule[39m: "session-events"
+    [35msessionId[39m: "cmqjip98s001fes3xm4snxpf7"
+    [35meventType[39m: "session_updated"
+[14:12:43.259] [33mWARN[39m: [36msession-events › Redis not configured — publishing to in-memory bus only. Set REDIS_URL.[39m
+    [35mmodule[39m: "session-events"
+    [35msessionId[39m: "cmqjiphjy001qes3xbqppw5rx"
+    [35meventType[39m: "session_updated"
+[14:12:43.259] [33mWARN[39m: [36msession-events › Redis not configured — publishing to in-memory bus only. Set REDIS_URL.[39m
+    [35mmodule[39m: "session-events"
+    [35msessionId[39m: "cmqjipsjf002nes3xo6go54uz"
+    [35meventType[39m: "session_updated"
+prisma:error 
+Invalid `prisma.roomPreviewSession.findMany()` invocation:
+
+
+Can't reach database server at aws-0-eu-west-1.pooler.supabase.com
+prisma:error 
+Invalid `prisma.roomPreviewSession.findMany()` invocation:
+
+
+Can't reach database server at aws-0-eu-west-1.pooler.supabase.com
+prisma:error 
+Invalid `prisma.roomPreviewSession.findMany()` invocation:
+
+
+Can't reach database server at aws-0-eu-west-1.pooler.supabase.com
+prisma:error 
+Invalid `prisma.roomPreviewSession.findMany()` invocation:
+
+
+Can't reach database server at aws-0-eu-west-1.pooler.supabase.com
+prisma:error 
+Invalid `prisma.roomPreviewSession.findMany()` invocation:
+
+
+Can't reach database server at aws-0-eu-west-1.pooler.supabase.com
+prisma:error 
+Invalid `prisma.roomPreviewSession.findMany()` invocation:
+
+
+Can't reach database server at aws-0-eu-west-1.pooler.supabase.com
+prisma:error 
+Invalid `prisma.roomPreviewSession.findMany()` invocation:
+
+
+Can't reach database server at aws-0-eu-west-1.pooler.supabase.com
+prisma:error 
+Invalid `prisma.roomPreviewSession.findMany()` invocation:
+
+
+Can't reach database server at aws-0-eu-west-1.pooler.supabase.com
+○ Compiling / ...
+ GET / 200 in 19.2s (next.js: 17.9s, proxy.ts: 356ms, application-code: 922ms)
+ GET /room-preview 200 in 147ms (next.js: 18ms, proxy.ts: 7ms, application-code: 122ms)
+ GET /room-preview/screen?source=hero_try_button 200 in 107ms (next.js: 34ms, proxy.ts: 12ms, application-code: 62ms)
+○ Compiling /api/room-preview/sessions/[sessionId] ...
+prisma:error 
+Invalid `prisma.roomPreviewSession.findUnique()` invocation:
+
+
+Can't reach database server at aws-0-eu-west-1.pooler.supabase.com
+ GET /api/room-preview/sessions/cmqjkoh1i0098es3x1x2udani 500 in 7.3s (next.js: 7.2s, proxy.ts: 9ms, application-code: 40ms)
+[16:42:31.146] [31mERROR[39m: [36msession-api › Failed to get session[39m
+    [35mmodule[39m: "session-api"
+    err: {
+      "type": "PrismaClientKnownRequestError",
+      "message": "\nInvalid `prisma.roomPreviewSession.findUnique()` invocation:\n\n\nCan't reach database server at aws-0-eu-west-1.pooler.supabase.com",
+      "stack":
+          PrismaClientKnownRequestError: 
+          Invalid `prisma.roomPreviewSession.findUnique()` invocation:
+          
+          
+          Can't reach database server at aws-0-eu-west-1.pooler.supabase.com
+              at Gr.handleRequestError (webpack-internal:///(instrument)/./lib/generated/prisma/runtime/client.js:7489:19)
+              at Gr.handleAndLogRequestError (webpack-internal:///(instrument)/./lib/generated/prisma/runtime/client.js:7452:18)
+              at Gr.request (webpack-internal:///(instrument)/./lib/generated/prisma/runtime/client.js:7433:18)
+              at process.processTicksAndRejections (node:internal/process/task_queues:103:5)
+              at async a (webpack-internal:///(instrument)/./lib/generated/prisma/runtime/client.js:8105:25)
+              at async getSessionById (webpack-internal:///(rsc)/./lib/room-preview/session-repository.ts:106:21)
+              at async getRoomPreviewSession (webpack-internal:///(rsc)/./lib/room-preview/session-service.ts:161:21)
+              at async GET$1 (webpack-internal:///(rsc)/./app/api/room-preview/sessions/[sessionId]/route.ts:33:25)
+              at async eval (webpack-internal:///(rsc)/./node_modules/@sentry/nextjs/build/cjs/common/wrapRouteHandlerWithSentry.js:36:30)
+              at async AppRouteRouteModule.do (C:\Users\hisha\Downloads\main\3d\node_modules\next\dist\compiled\next-server\app-route.runtime.dev.js:5:40732)
+              at async AppRouteRouteModule.handle (C:\Users\hisha\Downloads\main\3d\node_modules\next\dist\compiled\next-server\app-route.runtime.dev.js:5:47861)
+              at async responseGenerator (webpack-internal:///(rsc)/./node_modules/next/dist/build/webpack/loaders/next-app-loader/index.js?name=app%2Fapi%2Froom-preview%2Fsessions%2F%5BsessionId%5D%2Froute&page=%2Fapi%2Froom-preview%2Fsessions%2F%5BsessionId%5D%2Froute&appPaths=&allNormalizedAppPaths=&pagePath=private-next-app-dir%2Fapi%2Froom-preview%2Fsessions%2F%5BsessionId%5D%2Froute.ts&appDir=C%3A%5CUsers%5Chisha%5CDownloads%5Cmain%5C3d%5Capp&pageExtensions=tsx&pageExtensions=ts&pageExtensions=jsx&pageExtensions=js&rootDir=C%3A%5CUsers%5Chisha%5CDownloads%5Cmain%5C3d&isDev=true&tsconfigPath=&basePath=&assetPrefix=&nextConfigOutput=&preferredRegion=&middlewareConfig=e30%3D&isGlobalNotFoundEnabled=!:247:38)
+              at async AppRouteRouteModule.handleResponse (C:\Users\hisha\Downloads\main\3d\node_modules\next\dist\compiled\next-server\app-route.runtime.dev.js:1:227141)
+              at async handleResponse (webpack-internal:///(rsc)/./node_modules/next/dist/build/webpack/loaders/next-app-loader/index.js?name=app%2Fapi%2Froom-preview%2Fsessions%2F%5BsessionId%5D%2Froute&page=%2Fapi%2Froom-preview%2Fsessions%2F%5BsessionId%5D%2Froute&appPaths=&allNormalizedAppPaths=&pagePath=private-next-app-dir%2Fapi%2Froom-preview%2Fsessions%2F%5BsessionId%5D%2Froute.ts&appDir=C%3A%5CUsers%5Chisha%5CDownloads%5Cmain%5C3d%5Capp&pageExtensions=tsx&pageExtensions=ts&pageExtensions=jsx&pageExtensions=js&rootDir=C%3A%5CUsers%5Chisha%5CDownloads%5Cmain%5C3d&isDev=true&tsconfigPath=&basePath=&assetPrefix=&nextConfigOutput=&preferredRegion=&middlewareConfig=e30%3D&isGlobalNotFoundEnabled=!:310:32)
+              at async Module.handler (webpack-internal:///(rsc)/./node_modules/next/dist/build/webpack/loaders/next-app-loader/index.js?name=app%2Fapi%2Froom-preview%2Fsessions%2F%5BsessionId%5D%2Froute&page=%2Fapi%2Froom-preview%2Fsessions%2F%5BsessionId%5D%2Froute&appPaths=&allNormalizedAppPaths=&pagePath=private-next-app-dir%2Fapi%2Froom-preview%2Fsessions%2F%5BsessionId%5D%2Froute.ts&appDir=C%3A%5CUsers%5Chisha%5CDownloads%5Cmain%5C3d%5Capp&pageExtensions=tsx&pageExtensions=ts&pageExtensions=jsx&pageExtensions=js&rootDir=C%3A%5CUsers%5Chisha%5CDownloads%5Cmain%5C3d&isDev=true&tsconfigPath=&basePath=&assetPrefix=&nextConfigOutput=&preferredRegion=&middlewareConfig=e30%3D&isGlobalNotFoundEnabled=!:362:13)
+              at async DevServer.renderToResponseWithComponentsImpl (C:\Users\hisha\Downloads\main\3d\node_modules\next\dist\server\base-server.js:1454:9)
+              at async DevServer.renderPageComponent (C:\Users\hisha\Downloads\main\3d\node_modules\next\dist\server\base-server.js:1506:24)
+              at async DevServer.renderToResponseImpl (C:\Users\hisha\Downloads\main\3d\node_modules\next\dist\server\base-server.js:1556:32)
+              at async DevServer.pipeImpl (C:\Users\hisha\Downloads\main\3d\node_modules\next\dist\server\base-server.js:1043:25)
+              at async NextNodeServer.handleCatchallRenderRequest (C:\Users\hisha\Downloads\main\3d\node_modules\next\dist\server\next-server.js:338:17)
+              at async DevServer.handleRequestImpl (C:\Users\hisha\Downloads\main\3d\node_modules\next\dist\server\base-server.js:934:17)
+              at async C:\Users\hisha\Downloads\main\3d\node_modules\next\dist\server\dev\next-dev-server.js:394:20
+              at async Span.traceAsyncFn (C:\Users\hisha\Downloads\main\3d\node_modules\next\dist\trace\trace.js:164:20)
+              at async DevServer.handleRequest (C:\Users\hisha\Downloads\main\3d\node_modules\next\dist\server\dev\next-dev-server.js:390:24)
+              at async invokeRender (C:\Users\hisha\Downloads\main\3d\node_modules\next\dist\server\lib\router-server.js:253:21)
+              at async handleRequest (C:\Users\hisha\Downloads\main\3d\node_modules\next\dist\server\lib\router-server.js:452:24)
+              at async requestHandlerImpl (C:\Users\hisha\Downloads\main\3d\node_modules\next\dist\server\lib\router-server.js:501:13)
+              at async Server.requestListener (C:\Users\hisha\Downloads\main\3d\node_modules\next\dist\server\lib\start-server.js:225:13)
+      "code": "P1001",
+      "meta": {
+        "modelName": "RoomPreviewSession",
+        "driverAdapterError": {
+          "name": "DriverAdapterError",
+          "cause": {
+            "kind": "DatabaseNotReachable",
+            "host": "aws-0-eu-west-1.pooler.supabase.com"
+          }
+        }
+      },
+      "clientVersion": "7.6.0",
+      "name": "PrismaClientKnownRequestError"
+    }
+ GET /room-preview/screen?source=hero_try_button 200 in 950ms (next.js: 61ms, proxy.ts: 20ms, application-code: 869ms)
+○ Compiling /api/room-preview/sessions ...
+[room-preview] create_session_called {
+  existingSessionId: null,
+  route: '/api/room-preview/sessions',
+  source: 'hero_try_button',
+  timestamp: '2026-06-18T16:42:39.083Z'
+}
+[16:42:39.086] [32mINFO[39m: [36msessions-api › Room Preview session create request received[39m
+    [35mmodule[39m: "sessions-api"
+    [35mip[39m: "127.0.0.1"
+    [35msource[39m: "hero_try_button"
+prisma:error 
+Invalid `prisma.roomPreviewSession.create()` invocation:
+
+
+Can't reach database server at aws-0-eu-west-1.pooler.supabase.com
+ POST /api/room-preview/sessions 500 in 7.9s (next.js: 7.7s, proxy.ts: 170ms, application-code: 32ms)
+[16:42:39.102] [31mERROR[39m: [36msessions-api › Failed to create session[39m
+    [35mmodule[39m: "sessions-api"
+    err: {
+      "type": "PrismaClientKnownRequestError",
+      "message": "\nInvalid `prisma.roomPreviewSession.create()` invocation:\n\n\nCan't reach database server at aws-0-eu-west-1.pooler.supabase.com",
+      "stack":
+          PrismaClientKnownRequestError: 
+          Invalid `prisma.roomPreviewSession.create()` invocation:
+          
+          
+          Can't reach database server at aws-0-eu-west-1.pooler.supabase.com
+              at Gr.handleRequestError (webpack-internal:///(instrument)/./lib/generated/prisma/runtime/client.js:7489:19)
+              at Gr.handleAndLogRequestError (webpack-internal:///(instrument)/./lib/generated/prisma/runtime/client.js:7452:18)
+              at Gr.request (webpack-internal:///(instrument)/./lib/generated/prisma/runtime/client.js:7433:18)
+              at process.processTicksAndRejections (node:internal/process/task_queues:103:5)
+              at async a (webpack-internal:///(instrument)/./lib/generated/prisma/runtime/client.js:8105:25)
+              at async createSession (webpack-internal:///(rsc)/./lib/room-preview/session-repository.ts:79:21)
+              at async createRoomPreviewSession (webpack-internal:///(rsc)/./lib/room-preview/session-service.ts:129:26)
+              at async POST$1 (webpack-internal:///(rsc)/./app/api/room-preview/sessions/route.ts:95:25)
+              at async eval (webpack-internal:///(rsc)/./node_modules/@sentry/nextjs/build/cjs/common/wrapRouteHandlerWithSentry.js:36:30)
+              at async AppRouteRouteModule.do (C:\Users\hisha\Downloads\main\3d\node_modules\next\dist\compiled\next-server\app-route.runtime.dev.js:5:40732)
+              at async AppRouteRouteModule.handle (C:\Users\hisha\Downloads\main\3d\node_modules\next\dist\compiled\next-server\app-route.runtime.dev.js:5:47861)
+              at async responseGenerator (webpack-internal:///(rsc)/./node_modules/next/dist/build/webpack/loaders/next-app-loader/index.js?name=app%2Fapi%2Froom-preview%2Fsessions%2Froute&page=%2Fapi%2Froom-preview%2Fsessions%2Froute&appPaths=&allNormalizedAppPaths=&pagePath=private-next-app-dir%2Fapi%2Froom-preview%2Fsessions%2Froute.ts&appDir=C%3A%5CUsers%5Chisha%5CDownloads%5Cmain%5C3d%5Capp&pageExtensions=tsx&pageExtensions=ts&pageExtensions=jsx&pageExtensions=js&rootDir=C%3A%5CUsers%5Chisha%5CDownloads%5Cmain%5C3d&isDev=true&tsconfigPath=&basePath=&assetPrefix=&nextConfigOutput=&preferredRegion=&middlewareConfig=e30%3D&isGlobalNotFoundEnabled=!:247:38)
+              at async AppRouteRouteModule.handleResponse (C:\Users\hisha\Downloads\main\3d\node_modules\next\dist\compiled\next-server\app-route.runtime.dev.js:1:227141)
+              at async handleResponse (webpack-internal:///(rsc)/./node_modules/next/dist/build/webpack/loaders/next-app-loader/index.js?name=app%2Fapi%2Froom-preview%2Fsessions%2Froute&page=%2Fapi%2Froom-preview%2Fsessions%2Froute&appPaths=&allNormalizedAppPaths=&pagePath=private-next-app-dir%2Fapi%2Froom-preview%2Fsessions%2Froute.ts&appDir=C%3A%5CUsers%5Chisha%5CDownloads%5Cmain%5C3d%5Capp&pageExtensions=tsx&pageExtensions=ts&pageExtensions=jsx&pageExtensions=js&rootDir=C%3A%5CUsers%5Chisha%5CDownloads%5Cmain%5C3d&isDev=true&tsconfigPath=&basePath=&assetPrefix=&nextConfigOutput=&preferredRegion=&middlewareConfig=e30%3D&isGlobalNotFoundEnabled=!:310:32)
+              at async Module.handler (webpack-internal:///(rsc)/./node_modules/next/dist/build/webpack/loaders/next-app-loader/index.js?name=app%2Fapi%2Froom-preview%2Fsessions%2Froute&page=%2Fapi%2Froom-preview%2Fsessions%2Froute&appPaths=&allNormalizedAppPaths=&pagePath=private-next-app-dir%2Fapi%2Froom-preview%2Fsessions%2Froute.ts&appDir=C%3A%5CUsers%5Chisha%5CDownloads%5Cmain%5C3d%5Capp&pageExtensions=tsx&pageExtensions=ts&pageExtensions=jsx&pageExtensions=js&rootDir=C%3A%5CUsers%5Chisha%5CDownloads%5Cmain%5C3d&isDev=true&tsconfigPath=&basePath=&assetPrefix=&nextConfigOutput=&preferredRegion=&middlewareConfig=e30%3D&isGlobalNotFoundEnabled=!:362:13)
+              at async DevServer.renderToResponseWithComponentsImpl (C:\Users\hisha\Downloads\main\3d\node_modules\next\dist\server\base-server.js:1454:9)
+              at async DevServer.renderPageComponent (C:\Users\hisha\Downloads\main\3d\node_modules\next\dist\server\base-server.js:1506:24)
+              at async DevServer.renderToResponseImpl (C:\Users\hisha\Downloads\main\3d\node_modules\next\dist\server\base-server.js:1556:32)
+              at async DevServer.pipeImpl (C:\Users\hisha\Downloads\main\3d\node_modules\next\dist\server\base-server.js:1043:25)
+              at async NextNodeServer.handleCatchallRenderRequest (C:\Users\hisha\Downloads\main\3d\node_modules\next\dist\server\next-server.js:338:17)
+              at async DevServer.handleRequestImpl (C:\Users\hisha\Downloads\main\3d\node_modules\next\dist\server\base-server.js:934:17)
+              at async C:\Users\hisha\Downloads\main\3d\node_modules\next\dist\server\dev\next-dev-server.js:394:20
+              at async Span.traceAsyncFn (C:\Users\hisha\Downloads\main\3d\node_modules\next\dist\trace\trace.js:164:20)
+              at async DevServer.handleRequest (C:\Users\hisha\Downloads\main\3d\node_modules\next\dist\server\dev\next-dev-server.js:390:24)
+              at async invokeRender (C:\Users\hisha\Downloads\main\3d\node_modules\next\dist\server\lib\router-server.js:253:21)
+              at async handleRequest (C:\Users\hisha\Downloads\main\3d\node_modules\next\dist\server\lib\router-server.js:452:24)
+              at async requestHandlerImpl (C:\Users\hisha\Downloads\main\3d\node_modules\next\dist\server\lib\router-server.js:501:13)
+              at async Server.requestListener (C:\Users\hisha\Downloads\main\3d\node_modules\next\dist\server\lib\start-server.js:225:13)
+      "code": "P1001",
+      "meta": {
+        "modelName": "RoomPreviewSession",
+        "driverAdapterError": {
+          "name": "DriverAdapterError",
+          "cause": {
+            "kind": "DatabaseNotReachable",
+            "host": "aws-0-eu-west-1.pooler.supabase.com"
+          }
+        }
+      },
+      "clientVersion": "7.6.0",
+      "name": "PrismaClientKnownRequestError"
+    }
+ GET /room-preview/screen?source=hero_try_button 200 in 178ms (next.js: 68ms, proxy.ts: 12ms, application-code: 98ms)
+prisma:error 
+Invalid `prisma.roomPreviewSession.findMany()` invocation:
+
+
+Can't reach database server at aws-0-eu-west-1.pooler.supabase.com
+prisma:error 
+Invalid `prisma.roomPreviewSession.findMany()` invocation:
+
+
+Can't reach database server at aws-0-eu-west-1.pooler.supabase.com
+prisma:error 
+Invalid `prisma.roomPreviewSession.findMany()` invocation:
+
+
+Can't reach database server at aws-0-eu-west-1.pooler.supabase.com
+prisma:error 
+Invalid `prisma.roomPreviewSession.findMany()` invocation:
+
+
+Can't reach database server at aws-0-eu-west-1.pooler.supabase.com
+prisma:error 
+Invalid `prisma.roomPreviewSession.findMany()` invocation:
+
+
+Can't reach database server at aws-0-eu-west-1.pooler.supabase.com
+prisma:error 
+Invalid `prisma.roomPreviewSession.findMany()` invocation:
+
+
+Can't reach database server at aws-0-eu-west-1.pooler.supabase.com
+prisma:error 
+Invalid `prisma.roomPreviewSession.findMany()` invocation:
+
+
+Can't reach database server at aws-0-eu-west-1.pooler.supabase.com
+prisma:error 
+Invalid `prisma.roomPreviewSession.findMany()` invocation:
+
+
+Can't reach database server at aws-0-eu-west-1.pooler.supabase.com
+prisma:error 
+Invalid `prisma.roomPreviewSession.findMany()` invocation:
+
+
+Can't reach database server at aws-0-eu-west-1.pooler.supabase.com
+prisma:error 
+Invalid `prisma.roomPreviewSession.findMany()` invocation:
+
+
+Can't reach database server at aws-0-eu-west-1.pooler.supabase.com
+prisma:error 
+Invalid `prisma.roomPreviewSession.findMany()` invocation:
+
+
+Can't reach database server at aws-0-eu-west-1.pooler.supabase.com
+prisma:error 
+Invalid `prisma.roomPreviewSession.findMany()` invocation:
+
+
+Can't reach database server at aws-0-eu-west-1.pooler.supabase.com
+prisma:error 
+Invalid `prisma.roomPreviewSession.findMany()` invocation:
+
+
+Can't reach database server at aws-0-eu-west-1.pooler.supabase.com
+prisma:error 
+Invalid `prisma.roomPreviewSession.findMany()` invocation:
+
+
+Can't reach database server at aws-0-eu-west-1.pooler.supabase.com
+prisma:error 
+Invalid `prisma.roomPreviewSession.findMany()` invocation:
+
+
+Can't reach database server at aws-0-eu-west-1.pooler.supabase.com
+prisma:error 
+Invalid `prisma.roomPreviewSession.findMany()` invocation:
+
+
+Can't reach database server at aws-0-eu-west-1.pooler.supabase.com
+prisma:error 
+Invalid `prisma.roomPreviewSession.findMany()` invocation:
+
+
+Can't reach database server at aws-0-eu-west-1.pooler.supabase.com
+prisma:error 
+Invalid `prisma.roomPreviewSession.findMany()` invocation:
+
+
+Can't reach database server at aws-0-eu-west-1.pooler.supabase.com
+prisma:error 
+Invalid `prisma.roomPreviewSession.findMany()` invocation:
+
+
+Can't reach database server at aws-0-eu-west-1.pooler.supabase.com
+prisma:error 
+Invalid `prisma.roomPreviewSession.findMany()` invocation:
+
+
+Can't reach database server at aws-0-eu-west-1.pooler.supabase.com
+prisma:error 
+Invalid `prisma.roomPreviewSession.findMany()` invocation:
+
+
+Can't reach database server at aws-0-eu-west-1.pooler.supabase.com
+prisma:error 
+Invalid `prisma.roomPreviewSession.findMany()` invocation:
+
+
+Can't reach database server at aws-0-eu-west-1.pooler.supabase.com
+prisma:error 
+Invalid `prisma.roomPreviewSession.findMany()` invocation:
+
+
+Can't reach database server at aws-0-eu-west-1.pooler.supabase.com
+prisma:error 
+Invalid `prisma.roomPreviewSession.findMany()` invocation:
+
+
+Can't reach database server at aws-0-eu-west-1.pooler.supabase.com
+prisma:error 
+Invalid `prisma.roomPreviewSession.findMany()` invocation:
+
+
+Can't reach database server at aws-0-eu-west-1.pooler.supabase.com
+prisma:error 
+Invalid `prisma.roomPreviewSession.findMany()` invocation:
+
+
+Can't reach database server at aws-0-eu-west-1.pooler.supabase.com
+prisma:error 
+Invalid `prisma.roomPreviewSession.findMany()` invocation:
+
+
+Can't reach database server at aws-0-eu-west-1.pooler.supabase.com
+prisma:error 
+Invalid `prisma.roomPreviewSession.findMany()` invocation:
+
+
+Can't reach database server at aws-0-eu-west-1.pooler.supabase.com
+prisma:error 
+Invalid `prisma.roomPreviewSession.findMany()` invocation:
+
+
+Can't reach database server at aws-0-eu-west-1.pooler.supabase.com
+prisma:error 
+Invalid `prisma.roomPreviewSession.findMany()` invocation:
+
+
+Can't reach database server at aws-0-eu-west-1.pooler.supabase.com
+prisma:error 
+Invalid `prisma.roomPreviewSession.findMany()` invocation:
+
+
+Can't reach database server at aws-0-eu-west-1.pooler.supabase.com
+prisma:error 
+Invalid `prisma.roomPreviewSession.findMany()` invocation:
+
+
+Can't reach database server at aws-0-eu-west-1.pooler.supabase.com
+prisma:error 
+Invalid `prisma.roomPreviewSession.findMany()` invocation:
+
+
+Can't reach database server at aws-0-eu-west-1.pooler.supabase.com
+prisma:error 
+Invalid `prisma.roomPreviewSession.findMany()` invocation:
+
+
+Can't reach database server at aws-0-eu-west-1.pooler.supabase.com
+prisma:error 
+Invalid `prisma.roomPreviewSession.findMany()` invocation:
+
+
+Can't reach database server at aws-0-eu-west-1.pooler.supabase.com
+prisma:error 
+Invalid `prisma.roomPreviewSession.findMany()` invocation:
+
+
+Can't reach database server at aws-0-eu-west-1.pooler.supabase.com
+prisma:error 
+Invalid `prisma.roomPreviewSession.findMany()` invocation:
+
+
+Can't reach database server at aws-0-eu-west-1.pooler.supabase.com
+prisma:error 
+Invalid `prisma.roomPreviewSession.findMany()` invocation:
+
+
+Can't reach database server at aws-0-eu-west-1.pooler.supabase.com
+prisma:error 
+Invalid `prisma.roomPreviewSession.findMany()` invocation:
+
+
+Can't reach database server at aws-0-eu-west-1.pooler.supabase.com
+prisma:error 
+Invalid `prisma.roomPreviewSession.findMany()` invocation:
+
+
+Can't reach database server at aws-0-eu-west-1.pooler.supabase.com
+prisma:error 
+Invalid `prisma.roomPreviewSession.findMany()` invocation:
+
+
+Can't reach database server at aws-0-eu-west-1.pooler.supabase.com
+prisma:error 
+Invalid `prisma.roomPreviewSession.findMany()` invocation:
+
+
+Can't reach database server at aws-0-eu-west-1.pooler.supabase.com
+prisma:error 
+Invalid `prisma.roomPreviewSession.findMany()` invocation:
+
+
+Can't reach database server at aws-0-eu-west-1.pooler.supabase.com
+prisma:error 
+Invalid `prisma.roomPreviewSession.findMany()` invocation:
+
+
+Can't reach database server at aws-0-eu-west-1.pooler.supabase.com
+prisma:error 
+Invalid `prisma.roomPreviewSession.findMany()` invocation:
+
+
+Can't reach database server at aws-0-eu-west-1.pooler.supabase.com
+prisma:error 
+Invalid `prisma.roomPreviewSession.findMany()` invocation:
+
+
+Can't reach database server at aws-0-eu-west-1.pooler.supabase.com
+prisma:error 
+Invalid `prisma.roomPreviewSession.findMany()` invocation:
+
+
+Can't reach database server at aws-0-eu-west-1.pooler.supabase.com
+prisma:error 
+Invalid `prisma.roomPreviewSession.findMany()` invocation:
+
+
+Can't reach database server at aws-0-eu-west-1.pooler.supabase.com
+prisma:error 
+Invalid `prisma.roomPreviewSession.findMany()` invocation:
+
+
+Can't reach database server at aws-0-eu-west-1.pooler.supabase.com
+prisma:error 
+Invalid `prisma.roomPreviewSession.findMany()` invocation:
+
+
+Can't reach database server at aws-0-eu-west-1.pooler.supabase.com
+prisma:error 
+Invalid `prisma.roomPreviewSession.findMany()` invocation:
+
+
+Can't reach database server at aws-0-eu-west-1.pooler.supabase.com
+prisma:error 
+Invalid `prisma.roomPreviewSession.findMany()` invocation:
+
+
+Can't reach database server at aws-0-eu-west-1.pooler.supabase.com
+prisma:error 
+Invalid `prisma.roomPreviewSession.findMany()` invocation:
+
+
+Can't reach database server at aws-0-eu-west-1.pooler.supabase.com
+prisma:error 
+Invalid `prisma.roomPreviewSession.findMany()` invocation:
+
+
+Can't reach database server at aws-0-eu-west-1.pooler.supabase.com
+prisma:error 
+Invalid `prisma.roomPreviewSession.findMany()` invocation:
+
+
+Can't reach database server at aws-0-eu-west-1.pooler.supabase.com
+prisma:error 
+Invalid `prisma.roomPreviewSession.findMany()` invocation:
+
+
+Can't reach database server at aws-0-eu-west-1.pooler.supabase.com
+prisma:error 
+Invalid `prisma.roomPreviewSession.findMany()` invocation:
+
+
+Can't reach database server at aws-0-eu-west-1.pooler.supabase.com
+prisma:error 
+Invalid `prisma.roomPreviewSession.findMany()` invocation:
+
+
+Can't reach database server at aws-0-eu-west-1.pooler.supabase.com
+prisma:error 
+Invalid `prisma.roomPreviewSession.findMany()` invocation:
+
+
+Can't reach database server at aws-0-eu-west-1.pooler.supabase.com
+prisma:error 
+Invalid `prisma.roomPreviewSession.findMany()` invocation:
+
+
+Can't reach database server at aws-0-eu-west-1.pooler.supabase.com
+prisma:error 
+Invalid `prisma.roomPreviewSession.findMany()` invocation:
+
+
+Can't reach database server at aws-0-eu-west-1.pooler.supabase.com
+prisma:error 
+Invalid `prisma.roomPreviewSession.findMany()` invocation:
+
+
+Can't reach database server at aws-0-eu-west-1.pooler.supabase.com
+prisma:error 
+Invalid `prisma.roomPreviewSession.findMany()` invocation:
+
+
+Can't reach database server at aws-0-eu-west-1.pooler.supabase.com
+prisma:error 
+Invalid `prisma.roomPreviewSession.findMany()` invocation:
+
+
+Can't reach database server at aws-0-eu-west-1.pooler.supabase.com
+prisma:error 
+Invalid `prisma.roomPreviewSession.findMany()` invocation:
+
+
+Can't reach database server at aws-0-eu-west-1.pooler.supabase.com
+prisma:error 
+Invalid `prisma.roomPreviewSession.findMany()` invocation:
+
+
+Can't reach database server at aws-0-eu-west-1.pooler.supabase.com
+prisma:error 
+Invalid `prisma.roomPreviewSession.findMany()` invocation:
+
+
+Can't reach database server at aws-0-eu-west-1.pooler.supabase.com
+prisma:error 
+Invalid `prisma.roomPreviewSession.findMany()` invocation:
+
+
+Can't reach database server at aws-0-eu-west-1.pooler.supabase.com
+prisma:error 
+Invalid `prisma.roomPreviewSession.findMany()` invocation:
+
+
+Can't reach database server at aws-0-eu-west-1.pooler.supabase.com
+prisma:error 
+Invalid `prisma.roomPreviewSession.findMany()` invocation:
+
+
+Can't reach database server at aws-0-eu-west-1.pooler.supabase.com
+prisma:error 
+Invalid `prisma.roomPreviewSession.findMany()` invocation:
+
+
+Can't reach database server at aws-0-eu-west-1.pooler.supabase.com
+prisma:error 
+Invalid `prisma.roomPreviewSession.findMany()` invocation:
+
+
+Can't reach database server at aws-0-eu-west-1.pooler.supabase.com
+prisma:error 
+Invalid `prisma.roomPreviewSession.findMany()` invocation:
+
+
+Can't reach database server at aws-0-eu-west-1.pooler.supabase.com
+prisma:error 
+Invalid `prisma.roomPreviewSession.findMany()` invocation:
+
+
+Can't reach database server at aws-0-eu-west-1.pooler.supabase.com
+prisma:error 
+Invalid `prisma.roomPreviewSession.findMany()` invocation:
+
+
+Can't reach database server at aws-0-eu-west-1.pooler.supabase.com
+prisma:error 
+Invalid `prisma.roomPreviewSession.findMany()` invocation:
+
+
+Can't reach database server at aws-0-eu-west-1.pooler.supabase.com
+prisma:error 
+Invalid `prisma.roomPreviewSession.findMany()` invocation:
+
+
+Can't reach database server at aws-0-eu-west-1.pooler.supabase.com
+prisma:error 
+Invalid `prisma.roomPreviewSession.findMany()` invocation:
+
+
+Can't reach database server at aws-0-eu-west-1.pooler.supabase.com
+prisma:error 
+Invalid `prisma.roomPreviewSession.findMany()` invocation:
+
+
+Can't reach database server at aws-0-eu-west-1.pooler.supabase.com
+prisma:error 
+Invalid `prisma.roomPreviewSession.findMany()` invocation:
+
+
+Can't reach database server at aws-0-eu-west-1.pooler.supabase.com
+prisma:error 
+Invalid `prisma.roomPreviewSession.findMany()` invocation:
+
+
+Can't reach database server at aws-0-eu-west-1.pooler.supabase.com
+prisma:error 
+Invalid `prisma.roomPreviewSession.findMany()` invocation:
+
+
+Can't reach database server at aws-0-eu-west-1.pooler.supabase.com
+prisma:error 
+Invalid `prisma.roomPreviewSession.findMany()` invocation:
+
+
+Can't reach database server at aws-0-eu-west-1.pooler.supabase.com
+prisma:error 
+Invalid `prisma.roomPreviewSession.findMany()` invocation:
+
+
+Can't reach database server at aws-0-eu-west-1.pooler.supabase.com
+prisma:error 
+Invalid `prisma.roomPreviewSession.findMany()` invocation:
+
+
+Can't reach database server at aws-0-eu-west-1.pooler.supabase.com
+prisma:error 
+Invalid `prisma.roomPreviewSession.findMany()` invocation:
+
+
+Can't reach database server at aws-0-eu-west-1.pooler.supabase.com
+prisma:error 
+Invalid `prisma.roomPreviewSession.findMany()` invocation:
+
+
+Can't reach database server at aws-0-eu-west-1.pooler.supabase.com
+prisma:error 
+Invalid `prisma.roomPreviewSession.findMany()` invocation:
+
+
+Can't reach database server at aws-0-eu-west-1.pooler.supabase.com
+prisma:error 
+Invalid `prisma.roomPreviewSession.findMany()` invocation:
+
+
+Can't reach database server at aws-0-eu-west-1.pooler.supabase.com
+prisma:error 
+Invalid `prisma.roomPreviewSession.findMany()` invocation:
+
+
+Can't reach database server at aws-0-eu-west-1.pooler.supabase.com
+prisma:error 
+Invalid `prisma.roomPreviewSession.findMany()` invocation:
+
+
+Can't reach database server at aws-0-eu-west-1.pooler.supabase.com
+prisma:error 
+Invalid `prisma.roomPreviewSession.findMany()` invocation:
+
+
+Can't reach database server at aws-0-eu-west-1.pooler.supabase.com
+prisma:error 
+Invalid `prisma.roomPreviewSession.findMany()` invocation:
+
+
+Can't reach database server at aws-0-eu-west-1.pooler.supabase.com
+prisma:error 
+Invalid `prisma.roomPreviewSession.findMany()` invocation:
+
+
+Can't reach database server at aws-0-eu-west-1.pooler.supabase.com
+prisma:error 
+Invalid `prisma.roomPreviewSession.findMany()` invocation:
+
+
+Can't reach database server at aws-0-eu-west-1.pooler.supabase.com
+prisma:error 
+Invalid `prisma.roomPreviewSession.findMany()` invocation:
+
+
+Can't reach database server at aws-0-eu-west-1.pooler.supabase.com
+prisma:error 
+Invalid `prisma.roomPreviewSession.findMany()` invocation:
+
+
+Can't reach database server at aws-0-eu-west-1.pooler.supabase.com
+prisma:error 
+Invalid `prisma.roomPreviewSession.findMany()` invocation:
+
+
+Can't reach database server at aws-0-eu-west-1.pooler.supabase.com
+prisma:error 
+Invalid `prisma.roomPreviewSession.findMany()` invocation:
+
+
+Can't reach database server at aws-0-eu-west-1.pooler.supabase.com
+prisma:error 
+Invalid `prisma.roomPreviewSession.findMany()` invocation:
+
+
+Can't reach database server at aws-0-eu-west-1.pooler.supabase.com
+prisma:error 
+Invalid `prisma.roomPreviewSession.findMany()` invocation:
+
+
+Can't reach database server at aws-0-eu-west-1.pooler.supabase.com
+prisma:error 
+Invalid `prisma.roomPreviewSession.findMany()` invocation:
+
+
+Can't reach database server at aws-0-eu-west-1.pooler.supabase.com
+prisma:error 
+Invalid `prisma.roomPreviewSession.findMany()` invocation:
+
+
+Can't reach database server at aws-0-eu-west-1.pooler.supabase.com
+prisma:error 
+Invalid `prisma.roomPreviewSession.findMany()` invocation:
+
+
+Can't reach database server at aws-0-eu-west-1.pooler.supabase.com
+prisma:error 
+Invalid `prisma.roomPreviewSession.findMany()` invocation:
+
+
+Can't reach database server at aws-0-eu-west-1.pooler.supabase.com
+prisma:error 
+Invalid `prisma.roomPreviewSession.findMany()` invocation:
+
+
+Can't reach database server at aws-0-eu-west-1.pooler.supabase.com
+prisma:error 
+Invalid `prisma.roomPreviewSession.findMany()` invocation:
+
+
+Can't reach database server at aws-0-eu-west-1.pooler.supabase.com
+prisma:error 
+Invalid `prisma.roomPreviewSession.findMany()` invocation:
+
+
+Can't reach database server at aws-0-eu-west-1.pooler.supabase.com
+prisma:error 
+Invalid `prisma.roomPreviewSession.findMany()` invocation:
+
+
+Can't reach database server at aws-0-eu-west-1.pooler.supabase.com
+prisma:error 
+Invalid `prisma.roomPreviewSession.findMany()` invocation:
+
+
+Can't reach database server at aws-0-eu-west-1.pooler.supabase.com
+prisma:error 
+Invalid `prisma.roomPreviewSession.findMany()` invocation:
+
+
+Can't reach database server at aws-0-eu-west-1.pooler.supabase.com
+prisma:error 
+Invalid `prisma.roomPreviewSession.findMany()` invocation:
+
+
+Can't reach database server at aws-0-eu-west-1.pooler.supabase.com
+prisma:error 
+Invalid `prisma.roomPreviewSession.findMany()` invocation:
+
+
+Can't reach database server at aws-0-eu-west-1.pooler.supabase.com
+prisma:error 
+Invalid `prisma.roomPreviewSession.findMany()` invocation:
+
+
+Can't reach database server at aws-0-eu-west-1.pooler.supabase.com
+prisma:error 
+Invalid `prisma.roomPreviewSession.findMany()` invocation:
+
+
+Can't reach database server at aws-0-eu-west-1.pooler.supabase.com
+prisma:error 
+Invalid `prisma.roomPreviewSession.findMany()` invocation:
+
+
+Can't reach database server at aws-0-eu-west-1.pooler.supabase.com
+prisma:error 
+Invalid `prisma.roomPreviewSession.findMany()` invocation:
+
+
+Can't reach database server at aws-0-eu-west-1.pooler.supabase.com
+prisma:error 
+Invalid `prisma.roomPreviewSession.findMany()` invocation:
+
+
+Can't reach database server at aws-0-eu-west-1.pooler.supabase.com
+prisma:error 
+Invalid `prisma.roomPreviewSession.findMany()` invocation:
+
+
+Can't reach database server at aws-0-eu-west-1.pooler.supabase.com
+prisma:error 
+Invalid `prisma.roomPreviewSession.findMany()` invocation:
+
+
+Can't reach database server at aws-0-eu-west-1.pooler.supabase.com
+prisma:error 
+Invalid `prisma.roomPreviewSession.findMany()` invocation:
+
+
+Can't reach database server at aws-0-eu-west-1.pooler.supabase.com
+prisma:error 
+Invalid `prisma.roomPreviewSession.findMany()` invocation:
+
+
+Can't reach database server at aws-0-eu-west-1.pooler.supabase.com
+prisma:error 
+Invalid `prisma.roomPreviewSession.findMany()` invocation:
+
+
+Can't reach database server at aws-0-eu-west-1.pooler.supabase.com
+prisma:error 
+Invalid `prisma.roomPreviewSession.findMany()` invocation:
+
+
+Can't reach database server at aws-0-eu-west-1.pooler.supabase.com
+prisma:error 
+Invalid `prisma.roomPreviewSession.findMany()` invocation:
+
+
+Can't reach database server at aws-0-eu-west-1.pooler.supabase.com
+prisma:error 
+Invalid `prisma.roomPreviewSession.findMany()` invocation:
+
+
+Can't reach database server at aws-0-eu-west-1.pooler.supabase.com
+prisma:error 
+Invalid `prisma.roomPreviewSession.findMany()` invocation:
+
+
+Can't reach database server at aws-0-eu-west-1.pooler.supabase.com
+prisma:error 
+Invalid `prisma.roomPreviewSession.findMany()` invocation:
+
+
+Can't reach database server at aws-0-eu-west-1.pooler.supabase.com
+prisma:error 
+Invalid `prisma.roomPreviewSession.findMany()` invocation:
+
+
+Can't reach database server at aws-0-eu-west-1.pooler.supabase.com
+prisma:error 
+Invalid `prisma.roomPreviewSession.findMany()` invocation:
+
+
+Can't reach database server at aws-0-eu-west-1.pooler.supabase.com
+prisma:error 
+Invalid `prisma.roomPreviewSession.findMany()` invocation:
+
+
+Can't reach database server at aws-0-eu-west-1.pooler.supabase.com
+prisma:error 
+Invalid `prisma.roomPreviewSession.findMany()` invocation:
+
+
+Can't reach database server at aws-0-eu-west-1.pooler.supabase.com
+prisma:error 
+Invalid `prisma.roomPreviewSession.findMany()` invocation:
+
+
+Can't reach database server at aws-0-eu-west-1.pooler.supabase.com
+prisma:error 
+Invalid `prisma.roomPreviewSession.findMany()` invocation:
+
+
+Can't reach database server at aws-0-eu-west-1.pooler.supabase.com
+prisma:error 
+Invalid `prisma.roomPreviewSession.findMany()` invocation:
+
+
+Can't reach database server at aws-0-eu-west-1.pooler.supabase.com
+prisma:error 
+Invalid `prisma.roomPreviewSession.findMany()` invocation:
+
+
+Can't reach database server at aws-0-eu-west-1.pooler.supabase.com
+prisma:error 
+Invalid `prisma.roomPreviewSession.findMany()` invocation:
+
+
+Can't reach database server at aws-0-eu-west-1.pooler.supabase.com
+prisma:error 
+Invalid `prisma.roomPreviewSession.findMany()` invocation:
+
+
+Can't reach database server at aws-0-eu-west-1.pooler.supabase.com
+prisma:error 
+Invalid `prisma.roomPreviewSession.findMany()` invocation:
+
+
+Can't reach database server at aws-0-eu-west-1.pooler.supabase.com
+prisma:error 
+Invalid `prisma.roomPreviewSession.findMany()` invocation:
+
+
+Can't reach database server at aws-0-eu-west-1.pooler.supabase.com
+prisma:error 
+Invalid `prisma.roomPreviewSession.findMany()` invocation:
+
+
+Can't reach database server at aws-0-eu-west-1.pooler.supabase.com
+prisma:error 
+Invalid `prisma.roomPreviewSession.findMany()` invocation:
+
+
+Can't reach database server at aws-0-eu-west-1.pooler.supabase.com
+prisma:error 
+Invalid `prisma.roomPreviewSession.findMany()` invocation:
+
+
+Can't reach database server at aws-0-eu-west-1.pooler.supabase.com
+prisma:error 
+Invalid `prisma.roomPreviewSession.findMany()` invocation:
+
+
+Can't reach database server at aws-0-eu-west-1.pooler.supabase.com
+prisma:error 
+Invalid `prisma.roomPreviewSession.findMany()` invocation:
+
+
+Can't reach database server at aws-0-eu-west-1.pooler.supabase.com
+prisma:error 
+Invalid `prisma.roomPreviewSession.findMany()` invocation:
+
+
+Can't reach database server at aws-0-eu-west-1.pooler.supabase.com
+prisma:error 
+Invalid `prisma.roomPreviewSession.findMany()` invocation:
+
+
+Can't reach database server at aws-0-eu-west-1.pooler.supabase.com
+prisma:error 
+Invalid `prisma.roomPreviewSession.findMany()` invocation:
+
+
+Can't reach database server at aws-0-eu-west-1.pooler.supabase.com
+prisma:error 
+Invalid `prisma.roomPreviewSession.findMany()` invocation:
+
+
+Can't reach database server at aws-0-eu-west-1.pooler.supabase.com
+prisma:error 
+Invalid `prisma.roomPreviewSession.findMany()` invocation:
+
+
+Can't reach database server at aws-0-eu-west-1.pooler.supabase.com
+prisma:error 
+Invalid `prisma.roomPreviewSession.findMany()` invocation:
+
+
+Can't reach database server at aws-0-eu-west-1.pooler.supabase.com
+prisma:error 
+Invalid `prisma.roomPreviewSession.findMany()` invocation:
+
+
+Can't reach database server at aws-0-eu-west-1.pooler.supabase.com
+prisma:error 
+Invalid `prisma.roomPreviewSession.findMany()` invocation:
+
+
+Can't reach database server at aws-0-eu-west-1.pooler.supabase.com
+prisma:error 
+Invalid `prisma.roomPreviewSession.findMany()` invocation:
+
+
+Can't reach database server at aws-0-eu-west-1.pooler.supabase.com
+prisma:error 
+Invalid `prisma.roomPreviewSession.findMany()` invocation:
+
+
+Can't reach database server at aws-0-eu-west-1.pooler.supabase.com
+prisma:error 
+Invalid `prisma.roomPreviewSession.findMany()` invocation:
+
+
+Can't reach database server at aws-0-eu-west-1.pooler.supabase.com
+prisma:error 
+Invalid `prisma.roomPreviewSession.findMany()` invocation:
+
+
+Can't reach database server at aws-0-eu-west-1.pooler.supabase.com
+prisma:error 
+Invalid `prisma.roomPreviewSession.findMany()` invocation:
+
+
+Can't reach database server at aws-0-eu-west-1.pooler.supabase.com
+prisma:error 
+Invalid `prisma.roomPreviewSession.findMany()` invocation:
+
+
+Can't reach database server at aws-0-eu-west-1.pooler.supabase.com
+prisma:error 
+Invalid `prisma.roomPreviewSession.findMany()` invocation:
+
+
+Can't reach database server at aws-0-eu-west-1.pooler.supabase.com
+prisma:error 
+Invalid `prisma.roomPreviewSession.findMany()` invocation:
+
+
+Can't reach database server at aws-0-eu-west-1.pooler.supabase.com
+prisma:error 
+Invalid `prisma.roomPreviewSession.findMany()` invocation:
+
+
+Can't reach database server at aws-0-eu-west-1.pooler.supabase.com
+prisma:error 
+Invalid `prisma.roomPreviewSession.findMany()` invocation:
+
+
+Can't reach database server at aws-0-eu-west-1.pooler.supabase.com
+prisma:error 
+Invalid `prisma.roomPreviewSession.findMany()` invocation:
+
+
+Can't reach database server at aws-0-eu-west-1.pooler.supabase.com
+prisma:error 
+Invalid `prisma.roomPreviewSession.findMany()` invocation:
+
+
+Can't reach database server at aws-0-eu-west-1.pooler.supabase.com
+prisma:error 
+Invalid `prisma.roomPreviewSession.findMany()` invocation:
+
+
+Can't reach database server at aws-0-eu-west-1.pooler.supabase.com
+prisma:error 
+Invalid `prisma.roomPreviewSession.findMany()` invocation:
+
+
+Can't reach database server at aws-0-eu-west-1.pooler.supabase.com
+prisma:error 
+Invalid `prisma.roomPreviewSession.findMany()` invocation:
+
+
+Can't reach database server at aws-0-eu-west-1.pooler.supabase.com
+prisma:error 
+Invalid `prisma.roomPreviewSession.findMany()` invocation:
+
+
+Can't reach database server at aws-0-eu-west-1.pooler.supabase.com
+prisma:error 
+Invalid `prisma.roomPreviewSession.findMany()` invocation:
+
+
+Can't reach database server at aws-0-eu-west-1.pooler.supabase.com
+prisma:error 
+Invalid `prisma.roomPreviewSession.findMany()` invocation:
+
+
+Can't reach database server at aws-0-eu-west-1.pooler.supabase.com
+prisma:error 
+Invalid `prisma.roomPreviewSession.findMany()` invocation:
+
+
+Can't reach database server at aws-0-eu-west-1.pooler.supabase.com
+prisma:error 
+Invalid `prisma.roomPreviewSession.findMany()` invocation:
+
+
+Can't reach database server at aws-0-eu-west-1.pooler.supabase.com
+prisma:error 
+Invalid `prisma.roomPreviewSession.findMany()` invocation:
+
+
+Can't reach database server at aws-0-eu-west-1.pooler.supabase.com
+prisma:error 
+Invalid `prisma.roomPreviewSession.findMany()` invocation:
+
+
+Can't reach database server at aws-0-eu-west-1.pooler.supabase.com
+prisma:error 
+Invalid `prisma.roomPreviewSession.findMany()` invocation:
+
+
+Can't reach database server at aws-0-eu-west-1.pooler.supabase.com
+prisma:error 
+Invalid `prisma.roomPreviewSession.findMany()` invocation:
+
+
+Can't reach database server at aws-0-eu-west-1.pooler.supabase.com
+prisma:error 
+Invalid `prisma.roomPreviewSession.findMany()` invocation:
+
+
+Can't reach database server at aws-0-eu-west-1.pooler.supabase.com
+prisma:error 
+Invalid `prisma.roomPreviewSession.findMany()` invocation:
+
+
+Can't reach database server at aws-0-eu-west-1.pooler.supabase.com
+prisma:error 
+Invalid `prisma.roomPreviewSession.findMany()` invocation:
+
+
+Can't reach database server at aws-0-eu-west-1.pooler.supabase.com
+prisma:error 
+Invalid `prisma.roomPreviewSession.findMany()` invocation:
+
+
+Can't reach database server at aws-0-eu-west-1.pooler.supabase.com
+prisma:error 
+Invalid `prisma.roomPreviewSession.findMany()` invocation:
+
+
+Can't reach database server at aws-0-eu-west-1.pooler.supabase.com
+prisma:error 
+Invalid `prisma.roomPreviewSession.findMany()` invocation:
+
+
+Can't reach database server at aws-0-eu-west-1.pooler.supabase.com
+prisma:error 
+Invalid `prisma.roomPreviewSession.findMany()` invocation:
+
+
+Can't reach database server at aws-0-eu-west-1.pooler.supabase.com
+prisma:error 
+Invalid `prisma.roomPreviewSession.findMany()` invocation:
+
+
+Can't reach database server at aws-0-eu-west-1.pooler.supabase.com
+prisma:error 
+Invalid `prisma.roomPreviewSession.findMany()` invocation:
+
+
+Can't reach database server at aws-0-eu-west-1.pooler.supabase.com
+prisma:error 
+Invalid `prisma.roomPreviewSession.findMany()` invocation:
+
+
+Can't reach database server at aws-0-eu-west-1.pooler.supabase.com
+prisma:error 
+Invalid `prisma.roomPreviewSession.findMany()` invocation:
+
+
+Can't reach database server at aws-0-eu-west-1.pooler.supabase.com
+prisma:error 
+Invalid `prisma.roomPreviewSession.findMany()` invocation:
+
+
+Can't reach database server at aws-0-eu-west-1.pooler.supabase.com
+prisma:error 
+Invalid `prisma.roomPreviewSession.findMany()` invocation:
+
+
+Can't reach database server at aws-0-eu-west-1.pooler.supabase.com
+prisma:error 
+Invalid `prisma.roomPreviewSession.findMany()` invocation:
+
+
+Can't reach database server at aws-0-eu-west-1.pooler.supabase.com
+prisma:error 
+Invalid `prisma.roomPreviewSession.findMany()` invocation:
+
+
+Can't reach database server at aws-0-eu-west-1.pooler.supabase.com
+prisma:error 
+Invalid `prisma.roomPreviewSession.findMany()` invocation:
+
+
+Can't reach database server at aws-0-eu-west-1.pooler.supabase.com
+prisma:error 
+Invalid `prisma.roomPreviewSession.findMany()` invocation:
+
+
+Can't reach database server at aws-0-eu-west-1.pooler.supabase.com
+prisma:error 
+Invalid `prisma.roomPreviewSession.findMany()` invocation:
+
+
+Can't reach database server at aws-0-eu-west-1.pooler.supabase.com
+prisma:error 
+Invalid `prisma.roomPreviewSession.findMany()` invocation:
+
+
+Can't reach database server at aws-0-eu-west-1.pooler.supabase.com
+prisma:error 
+Invalid `prisma.roomPreviewSession.findMany()` invocation:
+
+
+Can't reach database server at aws-0-eu-west-1.pooler.supabase.com
+prisma:error 
+Invalid `prisma.roomPreviewSession.findMany()` invocation:
+
+
+Can't reach database server at aws-0-eu-west-1.pooler.supabase.com
+prisma:error 
+Invalid `prisma.roomPreviewSession.findMany()` invocation:
+
+
+Can't reach database server at aws-0-eu-west-1.pooler.supabase.com
+prisma:error 
+Invalid `prisma.roomPreviewSession.findMany()` invocation:
+
+
+Can't reach database server at aws-0-eu-west-1.pooler.supabase.com
+prisma:error 
+Invalid `prisma.roomPreviewSession.findMany()` invocation:
+
+
+Can't reach database server at aws-0-eu-west-1.pooler.supabase.com
+prisma:error 
+Invalid `prisma.roomPreviewSession.findMany()` invocation:
+
+
+Can't reach database server at aws-0-eu-west-1.pooler.supabase.com
+prisma:error 
+Invalid `prisma.roomPreviewSession.findMany()` invocation:
+
+
+Can't reach database server at aws-0-eu-west-1.pooler.supabase.com
+prisma:error 
+Invalid `prisma.roomPreviewSession.findMany()` invocation:
+
+
+Can't reach database server at aws-0-eu-west-1.pooler.supabase.com
+prisma:error 
+Invalid `prisma.roomPreviewSession.findMany()` invocation:
+
+
+Can't reach database server at aws-0-eu-west-1.pooler.supabase.com
+prisma:error 
+Invalid `prisma.roomPreviewSession.findMany()` invocation:
+
+
+Can't reach database server at aws-0-eu-west-1.pooler.supabase.com
+prisma:error 
+Invalid `prisma.roomPreviewSession.findMany()` invocation:
+
+
+Can't reach database server at aws-0-eu-west-1.pooler.supabase.com
+prisma:error 
+Invalid `prisma.roomPreviewSession.findMany()` invocation:
+
+
+Can't reach database server at aws-0-eu-west-1.pooler.supabase.com
+prisma:error 
+Invalid `prisma.roomPreviewSession.findMany()` invocation:
+
+
+Can't reach database server at aws-0-eu-west-1.pooler.supabase.com
+prisma:error 
+Invalid `prisma.roomPreviewSession.findMany()` invocation:
+
+
+Can't reach database server at aws-0-eu-west-1.pooler.supabase.com
+prisma:error 
+Invalid `prisma.roomPreviewSession.findMany()` invocation:
+
+
+Can't reach database server at aws-0-eu-west-1.pooler.supabase.com
+prisma:error 
+Invalid `prisma.roomPreviewSession.findMany()` invocation:
+
+
+Can't reach database server at aws-0-eu-west-1.pooler.supabase.com
+prisma:error 
+Invalid `prisma.roomPreviewSession.findMany()` invocation:
+
+
+Can't reach database server at aws-0-eu-west-1.pooler.supabase.com
+prisma:error 
+Invalid `prisma.roomPreviewSession.findMany()` invocation:
+
+
+Can't reach database server at aws-0-eu-west-1.pooler.supabase.com
+prisma:error 
+Invalid `prisma.roomPreviewSession.findMany()` invocation:
+
+
+Can't reach database server at aws-0-eu-west-1.pooler.supabase.com
+prisma:error 
+Invalid `prisma.roomPreviewSession.findMany()` invocation:
+
+
+Can't reach database server at aws-0-eu-west-1.pooler.supabase.com
+prisma:error 
+Invalid `prisma.roomPreviewSession.findMany()` invocation:
+
+
+Can't reach database server at aws-0-eu-west-1.pooler.supabase.com
+prisma:error 
+Invalid `prisma.roomPreviewSession.findMany()` invocation:
+
+
+Can't reach database server at aws-0-eu-west-1.pooler.supabase.com
+prisma:error 
+Invalid `prisma.roomPreviewSession.findMany()` invocation:
+
+
+Can't reach database server at aws-0-eu-west-1.pooler.supabase.com
+prisma:error 
+Invalid `prisma.roomPreviewSession.findMany()` invocation:
+
+
+Can't reach database server at aws-0-eu-west-1.pooler.supabase.com
+prisma:error 
+Invalid `prisma.roomPreviewSession.findMany()` invocation:
+
+
+Can't reach database server at aws-0-eu-west-1.pooler.supabase.com
+prisma:error 
+Invalid `prisma.roomPreviewSession.findMany()` invocation:
+
+
+Can't reach database server at aws-0-eu-west-1.pooler.supabase.com
+prisma:error 
+Invalid `prisma.roomPreviewSession.findMany()` invocation:
+
+
+Can't reach database server at aws-0-eu-west-1.pooler.supabase.com
+prisma:error 
+Invalid `prisma.roomPreviewSession.findMany()` invocation:
+
+
+Can't reach database server at aws-0-eu-west-1.pooler.supabase.com
+prisma:error 
+Invalid `prisma.roomPreviewSession.findMany()` invocation:
+
+
+Can't reach database server at aws-0-eu-west-1.pooler.supabase.com
+prisma:error 
+Invalid `prisma.roomPreviewSession.findMany()` invocation:
+
+
+Can't reach database server at aws-0-eu-west-1.pooler.supabase.com
+prisma:error 
+Invalid `prisma.roomPreviewSession.findMany()` invocation:
+
+
+Can't reach database server at aws-0-eu-west-1.pooler.supabase.com
+prisma:error 
+Invalid `prisma.roomPreviewSession.findMany()` invocation:
+
+
+Can't reach database server at aws-0-eu-west-1.pooler.supabase.com
+prisma:error 
+Invalid `prisma.roomPreviewSession.findMany()` invocation:
+
+
+Can't reach database server at aws-0-eu-west-1.pooler.supabase.com
+prisma:error 
+Invalid `prisma.roomPreviewSession.findMany()` invocation:
+
+
+Can't reach database server at aws-0-eu-west-1.pooler.supabase.com
+prisma:error 
+Invalid `prisma.roomPreviewSession.findMany()` invocation:
+
+
+Can't reach database server at aws-0-eu-west-1.pooler.supabase.com
+prisma:error 
+Invalid `prisma.roomPreviewSession.findMany()` invocation:
+
+
+Can't reach database server at aws-0-eu-west-1.pooler.supabase.com
+prisma:error 
+Invalid `prisma.roomPreviewSession.findMany()` invocation:
+
+
+Can't reach database server at aws-0-eu-west-1.pooler.supabase.com
+prisma:error 
+Invalid `prisma.roomPreviewSession.findMany()` invocation:
+
+
+Can't reach database server at aws-0-eu-west-1.pooler.supabase.com
+prisma:error 
+Invalid `prisma.roomPreviewSession.findMany()` invocation:
+
+
+Can't reach database server at aws-0-eu-west-1.pooler.supabase.com
+prisma:error 
+Invalid `prisma.roomPreviewSession.findMany()` invocation:
+
+
+Can't reach database server at aws-0-eu-west-1.pooler.supabase.com
+prisma:error 
+Invalid `prisma.roomPreviewSession.findMany()` invocation:
+
+
+Can't reach database server at aws-0-eu-west-1.pooler.supabase.com
+prisma:error 
+Invalid `prisma.roomPreviewSession.findMany()` invocation:
+
+
+Can't reach database server at aws-0-eu-west-1.pooler.supabase.com
+prisma:error 
+Invalid `prisma.roomPreviewSession.findMany()` invocation:
+
+
+Can't reach database server at aws-0-eu-west-1.pooler.supabase.com
+prisma:error 
+Invalid `prisma.roomPreviewSession.findMany()` invocation:
+
+
+Can't reach database server at aws-0-eu-west-1.pooler.supabase.com
+prisma:error 
+Invalid `prisma.roomPreviewSession.findMany()` invocation:
+
+
+Can't reach database server at aws-0-eu-west-1.pooler.supabase.com
+prisma:error 
+Invalid `prisma.roomPreviewSession.findMany()` invocation:
+
+
+Can't reach database server at aws-0-eu-west-1.pooler.supabase.com
+prisma:error 
+Invalid `prisma.roomPreviewSession.findMany()` invocation:
+
+
+Can't reach database server at aws-0-eu-west-1.pooler.supabase.com
+prisma:error 
+Invalid `prisma.roomPreviewSession.findMany()` invocation:
+
+
+Can't reach database server at aws-0-eu-west-1.pooler.supabase.com
+prisma:error 
+Invalid `prisma.roomPreviewSession.findMany()` invocation:
+
+
+Can't reach database server at aws-0-eu-west-1.pooler.supabase.com
+prisma:error 
+Invalid `prisma.roomPreviewSession.findMany()` invocation:
+
+
+Can't reach database server at aws-0-eu-west-1.pooler.supabase.com
+prisma:error 
+Invalid `prisma.roomPreviewSession.findMany()` invocation:
+
+
+Can't reach database server at aws-0-eu-west-1.pooler.supabase.com
+prisma:error 
+Invalid `prisma.roomPreviewSession.findMany()` invocation:
+
+
+Can't reach database server at aws-0-eu-west-1.pooler.supabase.com
+prisma:error 
+Invalid `prisma.roomPreviewSession.findMany()` invocation:
+
+
+Can't reach database server at aws-0-eu-west-1.pooler.supabase.com
+prisma:error 
+Invalid `prisma.roomPreviewSession.findMany()` invocation:
+
+
+Can't reach database server at aws-0-eu-west-1.pooler.supabase.com
+prisma:error 
+Invalid `prisma.roomPreviewSession.findMany()` invocation:
+
+
+Can't reach database server at aws-0-eu-west-1.pooler.supabase.com
+prisma:error 
+Invalid `prisma.roomPreviewSession.findMany()` invocation:
+
+
+Can't reach database server at aws-0-eu-west-1.pooler.supabase.com
+prisma:error 
+Invalid `prisma.roomPreviewSession.findMany()` invocation:
+
+
+Can't reach database server at aws-0-eu-west-1.pooler.supabase.com
+prisma:error 
+Invalid `prisma.roomPreviewSession.findMany()` invocation:
+
+
+Can't reach database server at aws-0-eu-west-1.pooler.supabase.com
+prisma:error 
+Invalid `prisma.roomPreviewSession.findMany()` invocation:
+
+
+Can't reach database server at aws-0-eu-west-1.pooler.supabase.com
+prisma:error 
+Invalid `prisma.roomPreviewSession.findMany()` invocation:
+
+
+Can't reach database server at aws-0-eu-west-1.pooler.supabase.com
+prisma:error 
+Invalid `prisma.roomPreviewSession.findMany()` invocation:
+
+
+Can't reach database server at aws-0-eu-west-1.pooler.supabase.com
+prisma:error 
+Invalid `prisma.roomPreviewSession.findMany()` invocation:
+
+
+Can't reach database server at aws-0-eu-west-1.pooler.supabase.com
+prisma:error 
+Invalid `prisma.roomPreviewSession.findMany()` invocation:
+
+
+Can't reach database server at aws-0-eu-west-1.pooler.supabase.com
+prisma:error 
+Invalid `prisma.roomPreviewSession.findMany()` invocation:
+
+
+Can't reach database server at aws-0-eu-west-1.pooler.supabase.com
+prisma:error 
+Invalid `prisma.roomPreviewSession.findMany()` invocation:
+
+
+Can't reach database server at aws-0-eu-west-1.pooler.supabase.com
+prisma:error 
+Invalid `prisma.roomPreviewSession.findMany()` invocation:
+
+
+Can't reach database server at aws-0-eu-west-1.pooler.supabase.com
+prisma:error 
+Invalid `prisma.roomPreviewSession.findMany()` invocation:
+
+
+Can't reach database server at aws-0-eu-west-1.pooler.supabase.com
+prisma:error 
+Invalid `prisma.roomPreviewSession.findMany()` invocation:
+
+
+Can't reach database server at aws-0-eu-west-1.pooler.supabase.com
+prisma:error 
+Invalid `prisma.roomPreviewSession.findMany()` invocation:
+
+
+Can't reach database server at aws-0-eu-west-1.pooler.supabase.com
+prisma:error 
+Invalid `prisma.roomPreviewSession.findMany()` invocation:
+
+
+Can't reach database server at aws-0-eu-west-1.pooler.supabase.com
+prisma:error 
+Invalid `prisma.roomPreviewSession.findMany()` invocation:
+
+
+Can't reach database server at aws-0-eu-west-1.pooler.supabase.com
+prisma:error 
+Invalid `prisma.roomPreviewSession.findMany()` invocation:
+
+
+Can't reach database server at aws-0-eu-west-1.pooler.supabase.com
+prisma:error 
+Invalid `prisma.roomPreviewSession.findMany()` invocation:
+
+
+Can't reach database server at aws-0-eu-west-1.pooler.supabase.com
+prisma:error 
+Invalid `prisma.roomPreviewSession.findMany()` invocation:
+
+
+Can't reach database server at aws-0-eu-west-1.pooler.supabase.com
+prisma:error 
+Invalid `prisma.roomPreviewSession.findMany()` invocation:
+
+
+Can't reach database server at aws-0-eu-west-1.pooler.supabase.com
+prisma:error 
+Invalid `prisma.roomPreviewSession.findMany()` invocation:
+
+
+Can't reach database server at aws-0-eu-west-1.pooler.supabase.com
+prisma:error 
+Invalid `prisma.roomPreviewSession.findMany()` invocation:
+
+
+Can't reach database server at aws-0-eu-west-1.pooler.supabase.com
+prisma:error 
+Invalid `prisma.roomPreviewSession.findMany()` invocation:
+
+
+Can't reach database server at aws-0-eu-west-1.pooler.supabase.com
+prisma:error 
+Invalid `prisma.roomPreviewSession.findMany()` invocation:
+
+
+Can't reach database server at aws-0-eu-west-1.pooler.supabase.com
+prisma:error 
+Invalid `prisma.roomPreviewSession.findMany()` invocation:
+
+
+Can't reach database server at aws-0-eu-west-1.pooler.supabase.com
+prisma:error 
+Invalid `prisma.roomPreviewSession.findMany()` invocation:
+
+
+Can't reach database server at aws-0-eu-west-1.pooler.supabase.com
+prisma:error 
+Invalid `prisma.roomPreviewSession.findMany()` invocation:
+
+
+Can't reach database server at aws-0-eu-west-1.pooler.supabase.com
+prisma:error 
+Invalid `prisma.roomPreviewSession.findMany()` invocation:
+
+
+Can't reach database server at aws-0-eu-west-1.pooler.supabase.com
+prisma:error 
+Invalid `prisma.roomPreviewSession.findMany()` invocation:
+
+
+Can't reach database server at aws-0-eu-west-1.pooler.supabase.com
+prisma:error 
+Invalid `prisma.roomPreviewSession.findMany()` invocation:
+
+
+Can't reach database server at aws-0-eu-west-1.pooler.supabase.com
+prisma:error 
+Invalid `prisma.roomPreviewSession.findMany()` invocation:
+
+
+Can't reach database server at aws-0-eu-west-1.pooler.supabase.com
+prisma:error 
+Invalid `prisma.roomPreviewSession.findMany()` invocation:
+
+
+Can't reach database server at aws-0-eu-west-1.pooler.supabase.com
+prisma:error 
+Invalid `prisma.roomPreviewSession.findMany()` invocation:
+
+
+Can't reach database server at aws-0-eu-west-1.pooler.supabase.com
+prisma:error 
+Invalid `prisma.roomPreviewSession.findMany()` invocation:
+
+
+Can't reach database server at aws-0-eu-west-1.pooler.supabase.com
+prisma:error 
+Invalid `prisma.roomPreviewSession.findMany()` invocation:
+
+
+Can't reach database server at aws-0-eu-west-1.pooler.supabase.com
+prisma:error 
+Invalid `prisma.roomPreviewSession.findMany()` invocation:
+
+
+Can't reach database server at aws-0-eu-west-1.pooler.supabase.com
+prisma:error 
+Invalid `prisma.roomPreviewSession.findMany()` invocation:
+
+
+Can't reach database server at aws-0-eu-west-1.pooler.supabase.com
+prisma:error 
+Invalid `prisma.roomPreviewSession.findMany()` invocation:
+
+
+Can't reach database server at aws-0-eu-west-1.pooler.supabase.com
+prisma:error 
+Invalid `prisma.roomPreviewSession.findMany()` invocation:
+
+
+Can't reach database server at aws-0-eu-west-1.pooler.supabase.com
+prisma:error 
+Invalid `prisma.roomPreviewSession.findMany()` invocation:
+
+
+Can't reach database server at aws-0-eu-west-1.pooler.supabase.com
+prisma:error 
+Invalid `prisma.roomPreviewSession.findMany()` invocation:
+
+
+Can't reach database server at aws-0-eu-west-1.pooler.supabase.com
+prisma:error 
+Invalid `prisma.roomPreviewSession.findMany()` invocation:
+
+
+Can't reach database server at aws-0-eu-west-1.pooler.supabase.com
+prisma:error 
+Invalid `prisma.roomPreviewSession.findMany()` invocation:
+
+
+Can't reach database server at aws-0-eu-west-1.pooler.supabase.com
+prisma:error 
+Invalid `prisma.roomPreviewSession.findMany()` invocation:
+
+
+Can't reach database server at aws-0-eu-west-1.pooler.supabase.com
+prisma:error 
+Invalid `prisma.roomPreviewSession.findMany()` invocation:
+
+
+Can't reach database server at aws-0-eu-west-1.pooler.supabase.com
+prisma:error 
+Invalid `prisma.roomPreviewSession.findMany()` invocation:
+
+
+Can't reach database server at aws-0-eu-west-1.pooler.supabase.com
+prisma:error 
+Invalid `prisma.roomPreviewSession.findMany()` invocation:
+
+
+Can't reach database server at aws-0-eu-west-1.pooler.supabase.com
+prisma:error 
+Invalid `prisma.roomPreviewSession.findMany()` invocation:
+
+
+Can't reach database server at aws-0-eu-west-1.pooler.supabase.com
+prisma:error 
+Invalid `prisma.roomPreviewSession.findMany()` invocation:
+
+
+Can't reach database server at aws-0-eu-west-1.pooler.supabase.com
+prisma:error 
+Invalid `prisma.roomPreviewSession.findMany()` invocation:
+
+
+Can't reach database server at aws-0-eu-west-1.pooler.supabase.com
+prisma:error 
+Invalid `prisma.roomPreviewSession.findMany()` invocation:
+
+
+Can't reach database server at aws-0-eu-west-1.pooler.supabase.com
+prisma:error 
+Invalid `prisma.roomPreviewSession.findMany()` invocation:
+
+
+Can't reach database server at aws-0-eu-west-1.pooler.supabase.com
+prisma:error 
+Invalid `prisma.roomPreviewSession.findMany()` invocation:
+
+
+Can't reach database server at aws-0-eu-west-1.pooler.supabase.com
+prisma:error 
+Invalid `prisma.roomPreviewSession.findMany()` invocation:
+
+
+Can't reach database server at aws-0-eu-west-1.pooler.supabase.com
+prisma:error 
+Invalid `prisma.roomPreviewSession.findMany()` invocation:
+
+
+Can't reach database server at aws-0-eu-west-1.pooler.supabase.com
+prisma:error 
+Invalid `prisma.roomPreviewSession.findMany()` invocation:
+
+
+Can't reach database server at aws-0-eu-west-1.pooler.supabase.com
+prisma:error 
+Invalid `prisma.roomPreviewSession.findMany()` invocation:
+
+
+Can't reach database server at aws-0-eu-west-1.pooler.supabase.com
+prisma:error 
+Invalid `prisma.roomPreviewSession.findMany()` invocation:
+
+
+Can't reach database server at aws-0-eu-west-1.pooler.supabase.com
+prisma:error 
+Invalid `prisma.roomPreviewSession.findMany()` invocation:
+
+
+Can't reach database server at aws-0-eu-west-1.pooler.supabase.com
+prisma:error 
+Invalid `prisma.roomPreviewSession.findMany()` invocation:
+
+
+Can't reach database server at aws-0-eu-west-1.pooler.supabase.com
+prisma:error 
+Invalid `prisma.roomPreviewSession.findMany()` invocation:
+
+
+Can't reach database server at aws-0-eu-west-1.pooler.supabase.com
+prisma:error 
+Invalid `prisma.roomPreviewSession.findMany()` invocation:
+
+
+Can't reach database server at aws-0-eu-west-1.pooler.supabase.com
+prisma:error 
+Invalid `prisma.roomPreviewSession.findMany()` invocation:
+
+
+Can't reach database server at aws-0-eu-west-1.pooler.supabase.com
+prisma:error 
+Invalid `prisma.roomPreviewSession.findMany()` invocation:
+
+
+Can't reach database server at aws-0-eu-west-1.pooler.supabase.com
+prisma:error 
+Invalid `prisma.roomPreviewSession.findMany()` invocation:
+
+
+Can't reach database server at aws-0-eu-west-1.pooler.supabase.com
+prisma:error 
+Invalid `prisma.roomPreviewSession.findMany()` invocation:
+
+
+Can't reach database server at aws-0-eu-west-1.pooler.supabase.com
+prisma:error 
+Invalid `prisma.roomPreviewSession.findMany()` invocation:
+
+
+Can't reach database server at aws-0-eu-west-1.pooler.supabase.com
+prisma:error 
+Invalid `prisma.roomPreviewSession.findMany()` invocation:
+
+
+Can't reach database server at aws-0-eu-west-1.pooler.supabase.com
+prisma:error 
+Invalid `prisma.roomPreviewSession.findMany()` invocation:
+
+
+Can't reach database server at aws-0-eu-west-1.pooler.supabase.com
+prisma:error 
+Invalid `prisma.roomPreviewSession.findMany()` invocation:
+
+
+Can't reach database server at aws-0-eu-west-1.pooler.supabase.com
+prisma:error 
+Invalid `prisma.roomPreviewSession.findMany()` invocation:
+
+
+Can't reach database server at aws-0-eu-west-1.pooler.supabase.com
+prisma:error 
+Invalid `prisma.roomPreviewSession.findMany()` invocation:
+
+
+Can't reach database server at aws-0-eu-west-1.pooler.supabase.com
+prisma:error 
+Invalid `prisma.roomPreviewSession.findMany()` invocation:
+
+
+Can't reach database server at aws-0-eu-west-1.pooler.supabase.com
+prisma:error 
+Invalid `prisma.roomPreviewSession.findMany()` invocation:
+
+
+Can't reach database server at aws-0-eu-west-1.pooler.supabase.com
+prisma:error 
+Invalid `prisma.roomPreviewSession.findMany()` invocation:
+
+
+Can't reach database server at aws-0-eu-west-1.pooler.supabase.com
+prisma:error 
+Invalid `prisma.roomPreviewSession.findMany()` invocation:
+
+
+Can't reach database server at aws-0-eu-west-1.pooler.supabase.com
+prisma:error 
+Invalid `prisma.roomPreviewSession.findMany()` invocation:
+
+
+Can't reach database server at aws-0-eu-west-1.pooler.supabase.com

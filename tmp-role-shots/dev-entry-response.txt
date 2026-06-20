@@ -1,0 +1,18 @@
+HTTP/1.1 302 Found
+x-frame-options: DENY
+x-content-type-options: nosniff
+referrer-policy: strict-origin-when-cross-origin
+permissions-policy: camera=(self), microphone=(), geolocation=()
+Cache-Control: no-store
+Access-Control-Allow-Methods: GET,POST,OPTIONS
+Access-Control-Allow-Headers: Content-Type, x-session-token, x-cleanup-secret
+x-request-id: 4882826f-8aeb-463b-a8e3-466d17e37fd7
+x-xss-protection: 1; mode=block
+vary: rsc, next-router-state-tree, next-router-prefetch, next-router-segment-prefetch
+location: http://localhost:3000/room-preview/mobile/cmqjkf64l005yes3x0m0dp9jg?lang=ar
+set-cookie: rp-mobile-token=i3755ICT9h9d4iWRAGMk7udadPCzHQcxR7uXCCJVYwc; Path=/; Expires=Thu, 18 Jun 2026 15:28:28 GMT; Max-Age=5400; HttpOnly; SameSite=lax
+Date: Thu, 18 Jun 2026 13:58:28 GMT
+Connection: keep-alive
+Keep-Alive: timeout=5
+Transfer-Encoding: chunked
+

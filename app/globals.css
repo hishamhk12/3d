@@ -1032,3 +1032,184 @@ body:has(.screen-kiosk-page) {
     max-height: 42dvh;
   }
 }
+
+/* TV portrait viewport correction: this block intentionally overrides the
+   earlier kiosk rules and uses the browser viewport, not physical panel size. */
+html:has(.screen-kiosk-page),
+body:has(.screen-kiosk-page) {
+  width: 100vw;
+  height: 100svh;
+  margin: 0;
+  overflow: hidden;
+  overscroll-behavior: none;
+  background: #071729;
+}
+
+.screen-kiosk-page {
+  position: fixed;
+  inset: 0;
+  width: 100vw;
+  height: 100svh;
+  min-height: 0;
+  overflow: hidden;
+}
+
+.screen-kiosk-orientation-frame {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  overflow: hidden;
+  transform-origin: center center;
+}
+
+.screen-kiosk-shell {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  grid-template-rows: minmax(0, 0.42fr) minmax(0, 0.58fr);
+  gap: clamp(0.55rem, 1.4svh, 1.25rem);
+  width: 100%;
+  height: 100%;
+  padding: clamp(0.55rem, 1.5vmin, 1.25rem);
+  overflow: hidden;
+}
+
+.screen-kiosk-qr,
+.screen-kiosk-content {
+  display: flex;
+  width: 100%;
+  height: 100%;
+  min-width: 0;
+  min-height: 0;
+  align-items: center;
+  justify-content: center;
+  overflow: hidden;
+}
+
+.screen-kiosk-qr {
+  width: min(100%, 31svh, 24rem);
+  justify-self: center;
+}
+
+.screen-kiosk-content > * {
+  min-width: 0;
+  min-height: 0;
+}
+
+.screen-preview-card {
+  width: min(100%, 44rem);
+  max-height: 100%;
+  overflow: hidden;
+}
+
+.screen-preview-media {
+  min-height: 0;
+  max-height: min(48svh, 34rem);
+}
+
+.screen-kiosk-page .qr-scan-guide-shell {
+  height: 100%;
+  max-width: 100%;
+  overflow: hidden;
+  padding-bottom: 0 !important;
+}
+
+.screen-kiosk-page .qr-scan-card {
+  width: min(100%, 31svh, 24rem);
+  max-height: 100%;
+}
+
+.screen-kiosk-result {
+  position: absolute;
+  inset: 0;
+  z-index: 50;
+  width: 100%;
+  height: 100%;
+  overflow: hidden;
+  background: #000;
+}
+
+.screen-kiosk-result__inner {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  width: 100%;
+  height: 100%;
+  min-width: 0;
+  min-height: 0;
+  align-items: center;
+  justify-content: center;
+  overflow: hidden;
+}
+
+.screen-render-overlay {
+  width: 100vw;
+  height: 100svh !important;
+}
+
+.screen-viewport-debug {
+  position: fixed;
+  top: max(0.5rem, env(safe-area-inset-top));
+  left: max(0.5rem, env(safe-area-inset-left));
+  z-index: 2147483647;
+  max-width: min(26rem, calc(100vw - 1rem));
+  border: 1px solid rgba(255,255,255,0.22);
+  border-radius: 0.7rem;
+  background: rgba(0,0,0,0.72);
+  padding: 0.55rem 0.7rem;
+  color: #fff;
+  font: 600 12px/1.35 ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  box-shadow: 0 12px 34px rgba(0,0,0,0.38);
+  pointer-events: none;
+}
+
+@media (min-width: 1180px) {
+  .screen-kiosk-shell {
+    grid-template-columns: minmax(0, 0.34fr) minmax(0, 0.66fr);
+    grid-template-rows: minmax(0, 1fr);
+    align-items: center;
+    justify-content: center;
+    gap: clamp(0.9rem, 2.5vmin, 2.4rem);
+  }
+
+  .screen-kiosk-qr,
+  .screen-kiosk-content {
+    width: 100%;
+  }
+
+  .screen-preview-media {
+    max-height: min(58svh, 38rem);
+  }
+}
+
+@media (orientation: landscape) {
+  .screen-kiosk-orientation-frame {
+    top: 0;
+    left: 100%;
+    inset: auto;
+    width: 100svh;
+    height: 100vw;
+    transform: rotate(90deg);
+    transform-origin: top left;
+  }
+
+}
+
+@media (max-height: 760px), (max-width: 760px) {
+  .screen-kiosk-shell {
+    gap: clamp(0.4rem, 1svh, 0.8rem);
+    padding: clamp(0.4rem, 1.1vmin, 0.75rem);
+  }
+
+  .screen-kiosk-qr {
+    width: min(100%, 29svh, 18rem);
+  }
+
+  .screen-kiosk-page .qr-phone-guide {
+    display: none;
+  }
+
+  .screen-preview-media {
+    max-height: 42svh;
+  }
+}

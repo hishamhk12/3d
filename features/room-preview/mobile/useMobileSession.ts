@@ -98,6 +98,7 @@ export interface UseMobileSessionReturn {
   retry: () => void;
   handleConnect: () => Promise<void>;
   handleFileSelection: (source: Extract<RoomPreviewRoomSource, "camera" | "gallery">, file: File | null) => Promise<void>;
+  retryRoomUpload: () => Promise<boolean>;
   handleProductSelect: (productId: string) => void;
   handleProductCodeSelect: (productCode: string) => Promise<RoomPreviewSession | null>;
   handleCreateRender: (sessionOverride?: RoomPreviewSession) => Promise<void>;
@@ -163,7 +164,7 @@ export function useMobileSession({
     debugLog,
   });
 
-  const { isSavingRoom, handleFileSelection } = useRoomUpload({
+  const { isSavingRoom, handleFileSelection, retryRoomUpload } = useRoomUpload({
     session,
     setSession,
     setViewState,
@@ -543,6 +544,7 @@ export function useMobileSession({
     retry: () => setLoadAttempt((n) => n + 1),
     handleConnect,
     handleFileSelection,
+    retryRoomUpload,
     handleProductSelect,
     handleProductCodeSelect,
     handleCreateRender,

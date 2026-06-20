@@ -137,6 +137,7 @@ export default function MobileSessionClient({
     isSavingRoom,
     retry,
     handleFileSelection,
+    retryRoomUpload,
     handleProductSelect,
     handleProductCodeSelect,
     handleCreateRender,
@@ -300,11 +301,34 @@ export default function MobileSessionClient({
     await handleCreateRender(selectedSession);
   };
 
+  // The room-upload step is rendered as the page itself: a route-contained
+  // white surface (no card, no eyebrow, no outer background).
+  // Every other step keeps the existing glass card + eyebrow unchanged.
+  const isRoomUploadStep = isConnected && !hasSavedRoom;
+  const isWhiteMobileStep = isRoomUploadStep || shouldShowProductQrStep;
+  const isRoomUploadError = isRoomUploadStep && roomSaveStatus === "error";
+
   return (
-    <div className="tour-panel w-full rounded-[32px] p-8 text-center">
-      <p className="mb-6 text-xs font-semibold tracking-[0.22em] text-[var(--brand-cyan)] uppercase whitespace-nowrap">
-        {t.roomPreview.shared.eyebrow}
-      </p>
+    <div
+      className={
+        isWhiteMobileStep
+          ? "relative mx-[calc(50%-50vw)] my-[-2.5rem] flex min-h-[100svh] w-screen flex-col bg-white px-6 text-[var(--text-primary)]"
+          : "tour-panel w-full rounded-[32px] p-8 text-center"
+      }
+      style={
+        isWhiteMobileStep
+          ? {
+              paddingTop: "max(1rem, env(safe-area-inset-top))",
+              paddingBottom: "max(1.25rem, env(safe-area-inset-bottom))",
+            }
+          : undefined
+      }
+    >
+      {!isWhiteMobileStep ? (
+        <p className="mb-6 text-xs font-semibold tracking-[0.22em] text-[var(--brand-cyan)] uppercase whitespace-nowrap">
+          {t.roomPreview.shared.eyebrow}
+        </p>
+      ) : null}
 
       {!heartbeatConnected ? (
         <div className="mb-4 rounded-[20px] border border-amber-400/40 bg-amber-50 px-5 py-3 text-sm text-amber-700 dark:bg-amber-500/10 dark:border-amber-500/25 dark:text-amber-300">
@@ -315,9 +339,12 @@ export default function MobileSessionClient({
       {isConnected && !hasSavedRoom ? (
         <RoomStep
           isSavingRoom={isSavingRoom}
+          roomSaveStatus={roomSaveStatus}
           roomSaveStatusLabel={roomSaveStatusLabel}
+          uploadError={error}
           selectedRoom={session.selectedRoom}
           onFileSelection={(source, file) => void handleFileSelection(source, file)}
+          onRetryUpload={retryRoomUpload}
         />
       ) : null}
 
@@ -345,7 +372,7 @@ export default function MobileSessionClient({
           requested a new session. No retry or render buttons are shown. */}
       {restartDone ? (
         <RestartedPanel />
-      ) : error ? (
+      ) : error && !isRoomUploadError ? (
         <div className="mt-6 rounded-[24px] border border-red-400/25 bg-red-50 px-5 py-4 text-sm text-red-700 dark:bg-red-500/08 dark:border-red-500/20 dark:text-red-300">
           {error}
           <div className="mt-3 flex flex-col gap-2">
@@ -437,7 +464,7 @@ export default function MobileSessionClient({
         </div>
       ) : null}
 
-      {roomSaveStatus === "error"    ? <p className="mt-4 text-sm font-semibold text-red-600 dark:text-red-400">{t.roomPreview.mobile.room.saveFailed}</p>    : null}
+      {roomSaveStatus === "error" && !isRoomUploadError ? <p className="mt-4 text-sm font-semibold text-red-600 dark:text-red-400">{t.roomPreview.mobile.room.saveFailed}</p> : null}
       {productSaveStatus === "error" ? <p className="mt-4 text-sm font-semibold text-red-600 dark:text-red-400">{t.roomPreview.mobile.product.saveFailed}</p> : null}
       {successMessage ? <p className="mt-6 text-sm font-semibold text-emerald-600 dark:text-emerald-400">{successMessage}</p> : null}
 

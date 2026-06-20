@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useState, type Dispatch, type SetStateAction } from "react";
+import { useCallback, useEffect, useRef, useState, type Dispatch, type SetStateAction } from "react";
 import {
   getRoomPreviewErrorLogDetails,
   isRoomPreviewRequestError,
@@ -26,6 +26,7 @@ import type { LogLevel } from "@/features/room-preview/mobile/debug";
 import {
   createActionErrorMessage,
   getViewStateFromError,
+  wait,
   type MobileSessionViewState,
   type SaveStatus,
 } from "@/features/room-preview/mobile/mobile-session-utils";
@@ -67,6 +68,7 @@ export interface UseRoomUploadReturn {
     source: Extract<RoomPreviewRoomSource, "camera" | "gallery">,
     file: File | null,
   ) => Promise<void>;
+  retryRoomUpload: () => Promise<boolean>;
 }
 
 export function useRoomUpload(params: UseRoomUploadParams): UseRoomUploadReturn {
@@ -86,12 +88,30 @@ export function useRoomUpload(params: UseRoomUploadParams): UseRoomUploadReturn 
   } = params;
 
   const [isSavingRoom, setIsSavingRoom] = useState(false);
+  const isSavingRoomRef = useRef(false);
+  const activeUploadIdRef = useRef(0);
+  const mountedRef = useRef(true);
+  const lastUploadRef = useRef<{
+    source: Extract<RoomPreviewRoomSource, "camera" | "gallery">;
+    file: File;
+  } | null>(null);
+
+  useEffect(() => {
+    return () => {
+      mountedRef.current = false;
+      activeUploadIdRef.current += 1;
+    };
+  }, []);
+
+  const isCurrentUpload = useCallback((uploadId: number) => {
+    return mountedRef.current && activeUploadIdRef.current === uploadId;
+  }, []);
 
   const handleFileSelection = useCallback(async (
     source: Extract<RoomPreviewRoomSource, "camera" | "gallery">,
     file: File | null,
   ) => {
-    if (!file || isSavingRoom || !session) {
+    if (!file || isSavingRoomRef.current || !session) {
       if (!file) {
         console.warn("[room-preview] Missing uploaded file", { sessionId, source });
         debugLog("warn", `handleFileSelection: no file selected (source: ${source})`);
@@ -99,6 +119,11 @@ export function useRoomUpload(params: UseRoomUploadParams): UseRoomUploadReturn 
       }
       return;
     }
+
+    const uploadId = activeUploadIdRef.current + 1;
+    activeUploadIdRef.current = uploadId;
+    isSavingRoomRef.current = true;
+    lastUploadRef.current = { source, file };
 
     trackClientSessionEvent(sessionId, {
       source: "mobile",
@@ -120,7 +145,9 @@ export function useRoomUpload(params: UseRoomUploadParams): UseRoomUploadReturn 
     setProductSaveStatus("idle");
     setRoomSaveStatusLabel("جاري رفع صورة الغرفة...");
 
+    try {
     const { file: fileToUpload, stats: compressionStats } = await compressRoomImageWithStats(file);
+    if (!isCurrentUpload(uploadId)) return;
     const compressionPercent = Math.round((1 - compressionStats.compressionRatio) * 100);
 
     debugLog(
@@ -148,7 +175,6 @@ export function useRoomUpload(params: UseRoomUploadParams): UseRoomUploadReturn 
       },
     });
 
-    try {
       // ── Step 1: request a signed upload URL from the server ───────────────
       let uploadUrlResponse;
       let usedDirectUpload = false;
@@ -185,7 +211,9 @@ export function useRoomUpload(params: UseRoomUploadParams): UseRoomUploadReturn 
           fileToUpload,
           {
             onProgress: (percent) => {
+              if (isCurrentUpload(uploadId)) {
               setRoomSaveStatusLabel(`جاري رفع صورة الغرفة... ${percent}%`);
+              }
             },
             onR2Failure: ({ status, statusText, responseText, host }) => {
               trackClientSessionEvent(sessionId, {
@@ -208,6 +236,7 @@ export function useRoomUpload(params: UseRoomUploadParams): UseRoomUploadReturn 
         );
 
         debugLog("success", `File uploaded to R2 (${fileToUpload.size}b)`);
+        if (!isCurrentUpload(uploadId)) return;
         setRoomSaveStatusLabel("جاري رفع صورة الغرفة...");
 
         // ── Step 3: confirm the upload on the server ────────────────────────
@@ -232,7 +261,7 @@ export function useRoomUpload(params: UseRoomUploadParams): UseRoomUploadReturn 
         );
       }
 
-      setSession(response.session);
+      if (!isCurrentUpload(uploadId)) return;
       setRoomSaveStatus("success");
       setRoomSaveStatusLabel(null);
       trackClientSessionEvent(sessionId, {
@@ -243,7 +272,11 @@ export function useRoomUpload(params: UseRoomUploadParams): UseRoomUploadReturn 
         metadata: { source, directUpload: usedDirectUpload },
       });
       debugLog("success", `Room saved  source: ${response.session.selectedRoom?.source ?? "?"}`);
+      await wait(700);
+      if (!isCurrentUpload(uploadId)) return;
+      setSession(response.session);
     } catch (saveError) {
+      if (!isCurrentUpload(uploadId)) return;
       const failure = getViewStateFromError(saveError, t);
       debugLog("error", `Room upload failed: ${getErrorMessage(saveError)}`, `file: ${file.name}`);
 
@@ -279,10 +312,12 @@ export function useRoomUpload(params: UseRoomUploadParams): UseRoomUploadReturn 
         metadata: { source, fileName: file.name, fileSize: file.size, fileType: file.type },
       });
     } finally {
-      setIsSavingRoom(false);
+      if (isCurrentUpload(uploadId)) {
+        isSavingRoomRef.current = false;
+        setIsSavingRoom(false);
+      }
     }
   }, [
-    isSavingRoom,
     session,
     sessionId,
     t,
@@ -295,7 +330,15 @@ export function useRoomUpload(params: UseRoomUploadParams): UseRoomUploadReturn 
     setRoomSaveStatus,
     setProductSaveStatus,
     setRoomSaveStatusLabel,
+    isCurrentUpload,
   ]);
 
-  return { isSavingRoom, handleFileSelection };
+  const retryRoomUpload = useCallback(async () => {
+    const lastUpload = lastUploadRef.current;
+    if (!lastUpload || isSavingRoomRef.current) return false;
+    await handleFileSelection(lastUpload.source, lastUpload.file);
+    return true;
+  }, [handleFileSelection]);
+
+  return { isSavingRoom, handleFileSelection, retryRoomUpload };
 }

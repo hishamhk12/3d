@@ -181,9 +181,9 @@ export default function ScreenSessionClient({ sessionId }: { sessionId: string }
     return (
       <>
         {/* key forces a full remount when a new render result arrives */}
-        <div key={session.renderResult!.imageUrl!} className="fixed inset-0 z-50 overflow-hidden bg-black animate-in fade-in duration-700">
+        <div key={session.renderResult!.imageUrl!} className="screen-kiosk-result animate-in fade-in duration-700">
           <div className="absolute inset-0 z-0 bg-gradient-to-br from-[#1d1d1f] to-black" />
-          <div className="absolute inset-0 z-10 flex items-center justify-center">
+          <div className="screen-kiosk-result__inner z-10">
             <BeforeAfterSlider
               beforeImageUrl={session.selectedRoom?.imageUrl}
               afterImageUrl={session.renderResult!.imageUrl!}

@@ -4,6 +4,7 @@ import os from "os";
 import { House } from "lucide-react";
 import QRCode from "qrcode";
 import ScreenSessionClient from "@/components/room-preview/ScreenSessionClient";
+import ScreenViewportDebugOverlay from "@/components/room-preview/ScreenViewportDebugOverlay";
 import SessionQRCode from "@/components/room-preview/SessionQRCode";
 import { LOCALE_COOKIE_NAME, normalizeLocale } from "@/lib/i18n/config";
 import { dictionaries } from "@/lib/i18n/dictionaries";
@@ -16,8 +17,6 @@ import GlassBackground from "@/components/GlassBackground";
 function getLocalNetworkIp() {
   if (typeof os.networkInterfaces !== "function") return "localhost";
   const interfaces = os.networkInterfaces();
-  // Prefer private LAN ranges (192.168.x.x, 10.x.x.x, 172.16–31.x.x).
-  // Skip 0.0.0.0, 169.254.x.x (APIPA), and virtual adapter addresses.
   const candidates: string[] = [];
   for (const name of Object.keys(interfaces)) {
     for (const iface of interfaces[name] || []) {
@@ -29,7 +28,7 @@ function getLocalNetworkIp() {
         addr.startsWith("10.") ||
         /^172\.(1[6-9]|2\d|3[01])\./.test(addr)
       ) {
-        candidates.unshift(addr); // prefer private ranges
+        candidates.unshift(addr);
       } else {
         candidates.push(addr);
       }
@@ -52,10 +51,6 @@ export default async function ScreenSessionPage({ params }: ScreenSessionPagePro
   const token = cookieStore.get(SCREEN_TOKEN_COOKIE)?.value ?? null;
   const t = dictionaries[locale];
 
-  // The QR must target the CURRENT deployment origin so a Preview deployment's
-  // QR opens that same Preview (not the baked-in Production domain). Use the
-  // incoming request host first; NEXT_PUBLIC_BASE_URL is only a fallback, and in
-  // dev a localhost host is swapped for the LAN IP so phones can reach it.
   const baseUrl =
     resolveBaseUrl({
       headerOrigin: originFromHeaders((name) => headerStore.get(name)),
@@ -65,11 +60,6 @@ export default async function ScreenSessionPage({ params }: ScreenSessionPagePro
       port: process.env.PORT || "3000",
     }) ?? "";
 
-  // The QR code points directly to the activate API route with the token as a
-  // query param. The server verifies it, sets the HttpOnly cookie, and
-  // redirects the mobile browser to the mobile page — no client JS needed.
-  // Using ?t= (not #t=) ensures QR scanner apps that strip URL fragments
-  // still deliver a working link.
   const activatePath = token
     ? `/api/room-preview/sessions/${sessionId}/activate?t=${encodeURIComponent(token)}&lang=${locale}`
     : `${ROOM_PREVIEW_ROUTES.mobileSession(sessionId)}?lang=${locale}`;
@@ -98,49 +88,52 @@ export default async function ScreenSessionPage({ params }: ScreenSessionPagePro
 
   return (
     <main className="screen-kiosk-page dark relative bg-[var(--bg-page)] text-[var(--text-primary)]">
-      <GlassBackground />
-      <div className="screen-kiosk-shell">
-        <div className="screen-kiosk-qr">
-          {qrDataUrl ? (
-            <SessionQRCode dataUrl={qrDataUrl} />
-          ) : (
-            <div className="w-full rounded-3xl border border-[#F1B434]/25 bg-[#F1B434]/06 backdrop-blur-xl px-8 py-8 text-center shadow-[0_20px_60px_rgba(0,0,0,0.5)]">
-              <p className="font-bold text-[#F1B434]">{t.roomPreview.screen.baseUrlMissingTitle}</p>
-              <p className="mt-2 text-sm leading-6 text-[#F1B434]/70">
-                {t.roomPreview.screen.baseUrlMissingDescription}
-              </p>
-            </div>
-          )}
+      <div className="screen-kiosk-orientation-frame">
+        <GlassBackground />
+        <div className="screen-kiosk-shell">
+          <div className="screen-kiosk-qr">
+            {qrDataUrl ? (
+              <SessionQRCode dataUrl={qrDataUrl} />
+            ) : (
+              <div className="w-full rounded-3xl border border-[#F1B434]/25 bg-[#F1B434]/06 px-8 py-8 text-center shadow-[0_20px_60px_rgba(0,0,0,0.5)] backdrop-blur-xl">
+                <p className="font-bold text-[#F1B434]">{t.roomPreview.screen.baseUrlMissingTitle}</p>
+                <p className="mt-2 text-sm leading-6 text-[#F1B434]/70">
+                  {t.roomPreview.screen.baseUrlMissingDescription}
+                </p>
+              </div>
+            )}
 
-          {process.env.NODE_ENV === "development" && (
-            <div className="mt-4 space-y-2">
-              <a
-                href={`/api/room-preview/dev-entry?sessionId=${sessionId}&lang=${locale}`}
-                className="flex w-full items-center justify-center gap-2.5 rounded-2xl border border-dashed border-yellow-400/35 bg-yellow-400/[0.05] px-4 py-3 text-sm font-semibold text-yellow-400/75 transition-colors hover:bg-yellow-400/10 hover:text-yellow-400 hover:border-yellow-400/50"
-              >
-                <span className="inline-block h-2 w-2 rounded-full bg-yellow-400 animate-pulse" />
-                Dev — الدخول بدون QR
-              </a>
-              <p className="text-center font-mono text-[10px] text-yellow-400/40 break-all px-1">
-                session: {sessionId}
-              </p>
-            </div>
-          )}
+            {process.env.NODE_ENV === "development" && (
+              <div className="mt-4 space-y-2">
+                <a
+                  href={`/api/room-preview/dev-entry?sessionId=${sessionId}&lang=${locale}`}
+                  className="flex w-full items-center justify-center gap-2.5 rounded-2xl border border-dashed border-yellow-400/35 bg-yellow-400/[0.05] px-4 py-3 text-sm font-semibold text-yellow-400/75 transition-colors hover:border-yellow-400/50 hover:bg-yellow-400/10 hover:text-yellow-400"
+                >
+                  <span className="inline-block h-2 w-2 animate-pulse rounded-full bg-yellow-400" />
+                  Dev - الدخول بدون QR
+                </a>
+                <p className="break-all px-1 text-center font-mono text-[10px] text-yellow-400/40">
+                  session: {sessionId}
+                </p>
+              </div>
+            )}
+          </div>
+
+          <div className="screen-kiosk-content">
+            <ScreenSessionClient sessionId={sessionId} />
+          </div>
         </div>
 
-        <div className="screen-kiosk-content">
-          <ScreenSessionClient sessionId={sessionId} />
-        </div>
+        <Link
+          href="/"
+          className="screen-kiosk-home-link fixed bottom-6 left-4 z-[100] flex items-center gap-2 rounded-full border border-[var(--border)] bg-[var(--bg-surface)]/90 px-4 py-2.5 text-sm font-medium text-[var(--text-secondary)] shadow-md backdrop-blur-md transition-all hover:bg-[var(--bg-surface-2)] hover:text-[var(--text-primary)] active:scale-95"
+          dir="rtl"
+        >
+          <House size={15} strokeWidth={2} />
+          <span>الرئيسية</span>
+        </Link>
       </div>
-
-      <Link
-        href="/"
-        className="fixed bottom-6 left-4 z-[100] flex items-center gap-2 rounded-full border border-[var(--border)] bg-[var(--bg-surface)]/90 px-4 py-2.5 text-sm font-medium text-[var(--text-secondary)] shadow-md backdrop-blur-md transition-all hover:bg-[var(--bg-surface-2)] hover:text-[var(--text-primary)] active:scale-95"
-        dir="rtl"
-      >
-        <House size={15} strokeWidth={2} />
-        <span>الرئيسية</span>
-      </Link>
+      <ScreenViewportDebugOverlay />
     </main>
   );
 }

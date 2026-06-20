@@ -3,6 +3,7 @@
 import { useEffect, useRef, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import BrandedQrLoadingScreen from "@/components/room-preview/BrandedQrLoadingScreen";
+import ScreenViewportDebugOverlay from "@/components/room-preview/ScreenViewportDebugOverlay";
 import SessionStatePanel from "@/components/room-preview/SessionStatePanel";
 import { useI18n } from "@/lib/i18n/provider";
 import { ROOM_PREVIEW_ROUTES } from "@/lib/room-preview/constants";
@@ -249,7 +250,8 @@ export default function ScreenLauncherClient() {
         />
       ) : (
         <main className="screen-kiosk-page dark relative overflow-hidden text-white">
-          <div className="mx-auto flex h-full max-w-3xl items-center justify-center px-4 py-6">
+          <div className="screen-kiosk-orientation-frame">
+            <div className="flex h-full w-full items-center justify-center overflow-hidden px-4">
             <SessionStatePanel
               title={t.roomPreview.launcher.failedTitle}
               description={error ?? t.roomPreview.launcher.failedDescription}
@@ -265,9 +267,11 @@ export default function ScreenLauncherClient() {
                 },
               ]}
             />
+            </div>
           </div>
         </main>
       )}
+      <ScreenViewportDebugOverlay />
     </>
   );
 }

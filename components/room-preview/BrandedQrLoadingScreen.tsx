@@ -14,22 +14,23 @@ export default function BrandedQrLoadingScreen({
 }: BrandedQrLoadingScreenProps) {
   return (
     <main className="screen-kiosk-page dark relative overflow-hidden bg-[#050707] text-white">
-      <style>{`
-        .qr-brand-mark {
-          filter: drop-shadow(0 24px 44px rgba(0, 173, 215, 0.22));
-          transform-origin: center;
-          animation: qr-brand-breathe 4.8s ease-in-out infinite;
-        }
+      <div className="screen-kiosk-orientation-frame">
+        <style>{`
+          .qr-brand-mark {
+            filter: drop-shadow(0 24px 44px rgba(0, 173, 215, 0.22));
+            transform-origin: center;
+            animation: qr-brand-breathe 4.8s ease-in-out infinite;
+          }
 
-        .qr-brand-flow {
-          transform-box: fill-box;
-          transform-origin: center;
-          animation: qr-brand-flow 2.8s cubic-bezier(0.45, 0, 0.25, 1) infinite;
-        }
+          .qr-brand-flow {
+            transform-box: fill-box;
+            transform-origin: center;
+            animation: qr-brand-flow 2.8s cubic-bezier(0.45, 0, 0.25, 1) infinite;
+          }
 
-        .qr-brand-line {
-          animation: qr-brand-line 3.4s ease-in-out infinite;
-        }
+          .qr-brand-line {
+            animation: qr-brand-line 3.4s ease-in-out infinite;
+          }
 
         .qr-brand-line:nth-child(2) {
           animation-delay: 0.42s;
@@ -83,12 +84,12 @@ export default function BrandedQrLoadingScreen({
             transform: scaleX(1);
           }
         }
-      `}</style>
+        `}</style>
 
-      <div className="absolute inset-0 bg-[radial-gradient(circle_at_50%_32%,rgba(0,173,215,0.16),transparent_34%),linear-gradient(135deg,rgba(255,255,255,0.08),transparent_34%,rgba(0,173,215,0.08))]" />
-      <div className="absolute inset-0 bg-black/45 backdrop-blur-[18px]" />
+        <div className="absolute inset-0 bg-[radial-gradient(circle_at_50%_32%,rgba(0,173,215,0.16),transparent_34%),linear-gradient(135deg,rgba(255,255,255,0.08),transparent_34%,rgba(0,173,215,0.08))]" />
+        <div className="absolute inset-0 bg-black/45 backdrop-blur-[18px]" />
 
-      <section className="relative z-10 flex min-h-screen flex-col items-center justify-center px-6 text-center">
+        <section className="relative z-10 flex h-full w-full flex-col items-center justify-center overflow-hidden px-6 text-center">
         <div className="relative flex h-40 w-40 items-center justify-center sm:h-48 sm:w-48">
           <div className="absolute inset-0 rounded-full bg-cyan-300/10 blur-3xl" />
 
@@ -144,7 +145,8 @@ export default function BrandedQrLoadingScreen({
         <div className="mt-10 h-px w-64 overflow-hidden rounded-full bg-white/10">
           <div className="qr-brand-progress h-full w-full origin-left rounded-full bg-gradient-to-r from-transparent via-cyan-200 to-transparent" />
         </div>
-      </section>
+        </section>
+      </div>
     </main>
   );
 }

@@ -104,9 +104,9 @@ export function RenderLoadingAnimation({
       `}</style>
 
       <div
-        className="fixed inset-0 z-[9999] flex w-full flex-col items-center justify-center overflow-hidden bg-black"
+        className={`${isScreen ? "screen-render-overlay" : ""} fixed inset-0 z-[9999] flex w-full flex-col items-center justify-center overflow-hidden bg-black`}
         style={{
-          height: "100dvh",
+          height: isScreen ? "100svh" : "100dvh",
           transition: "opacity 750ms ease",
           opacity: fadeOut ? 0 : 1,
           pointerEvents: fadeOut ? "none" : "auto",

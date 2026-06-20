@@ -1,0 +1,11 @@
+
+> 3d@0.1.0 dev
+> next dev --hostname 0.0.0.0 --webpack
+
+▲ Next.js 16.2.1 (webpack)
+- Local:         http://localhost:3001
+- Network:       http://0.0.0.0:3001
+- Environments: .env.local, .env
+✓ Ready in 596ms
+[next.config] LAN origins allowlisted for dev: 192.168.0.123, 192.168.0.123:3001
+[?25h

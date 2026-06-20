@@ -1,0 +1,7 @@
+▲ Next.js 16.2.1 (webpack)
+- Local:         http://127.0.0.1:3001
+- Network:       http://127.0.0.1:3001
+- Environments: .env.local, .env
+✓ Ready in 413ms
+[next.config] LAN origins allowlisted for dev: 192.168.0.123, 192.168.0.123:3001
+[?25h

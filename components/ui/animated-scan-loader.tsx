@@ -15,11 +15,11 @@ import Image from "next/image";
  */
 
 // public/شعار/شعار الشركة.svg — encodeURI keeps the Arabic folder/file + space URL-safe.
-const COMPANY_LOGO_SRC = encodeURI("/شعار/شعار الشركة.svg");
+export const COMPANY_LOGO_SRC = encodeURI("/شعار/شعار الشركة.svg");
 // width/height carry only the intrinsic aspect ratio (viewBox 260.49 × 86.59,
 // scaled ×100) so the rendered logo never distorts; display size is set below.
-const LOGO_RATIO_W = 26049;
-const LOGO_RATIO_H = 8659;
+export const LOGO_RATIO_W = 26049;
+export const LOGO_RATIO_H = 8659;
 
 export default function AnimatedScanLoader() {
   return (

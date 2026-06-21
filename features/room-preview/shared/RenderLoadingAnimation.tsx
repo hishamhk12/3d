@@ -2,6 +2,13 @@
 
 import { useEffect, useState } from "react";
 import { createPortal } from "react-dom";
+import Image from "next/image";
+import BrandedGlassStage from "@/components/room-preview/BrandedGlassStage";
+import {
+  COMPANY_LOGO_SRC,
+  LOGO_RATIO_H,
+  LOGO_RATIO_W,
+} from "@/components/ui/animated-scan-loader";
 import type { RoomPreviewSession } from "@/lib/room-preview/types";
 
 const RENDER_MESSAGES = [
@@ -82,8 +89,6 @@ export function RenderLoadingAnimation({
   const isScreen = variant === "screen";
 
   // Sizing tokens — screen is scaled for a 42-inch 16:9 display
-  const logoW        = isScreen ? 160 : 96;
-  const logoH        = isScreen ? 186 : 112;
   const contentMaxW  = isScreen ? "max-w-[560px]" : "max-w-[310px]";
   const contentGap   = isScreen ? "gap-12" : "gap-8";
   const contentPad   = isScreen ? "px-8" : "px-6";
@@ -104,7 +109,7 @@ export function RenderLoadingAnimation({
       `}</style>
 
       <div
-        className="fixed inset-0 z-[9999] flex w-full flex-col items-center justify-center overflow-hidden bg-black"
+        className="fixed inset-0 z-[9999] w-full overflow-hidden"
         style={{
           height: "100dvh",
           transition: "opacity 750ms ease",
@@ -113,36 +118,38 @@ export function RenderLoadingAnimation({
         }}
       >
 
-        {/* Content */}
-        <div className={`relative z-10 flex w-full ${contentMaxW} flex-col items-center ${contentGap} ${contentPad}`}>
+        <BrandedGlassStage backgroundImage='url("/croissant.jpg")'>
+          <div className="absolute inset-0 z-[1] flex items-center justify-center">
+            {/* Content */}
+            <div className={`relative z-10 flex w-full ${contentMaxW} flex-col items-center ${contentGap} ${contentPad}`}>
 
-          {/* Geometric company mark — clipped top-to-bottom by progress */}
-          <div className="relative" style={{ width: logoW, height: logoH }}>
-            {/* Ghost shape — always visible, very faint */}
-            <svg viewBox="0 0 69.16 80.69" width={logoW} height={logoH} className="absolute inset-0">
-              <path
-                d="M0,0v80.69h69.16v-28.97c0-3.1-2.51-5.61-5.61-5.61H23.05v11.53h34.58v11.53H11.53V11.53h46.11v11.53H23.05v11.53h40.54c3.08,0,5.57-2.49,5.57-5.57V0H0"
-                fill="#00ADD7"
-                opacity={0.12}
-              />
-            </svg>
-            {/* Revealed shape: clipped by progress */}
-            <svg
-              viewBox="0 0 69.16 80.69"
-              width={logoW}
-              height={logoH}
-              className="absolute inset-0"
-              style={{
-                clipPath: `inset(0 0 ${100 - progress}% 0)`,
-                transition: "clip-path 1300ms cubic-bezier(0.4,0,0.2,1)",
-              }}
-            >
-              <path
-                d="M0,0v80.69h69.16v-28.97c0-3.1-2.51-5.61-5.61-5.61H23.05v11.53h34.58v11.53H11.53V11.53h46.11v11.53H23.05v11.53h40.54c3.08,0,5.57-2.49,5.57-5.57V0H0"
-                fill="#00ADD7"
-              />
-            </svg>
-          </div>
+              {/* Real company logo — same asset, ratio and display sizing as the transition loader. */}
+              <div className="relative w-[min(640px,58vw)]">
+                <Image
+                  src={COMPANY_LOGO_SRC}
+                  alt="شعار الشركة"
+                  width={LOGO_RATIO_W}
+                  height={LOGO_RATIO_H}
+                  priority
+                  unoptimized
+                  draggable={false}
+                  className="block h-auto w-full select-none opacity-[0.12]"
+                />
+                <Image
+                  src={COMPANY_LOGO_SRC}
+                  alt=""
+                  width={LOGO_RATIO_W}
+                  height={LOGO_RATIO_H}
+                  priority
+                  unoptimized
+                  draggable={false}
+                  className="absolute inset-0 block h-auto w-full select-none"
+                  style={{
+                    clipPath: `inset(0 0 ${100 - progress}% 0)`,
+                    transition: "clip-path 1300ms cubic-bezier(0.4,0,0.2,1)",
+                  }}
+                />
+              </div>
 
           <p
             key={msgIndex}
@@ -179,7 +186,9 @@ export function RenderLoadingAnimation({
             </p>
           ) : null}
 
-        </div>
+            </div>
+          </div>
+        </BrandedGlassStage>
       </div>
     </>
   );

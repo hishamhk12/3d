@@ -6,6 +6,8 @@ import { useRouter } from "next/navigation";
 import { useFormStatus } from "react-dom";
 import { ChevronLeft, ChevronRight } from "lucide-react";
 import { submitGateForm } from "../actions";
+import RoomPreviewBackButton from "@/components/room-preview/RoomPreviewBackButton";
+import { MobileActionButton } from "@/components/room-preview/MobileActionButton";
 import { trackClientSessionEvent } from "@/lib/room-preview/session-diagnostics-client";
 import {
   COUNTRY_DIAL_OPTIONS,
@@ -55,20 +57,6 @@ interface GateFormProps {
   error?: string;
 }
 
-// ─── Approved design system (from the role-selection master screen) ─────────────
-
-// Shared pill button: same height / pill radius / weight / centered alignment as
-// the role-selection buttons, with enlarged Arabic text (text-lg). Primary =
-// dark charcoal, secondary = project cyan; both use white text for contrast.
-const PILL_BTN =
-  "flex h-14 w-full items-center justify-center rounded-[32px] text-lg font-bold text-white " +
-  "transition-all duration-200 active:scale-[0.98] focus-visible:outline-none focus-visible:ring-2 " +
-  "focus-visible:ring-offset-2 disabled:opacity-40 disabled:cursor-not-allowed";
-const PILL_PRIMARY = "focus-visible:ring-[#192126]/45";
-const PILL_SECONDARY = "focus-visible:ring-[var(--brand-cyan)]/60";
-const PRIMARY_BTN_STYLE = { background: "#192126", boxShadow: "0 10px 26px rgba(25,33,38,0.28)" } as const;
-const SECONDARY_BTN_STYLE = { background: "#00AFD7", boxShadow: "0 10px 26px rgba(0,175,215,0.30)" } as const;
-
 // ─── Small shared pieces ───────────────────────────────────────────────────────
 
 /**
@@ -77,9 +65,18 @@ const SECONDARY_BTN_STYLE = { background: "#00AFD7", boxShadow: "0 10px 26px rgb
  * no floating glass card), centered, scrollable when content is tall, and
  * safe-area aware so the whole QR flow reads as one design system.
  */
-function FormShell({ children }: { children: React.ReactNode }) {
+function FormShell({ children, onBack, backLabel = "Back" }: { children: React.ReactNode; onBack?: () => void; backLabel?: string }) {
   return (
     <div className="fixed inset-0 z-20 flex flex-col overflow-y-auto bg-white" style={{ minHeight: "100svh" }}>
+      {onBack ? (
+        <RoomPreviewBackButton
+          ariaLabel={backLabel}
+          onClick={onBack}
+          size={40}
+          className="z-50"
+          style={{ top: "max(16px, env(safe-area-inset-top))", left: 16 }}
+        />
+      ) : null}
       <div
         className="mx-auto flex min-h-full w-full max-w-md flex-col justify-center px-5"
         style={{
@@ -113,10 +110,14 @@ function OnboardingImageLayout({
   children,
   variant = "selection",
   imageHeight,
+  onBack,
+  backLabel = "Back",
 }: {
   children: React.ReactNode;
   variant?: "selection" | "form";
   imageHeight?: string;
+  onBack?: () => void;
+  backLabel?: string;
 }) {
   const isForm = variant === "form";
   const height = imageHeight ?? (isForm ? "clamp(230px, 42svh, 400px)" : "70svh");
@@ -128,15 +129,24 @@ function OnboardingImageLayout({
           "linear-gradient(to bottom, rgba(255,255,255,0) 0%, rgba(255,255,255,0.22) 38%, rgba(255,255,255,0.82) 74%, #ffffff 100%)",
       }
     : {
-        height: "10%",
+        height: "22%",
         background:
-          "linear-gradient(to bottom, rgba(255,255,255,0) 0%, rgba(255,255,255,0) 45%, rgba(255,255,255,0.8) 80%, #ffffff 100%)",
+          "linear-gradient(to bottom, rgba(255,255,255,0) 0%, rgba(255,255,255,0.08) 20%, rgba(255,255,255,0.35) 45%, rgba(255,255,255,0.75) 72%, #ffffff 100%)",
       };
   return (
     // Normal document flow with a one-screen minimum: screens fill exactly one
     // viewport (no scroll in the resting state); when the keyboard opens the page
     // scrolls naturally (no fixed positioning, no overflow lock).
     <div className="relative flex w-full flex-col bg-white" style={{ minHeight: "100svh" }}>
+      {onBack ? (
+        <RoomPreviewBackButton
+          ariaLabel={backLabel}
+          onClick={onBack}
+          size={40}
+          className="z-50"
+          style={{ top: "max(16px, env(safe-area-inset-top))", left: 16 }}
+        />
+      ) : null}
       {/* Main image — edge to edge, anchored bottom to keep the camera UI visible */}
       <div className="relative w-full shrink-0" style={{ height }}>
         <Image
@@ -171,20 +181,6 @@ function OnboardingImageLayout({
   );
 }
 
-function BackBtn({ onClick }: { onClick: () => void }) {
-  return (
-    <button
-      type="button"
-      onClick={onClick}
-      className="p-1.5 rounded-lg hover:bg-[var(--bg-surface-2)] text-[var(--text-muted)] hover:text-[var(--text-primary)] transition-colors"
-    >
-      <svg className="w-4 h-4 rtl:scale-x-[-1]" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
-      </svg>
-    </button>
-  );
-}
-
 function RolePill({ label, color = "cyan" }: { label: string; color?: "cyan" | "navy" }) {
   const colors =
     color === "cyan"
@@ -208,7 +204,7 @@ function ErrorBanner({ message }: { message: string }) {
 function SubmitButton({
   label,
   pendingLabel,
-  className = `${PILL_BTN} ${PILL_PRIMARY} mt-2`,
+  className = "mt-2",
 }: {
   label: React.ReactNode;
   pendingLabel: string;
@@ -216,19 +212,9 @@ function SubmitButton({
 }) {
   const { pending } = useFormStatus();
   return (
-    <button type="submit" disabled={pending} className={className} style={PRIMARY_BTN_STYLE}>
-      {pending ? (
-        <span className="flex items-center justify-center gap-2">
-          <span
-            className="inline-block h-4 w-4 shrink-0 animate-spin rounded-full border-2 border-current border-t-transparent"
-            aria-hidden="true"
-          />
-          {pendingLabel}
-        </span>
-      ) : (
-        label
-      )}
-    </button>
+    <MobileActionButton type="submit" variant="primary" loading={pending} className={className}>
+      {pending ? pendingLabel : label}
+    </MobileActionButton>
   );
 }
 
@@ -326,27 +312,23 @@ export function GateForm({
           كيف ترغب بالمتابعة؟
         </h1>
 
-        {/* Two stacked buttons — ~18px under the heading, 12px between them */}
-        <div className="flex w-full flex-col gap-3 pt-[18px]">
-          {/* عميل — charcoal primary. Continues the customer flow (UNCHANGED). */}
-          <button
-            type="button"
+        {/* Two stacked buttons — Figma node 5239:2890 component, 10px between them */}
+        <div className="flex w-full flex-col gap-[10px] pt-[18px]">
+          {/* عميل — primary/recommended action (project brand #192126). UNCHANGED logic. */}
+          <MobileActionButton
+            variant="primary"
             onClick={() => setStep("customer_type")}
-            className={`${PILL_BTN} ${PILL_PRIMARY}`}
-            style={PRIMARY_BTN_STYLE}
           >
             {t.customer}
-          </button>
+          </MobileActionButton>
 
-          {/* بائع — cyan secondary, identical geometry. Opens /login?type=seller. */}
-          <button
-            type="button"
+          {/* بائع — secondary choice (#0088FF). Opens /login?type=seller. UNCHANGED logic. */}
+          <MobileActionButton
+            variant="blue"
             onClick={() => router.push("/login?type=seller")}
-            className={`${PILL_BTN} ${PILL_SECONDARY}`}
-            style={SECONDARY_BTN_STYLE}
           >
             {t.seller}
-          </button>
+          </MobileActionButton>
         </div>
       </OnboardingImageLayout>
     );
@@ -357,33 +339,29 @@ export function GateForm({
   // subtitle. ───────────────────────────────────────────────────────────────
   if (step === "customer_type") {
     return (
-      <OnboardingImageLayout>
+      <OnboardingImageLayout onBack={() => setStep("role")} backLabel={isRtl ? "رجوع" : "Back"}>
         {/* Heading — identical to the role screen for a continuous look */}
         <h1 className="pt-6 font-display text-2xl font-extrabold leading-tight text-[#192126]">
           كيف ترغب بالمتابعة؟
         </h1>
 
-        {/* Two stacked buttons — same style as the role screen */}
-        <div className="flex w-full flex-col gap-3 pt-[18px]">
-          {/* عميل جديد — charcoal primary. New customer flow (UNCHANGED). */}
-          <button
-            type="button"
+        {/* Two stacked buttons — same Figma component as the role screen, 10px gap */}
+        <div className="flex w-full flex-col gap-[10px] pt-[18px]">
+          {/* عميل جديد — primary/recommended action (project brand #192126). UNCHANGED logic. */}
+          <MobileActionButton
+            variant="primary"
             onClick={() => setStep("customer_new")}
-            className={`${PILL_BTN} ${PILL_PRIMARY}`}
-            style={PRIMARY_BTN_STYLE}
           >
             {t.newCustomer}
-          </button>
+          </MobileActionButton>
 
-          {/* عميل حالي — cyan secondary. Existing customer flow (UNCHANGED). */}
-          <button
-            type="button"
+          {/* عميل حالي — secondary choice (#0088FF). Existing customer flow. UNCHANGED logic. */}
+          <MobileActionButton
+            variant="blue"
             onClick={() => setStep("customer_existing")}
-            className={`${PILL_BTN} ${PILL_SECONDARY}`}
-            style={SECONDARY_BTN_STYLE}
           >
             {t.existingCustomer}
-          </button>
+          </MobileActionButton>
         </div>
       </OnboardingImageLayout>
     );
@@ -393,7 +371,12 @@ export function GateForm({
   // changes to a form. No chip/back-arrow. ──────────────────────────────────
   if (step === "customer_new") {
     return (
-      <OnboardingImageLayout variant="form" imageHeight="clamp(220px, 40svh, 380px)">
+      <OnboardingImageLayout
+        variant="form"
+        imageHeight="clamp(220px, 40svh, 380px)"
+        onBack={() => setStep("customer_type")}
+        backLabel={isRtl ? "رجوع" : "Back"}
+      >
         <h1 className="pt-4 font-display text-2xl font-extrabold leading-tight text-[#192126]">
           أدخل بياناتك
         </h1>
@@ -441,7 +424,12 @@ export function GateForm({
   // white section changes to a form. No chip/back-arrow. ────────────────────
   if (step === "customer_existing") {
     return (
-      <OnboardingImageLayout variant="form" imageHeight="clamp(240px, 44svh, 410px)">
+      <OnboardingImageLayout
+        variant="form"
+        imageHeight="clamp(240px, 44svh, 410px)"
+        onBack={() => setStep("customer_type")}
+        backLabel={isRtl ? "رجوع" : "Back"}
+      >
         <h1 className="pt-4 font-display text-2xl font-extrabold leading-tight text-[#192126]">
           أدخل رقم جوالك
         </h1>
@@ -488,7 +476,7 @@ export function GateForm({
   if (step === "customer_confirm") {
     const greeting = confirmGreeting ?? "";
     return (
-      <FormShell>
+      <FormShell onBack={() => setStep("customer_existing")} backLabel={isRtl ? "رجوع" : "Back"}>
       <div className="w-full max-w-sm mx-auto">
         <form action={submitGateForm} onSubmit={handleSubmit}>
           <input type="hidden" name="sessionId" value={sessionId} />
@@ -607,7 +595,7 @@ export function GateForm({
   // ── Employee form ──────────────────────────────────────────────────────────
   if (step === "employee") {
     return (
-      <FormShell>
+      <FormShell onBack={() => setStep("role")} backLabel={isRtl ? "رجوع" : "Back"}>
       <div className="w-full max-w-sm mx-auto">
         <form action={submitGateForm} onSubmit={handleSubmit} className="space-y-4">
           <input type="hidden" name="sessionId" value={sessionId} />
@@ -615,7 +603,6 @@ export function GateForm({
           <input type="hidden" name="flow" value="employee" />
 
           <div className="flex items-center gap-2 mb-6 rtl:flex-row-reverse">
-            <BackBtn onClick={() => setStep("role")} />
             <RolePill label={t.employee} color="navy" />
           </div>
 

@@ -5,6 +5,7 @@ import Image from "next/image";
 import { Camera, LoaderCircle, QrCode, RotateCcw } from "lucide-react";
 import { parseProductCodeFromQrValue } from "@/lib/room-preview/product-qr";
 import { useI18n } from "@/lib/i18n/provider";
+import { MobileActionButton } from "@/components/room-preview/MobileActionButton";
 import type { RoomPreviewProduct } from "@/lib/room-preview/types";
 
 type ProductLookupResponse =
@@ -41,12 +42,6 @@ async function fetchProductByCode(productCode: string) {
   return data.product;
 }
 
-// Matches the approved room upload primary button family in RoomStep.
-const PILL_BTN =
-  "flex h-14 w-full items-center justify-center rounded-[32px] text-lg font-bold text-white " +
-  "transition-all duration-200 active:scale-[0.98] focus-visible:outline-none focus-visible:ring-2 " +
-  "focus-visible:ring-offset-2 disabled:opacity-40 disabled:cursor-not-allowed";
-const PRIMARY_BTN_STYLE = { background: "#192126", boxShadow: "0 10px 26px rgba(25,33,38,0.28)" } as const;
 
 export default function ProductQrStep({
   initialProductCode,
@@ -216,18 +211,19 @@ export default function ProductQrStep({
               </div>
             </div>
 
-            <button
-              type="button"
+            <MobileActionButton
+              variant="primary"
               onClick={() => void startScanner()}
               disabled={isBusy || isLookingUp || scannerStatus !== "idle"}
-              className={`${PILL_BTN} mt-5 gap-2 focus-visible:ring-[#192126]/45`}
-              style={PRIMARY_BTN_STYLE}
+              className="mt-5"
+              icon={
+                scannerStatus === "starting" || isLookingUp ? (
+                  <LoaderCircle className="size-5 animate-spin" />
+                ) : (
+                  <Camera className="size-5" />
+                )
+              }
             >
-              {scannerStatus === "starting" || isLookingUp ? (
-                <LoaderCircle className="size-5 animate-spin" />
-              ) : (
-                <Camera className="size-5" />
-              )}
               {scannerStatus === "scanning"
                 ? isAr
                   ? "جاري المسح..."
@@ -235,7 +231,7 @@ export default function ProductQrStep({
                 : isAr
                   ? "فتح الكاميرا"
                   : "Open camera"}
-            </button>
+            </MobileActionButton>
 
             {scannerStatus === "scanning" ? (
               <button
@@ -274,16 +270,14 @@ export default function ProductQrStep({
               </div>
             </div>
 
-            <button
-              type="button"
+            <MobileActionButton
+              variant="primary"
               onClick={() => void onGenerateWithProductCode(product.id)}
-              disabled={isBusy}
-              className={`${PILL_BTN} mt-5 gap-2 focus-visible:ring-[#192126]/45`}
-              style={PRIMARY_BTN_STYLE}
+              loading={isBusy}
+              className="mt-5"
             >
-              {isBusy ? <LoaderCircle className="size-5 animate-spin" /> : null}
               {isAr ? "إنشاء" : "Generate"}
-            </button>
+            </MobileActionButton>
             <button
               type="button"
               onClick={resetProduct}

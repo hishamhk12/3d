@@ -4,6 +4,7 @@ import Image from "next/image";
 import { useEffect, useRef, useState, type KeyboardEvent } from "react";
 import { LoaderCircle, RefreshCw } from "lucide-react";
 import { useI18n } from "@/lib/i18n/provider";
+import { MobileActionButton } from "@/components/room-preview/MobileActionButton";
 import type { RoomPreviewRoomSource, SelectedRoom } from "@/lib/room-preview/types";
 import type { SaveStatus } from "@/features/room-preview/mobile/mobile-session-utils";
 import {
@@ -20,16 +21,6 @@ interface RoomStepProps {
   onFileSelection: (source: Extract<RoomPreviewRoomSource, "gallery">, file: File | null) => void;
   onRetryUpload: () => Promise<boolean> | boolean;
 }
-
-// Onboarding/login pill button family (charcoal primary, cyan secondary).
-// Same height / pill radius / weight / centered text / states as `عميل`,
-// `بائع`, `متابعة`, `ابدأ التجربة`, `تسجيل الدخول`.
-const PILL_BTN =
-  "flex h-14 w-full items-center justify-center rounded-[32px] text-lg font-bold text-white " +
-  "transition-all duration-200 active:scale-[0.98] focus-visible:outline-none focus-visible:ring-2 " +
-  "focus-visible:ring-offset-2 disabled:opacity-40 disabled:cursor-not-allowed";
-const PRIMARY_BTN_STYLE = { background: "#192126", boxShadow: "0 10px 26px rgba(25,33,38,0.28)" } as const;
-const SECONDARY_BTN_STYLE = { background: "#00AFD7", boxShadow: "0 10px 26px rgba(0,175,215,0.30)" } as const;
 
 export default function RoomStep({
   isSavingRoom,
@@ -153,16 +144,11 @@ export default function RoomStep({
             </div>
           </div>
 
-          {/* Primary action - onboarding pill family */}
+          {/* Primary action — single action page → project primary brand colour */}
           {uploadCardState === "idle" ? (
-            <button
-              type="button"
-              onClick={openPicker}
-              className={`${PILL_BTN} mt-5 focus-visible:ring-[#192126]/45`}
-              style={PRIMARY_BTN_STYLE}
-            >
+            <MobileActionButton variant="primary" onClick={openPicker} className="mt-5">
               {isAr ? "اختيار صورة من المعرض" : "Select image from gallery"}
-            </button>
+            </MobileActionButton>
           ) : null}
 
           {/* Photo guidance */}
@@ -221,15 +207,14 @@ export default function RoomStep({
             ) : null}
 
             {!isSavingRoom ? (
-              <button
-                type="button"
+              <MobileActionButton
+                variant="primary"
                 onClick={openPicker}
-                className={`${PILL_BTN} mt-4 gap-2 focus-visible:ring-[var(--brand-cyan)]/60`}
-                style={SECONDARY_BTN_STYLE}
+                className="mt-4"
+                icon={<RefreshCw className="size-5" strokeWidth={2.25} />}
               >
-                <RefreshCw className="size-5" strokeWidth={2.25} />
                 {isAr ? "تغيير الصورة" : "Change image"}
-              </button>
+              </MobileActionButton>
             ) : null}
           </div>
         </>

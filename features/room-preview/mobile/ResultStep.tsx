@@ -6,6 +6,7 @@ import Image from "next/image";
 import { Download, RotateCcw, Share2, ZoomIn, X } from "lucide-react";
 import { AnimatedButton } from "@/components/ui/AnimatedButton";
 import { BeforeAfterSlider } from "@/components/room-preview/BeforeAfterSlider";
+import RoomPreviewBackButton from "@/components/room-preview/RoomPreviewBackButton";
 import { useI18n } from "@/lib/i18n/provider";
 import { getProductTypeLabel } from "@/features/room-preview/shared/helpers";
 import { RenderLoadingAnimation } from "@/features/room-preview/shared/RenderLoadingAnimation";
@@ -20,6 +21,8 @@ interface ResultStepProps {
   showResult: boolean;
   onCreateRender: () => Promise<void>;
   onModify: () => void;
+  onBack: () => void;
+  onProcessingBack: () => void;
   /** When true the idle render button is hidden — the parent's two-button recovery UI handles retry. */
   hasRenderError?: boolean;
 }
@@ -30,6 +33,8 @@ export default function ResultStep({
   showResult,
   onCreateRender,
   onModify,
+  onBack,
+  onProcessingBack,
   hasRenderError = false,
 }: ResultStepProps) {
   const { dir, locale, t } = useI18n();
@@ -109,6 +114,12 @@ export default function ResultStep({
           className="fixed inset-0 z-[9998] flex flex-col animate-in fade-in duration-700"
           style={{ height: "100dvh" }}
         >
+          <RoomPreviewBackButton
+            ariaLabel={t.common.actions.back}
+            onClick={onModify}
+            size={40}
+            style={{ top: "max(16px, env(safe-area-inset-top))", left: 16, zIndex: 10001 }}
+          />
           {/* Image — fills all space above action bar */}
           <div
             className="group relative min-h-0 flex-1 overflow-hidden bg-black"
@@ -244,8 +255,23 @@ export default function ResultStep({
     <div className="mt-12 flex flex-col items-center">
       {/* Loading overlay */}
       {showLoadingScreen && (
-        <RenderLoadingAnimation session={session} showResult={showResult} />
+        <RenderLoadingAnimation
+          session={session}
+          showResult={showResult}
+          onMobileBack={onProcessingBack}
+          mobileBackLabel={t.common.actions.back}
+        />
       )}
+
+      {!showLoadingScreen && !localShowResult ? (
+        <RoomPreviewBackButton
+          ariaLabel={t.common.actions.back}
+          onClick={onBack}
+          size={40}
+          className="z-50"
+          style={{ top: "max(16px, env(safe-area-inset-top))", left: 16 }}
+        />
+      ) : null}
 
       {/* CTA button (idle only) */}
       {showIdleButton && (

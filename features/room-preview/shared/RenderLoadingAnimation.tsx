@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import { createPortal } from "react-dom";
 import Image from "next/image";
 import BrandedGlassStage from "@/components/room-preview/BrandedGlassStage";
+import RoomPreviewBackButton from "@/components/room-preview/RoomPreviewBackButton";
 import {
   COMPANY_LOGO_SRC,
   LOGO_RATIO_H,
@@ -32,10 +33,14 @@ export function RenderLoadingAnimation({
   session,
   showResult,
   variant = "mobile",
+  onMobileBack,
+  mobileBackLabel = "Back",
 }: {
   session: RoomPreviewSession;
   showResult: boolean;
   variant?: "mobile" | "screen";
+  onMobileBack?: () => void;
+  mobileBackLabel?: string;
 }) {
   const [progress, setProgress] = useState(0);
   const [msgIndex, setMsgIndex] = useState(0);
@@ -119,6 +124,15 @@ export function RenderLoadingAnimation({
       >
 
         <BrandedGlassStage backgroundImage='url("/croissant.jpg")'>
+          {!isScreen && onMobileBack ? (
+            <RoomPreviewBackButton
+              ariaLabel={mobileBackLabel}
+              onClick={onMobileBack}
+              size={40}
+              className="z-[3]"
+              style={{ top: "max(16px, env(safe-area-inset-top))", left: 16 }}
+            />
+          ) : null}
           <div className="absolute inset-0 z-[1] flex items-center justify-center">
             {/* Content */}
             <div className={`relative z-10 flex w-full ${contentMaxW} flex-col items-center ${contentGap} ${contentPad}`}>

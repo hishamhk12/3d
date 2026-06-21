@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { LoaderCircle } from "lucide-react";
+import RoomPreviewBackButton from "@/components/room-preview/RoomPreviewBackButton";
 import SessionStatePanel from "@/components/room-preview/SessionStatePanel";
 import { ROOM_PREVIEW_ROUTES } from "@/lib/room-preview/constants";
 import { abandonSession } from "@/lib/room-preview/session-client";
@@ -183,9 +184,40 @@ export default function MobileSessionClient({
     qrProductSaveRef.current = { code: productCode, promise: savePromise };
   }, [handleProductCodeSelect, sessionId]);
 
+  const handleGuardedBack = useCallback(() => {
+    window.history.back();
+  }, []);
+
+  const handleModifyResult = useCallback(() => {
+    void trackClientSessionEvent(sessionId, {
+      source: "mobile",
+      eventType: "edit_requested",
+      level: "info",
+      metadata: {
+        currentStatus: session?.status ?? null,
+        productId: localProductId ?? null,
+      },
+    });
+    setShowResult(false);
+    if (localProductId) {
+      handleProductSelect(localProductId);
+    }
+  }, [handleProductSelect, localProductId, session?.status, sessionId, setShowResult]);
+
+  const mobileBackButton = (
+    <RoomPreviewBackButton
+      ariaLabel={t.common.actions.back}
+      onClick={handleGuardedBack}
+      size={40}
+      className="z-50"
+      style={{ top: "max(16px, env(safe-area-inset-top))", left: 16 }}
+    />
+  );
+
   if (viewState === "loading") {
     return (
-      <div className="tour-panel w-full rounded-[32px] p-8 text-center">
+      <div className="relative tour-panel w-full rounded-[32px] p-8 text-center">
+        {mobileBackButton}
         <p className="text-xs font-semibold tracking-[0.22em] text-[var(--brand-cyan)] uppercase whitespace-nowrap">
           {t.roomPreview.shared.eyebrow}
         </p>
@@ -206,11 +238,14 @@ export default function MobileSessionClient({
 
   if (viewState === "not_found") {
     return (
-      <SessionStatePanel
-        title={t.roomPreview.mobile.notFoundTitle}
-        description={error ?? t.roomPreview.mobile.notFoundDescription}
-        actions={[{ href: ROOM_PREVIEW_ROUTES.landing, label: t.roomPreview.shared.startNewSession }]}
-      />
+      <>
+        {mobileBackButton}
+        <SessionStatePanel
+          title={t.roomPreview.mobile.notFoundTitle}
+          description={error ?? t.roomPreview.mobile.notFoundDescription}
+          actions={[{ href: ROOM_PREVIEW_ROUTES.landing, label: t.roomPreview.shared.startNewSession }]}
+        />
+      </>
     );
   }
 
@@ -220,7 +255,8 @@ export default function MobileSessionClient({
   if (viewState === "expired") {
     if (restartDone) {
       return (
-        <div className="tour-panel w-full rounded-[32px] p-8 text-center">
+        <div className="relative tour-panel w-full rounded-[32px] p-8 text-center">
+          {mobileBackButton}
           <p className="mb-6 text-xs font-semibold tracking-[0.22em] text-[var(--brand-cyan)] uppercase whitespace-nowrap">
             {t.roomPreview.shared.eyebrow}
           </p>
@@ -229,40 +265,49 @@ export default function MobileSessionClient({
       );
     }
     return (
-      <SessionStatePanel
-        title={t.roomPreview.mobile.expiredTitle}
-        description={error ?? t.roomPreview.mobile.expiredDescription}
-        actions={[
-          { href:  ROOM_PREVIEW_ROUTES.landing, label: t.roomPreview.shared.startNewSession },
-          { label: t.common.actions.retry, onClick: retry, variant: "secondary" },
-        ]}
-      />
+      <>
+        {mobileBackButton}
+        <SessionStatePanel
+          title={t.roomPreview.mobile.expiredTitle}
+          description={error ?? t.roomPreview.mobile.expiredDescription}
+          actions={[
+            { href:  ROOM_PREVIEW_ROUTES.landing, label: t.roomPreview.shared.startNewSession },
+            { label: t.common.actions.retry, onClick: retry, variant: "secondary" },
+          ]}
+        />
+      </>
     );
   }
 
   if (viewState === "failed") {
     return (
-      <SessionStatePanel
-        title={t.roomPreview.mobile.failedTitle}
-        description={error ?? t.roomPreview.mobile.failedDescription}
-        actions={[
-          { label: t.common.actions.retry,     onClick: retry },
-          { href: ROOM_PREVIEW_ROUTES.landing, label: t.roomPreview.shared.startNewSession, variant: "secondary" },
-        ]}
-      />
+      <>
+        {mobileBackButton}
+        <SessionStatePanel
+          title={t.roomPreview.mobile.failedTitle}
+          description={error ?? t.roomPreview.mobile.failedDescription}
+          actions={[
+            { label: t.common.actions.retry,     onClick: retry },
+            { href: ROOM_PREVIEW_ROUTES.landing, label: t.roomPreview.shared.startNewSession, variant: "secondary" },
+          ]}
+        />
+      </>
     );
   }
 
   if (!session) {
     return (
-      <SessionStatePanel
-        title={t.roomPreview.mobile.failedTitle}
-        description={t.roomPreview.shared.noSessionData}
-        actions={[
-          { label: t.common.actions.retry,     onClick: retry },
-          { href: ROOM_PREVIEW_ROUTES.landing, label: t.roomPreview.shared.startNewSession, variant: "secondary" },
-        ]}
-      />
+      <>
+        {mobileBackButton}
+        <SessionStatePanel
+          title={t.roomPreview.mobile.failedTitle}
+          description={t.roomPreview.shared.noSessionData}
+          actions={[
+            { label: t.common.actions.retry,     onClick: retry },
+            { href: ROOM_PREVIEW_ROUTES.landing, label: t.roomPreview.shared.startNewSession, variant: "secondary" },
+          ]}
+        />
+      </>
     );
   }
 
@@ -313,7 +358,7 @@ export default function MobileSessionClient({
       className={
         isWhiteMobileStep
           ? "relative mx-[calc(50%-50vw)] my-[-2.5rem] flex min-h-[100svh] w-screen flex-col bg-white px-6 text-[var(--text-primary)]"
-          : "tour-panel w-full rounded-[32px] p-8 text-center"
+          : "relative tour-panel w-full rounded-[32px] p-8 text-center"
       }
       style={
         isWhiteMobileStep
@@ -324,6 +369,15 @@ export default function MobileSessionClient({
           : undefined
       }
     >
+      {!shouldShowResultStep ? (
+        <RoomPreviewBackButton
+          ariaLabel={t.common.actions.back}
+          onClick={hasSavedRoom ? handleRetakeRoomPhoto : handleGuardedBack}
+          size={40}
+          className="z-50"
+          style={{ top: "max(16px, env(safe-area-inset-top))", left: 16 }}
+        />
+      ) : null}
       {!isWhiteMobileStep ? (
         <p className="mb-6 text-xs font-semibold tracking-[0.22em] text-[var(--brand-cyan)] uppercase whitespace-nowrap">
           {t.roomPreview.shared.eyebrow}
@@ -474,26 +528,10 @@ export default function MobileSessionClient({
           isSavingProduct={isRenderingSession}
           showResult={showResult}
           onCreateRender={handleCreateRender}
+          onBack={handleRetakeRoomPhoto}
+          onProcessingBack={handleGuardedBack}
           hasRenderError={error !== null || restartDone}
-          onModify={() => {
-            void trackClientSessionEvent(sessionId, {
-              source: "mobile",
-              eventType: "edit_requested",
-              level: "info",
-              metadata: {
-                currentStatus: session.status,
-                productId: localProductId ?? null,
-              },
-            });
-            setShowResult(false);
-            // Re-save current product immediately so the server exits result_ready.
-            // This publishes an SSE that cancels the screen's 60-second auto-reset
-            // timer and hides the result overlay, giving the customer unlimited
-            // time to choose a new product before pressing Render again.
-            if (localProductId) {
-              handleProductSelect(localProductId);
-            }
-          }}
+          onModify={handleModifyResult}
         />
       ) : null}
     </div>

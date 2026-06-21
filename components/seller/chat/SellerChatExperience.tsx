@@ -84,6 +84,36 @@ export default function SellerChatExperience({
     };
   }, []);
 
+  // Mobile web (iPhone Safari): drive --sc-app-height from the *real* visible
+  // viewport so the keyboard / Safari chrome never compress the UI and the body
+  // never scrolls. Keeps the latest message visible when the keyboard opens, but
+  // only if the user was already near the bottom (never yanks them off older
+  // messages they're reading). Scoped entirely to this page via the CSS above.
+  useEffect(() => {
+    const root = document.documentElement;
+    const vv = window.visualViewport;
+    function apply() {
+      const h = vv ? vv.height : window.innerHeight;
+      root.style.setProperty("--sc-app-height", `${Math.round(h)}px`);
+      const list = listRef.current;
+      if (list && list.scrollHeight - list.scrollTop - list.clientHeight < 140) {
+        requestAnimationFrame(() => list.scrollTo({ top: list.scrollHeight }));
+      }
+    }
+    apply();
+    vv?.addEventListener("resize", apply);
+    vv?.addEventListener("scroll", apply);
+    window.addEventListener("resize", apply);
+    window.addEventListener("orientationchange", apply);
+    return () => {
+      vv?.removeEventListener("resize", apply);
+      vv?.removeEventListener("scroll", apply);
+      window.removeEventListener("resize", apply);
+      window.removeEventListener("orientationchange", apply);
+      root.style.removeProperty("--sc-app-height");
+    };
+  }, []);
+
   const reactionTimers = useRef<ReturnType<typeof setTimeout>[]>([]);
   function clearReaction() {
     reactionTimers.current.forEach(clearTimeout);
@@ -198,7 +228,7 @@ export default function SellerChatExperience({
   const placeholder = "اكتب سؤالك… مثال: اعطني الأصناف المنخفضة بالرياض";
 
   return (
-    <div dir="rtl" className="seller-chat-scope mx-auto w-full max-w-[420px] px-2 py-3 sm:py-6">
+    <div dir="rtl" className="seller-chat-scope sc-page mx-auto w-full max-w-[420px] px-2 py-3 sm:py-6">
       <div className="sc-shell sc-shadow-card relative mx-auto flex w-full min-h-0 max-w-[393px] flex-col overflow-hidden rounded-[40px] border border-slate-200 bg-white sm:!h-[82vh]">
         <ChatHeader state={botState} sellerName={sellerName} showroomCode={showroomCode} />
         <ChatMessages

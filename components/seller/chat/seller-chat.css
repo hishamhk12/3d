@@ -58,6 +58,41 @@
   }
 }
 
+/* ── Mobile web (Safari) viewport + keyboard behavior ──────────────────────────
+   Scoped to the seller-chat page only (via :has) so nothing leaks into the rest
+   of the 3d app. `--sc-app-height` is set from window.visualViewport so the UI
+   tracks the *real* visible area when the iPhone keyboard / Safari chrome change.
+   The page wrapper becomes the viewport; the shell flex-fills it (header fixed,
+   messages scroll, composer pinned above the keyboard). */
+@media (max-width: 639px) {
+  html:has(.seller-chat-scope.sc-page),
+  body:has(.seller-chat-scope.sc-page) {
+    height: var(--sc-app-height, 100dvh);
+    min-height: var(--sc-app-height, 100dvh);
+    overflow: hidden;
+  }
+
+  .seller-chat-scope.sc-page {
+    height: var(--sc-app-height, 100dvh);
+    min-height: 0;
+    overflow: hidden;
+    display: flex;
+    flex-direction: column;
+  }
+
+  .seller-chat-scope.sc-page .sc-shell {
+    flex: 1 1 auto;
+    height: auto;
+    min-height: 0;
+  }
+
+  /* Prevent iOS Safari focus auto-zoom (needs >=16px) without resizing the box. */
+  .seller-chat-scope input,
+  .seller-chat-scope textarea {
+    font-size: 16px;
+  }
+}
+
 /* Always-on gentle transitions (safe under reduced motion). */
 .seller-chat-scope .sc-pill,
 .seller-chat-scope .sc-send {

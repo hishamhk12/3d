@@ -5,6 +5,7 @@ import Image from "next/image";
 import Link from "next/link";
 import { Wifi } from "lucide-react";
 import BrandedGlassStage from "@/components/room-preview/BrandedGlassStage";
+import { EventTilt3DCard } from "@/features/room-preview/screen/EventTilt3DCard";
 import { ROOM_PREVIEW_ROUTES } from "@/lib/room-preview/constants";
 import { useI18n } from "@/lib/i18n/provider";
 import type { RoomPreviewSession } from "@/lib/room-preview/types";
@@ -182,11 +183,17 @@ function GalleryCard({
       style={{ background: GLASS_GRADIENT, backdropFilter: "blur(67.955px)", boxShadow: GALLERY_SHADOW }}
     >
       <div className="flex h-[476px] items-start gap-[10px]">
-        {/* large area → selected room image (empty frosted glass until selected) */}
-        <MediaTile imageUrl={roomImageUrl} className="h-[476px] w-[466px]" sizes="466px" priority />
+        {/* large area → selected room image (empty frosted glass until selected).
+            3D-card motion replays when the room image first appears or changes. */}
+        <EventTilt3DCard trigger={roomImageUrl} className="shrink-0">
+          <MediaTile imageUrl={roomImageUrl} className="h-[476px] w-[466px]" sizes="466px" priority />
+        </EventTilt3DCard>
 
-        {/* small area → selected product image (empty frosted glass until selected) */}
-        <MediaTile imageUrl={productImageUrl} className="size-[226px]" sizes="226px" />
+        {/* small area → selected product image (empty frosted glass until selected).
+            3D-card motion replays when the product image first appears or changes. */}
+        <EventTilt3DCard trigger={productImageUrl} className="shrink-0">
+          <MediaTile imageUrl={productImageUrl} className="size-[226px]" sizes="226px" />
+        </EventTilt3DCard>
       </div>
     </div>
   );
@@ -335,12 +342,15 @@ export default function SessionStage({ session, qrDataUrl, statusLabel, devEntry
           />
 
           <div className="flex flex-col items-center gap-[24px]">
-            <QrCard
-              qrDataUrl={qrDataUrl}
-              qrAlt={t.roomPreview.qr.alt}
-              baseUrlMissingTitle={t.roomPreview.screen.baseUrlMissingTitle}
-              baseUrlMissingDescription={t.roomPreview.screen.baseUrlMissingDescription}
-            />
+            {/* 3D-card motion replays once when the phone connects (waiting → connected). */}
+            <EventTilt3DCard trigger={session.mobileConnected}>
+              <QrCard
+                qrDataUrl={qrDataUrl}
+                qrAlt={t.roomPreview.qr.alt}
+                baseUrlMissingTitle={t.roomPreview.screen.baseUrlMissingTitle}
+                baseUrlMissingDescription={t.roomPreview.screen.baseUrlMissingDescription}
+              />
+            </EventTilt3DCard>
             <ConnectionCard connected={session.mobileConnected} />
             {devEntryHref ? (
               <a

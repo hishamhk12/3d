@@ -212,7 +212,7 @@ function SubmitButton({
 }) {
   const { pending } = useFormStatus();
   return (
-    <MobileActionButton type="submit" variant="primary" loading={pending} className={className}>
+    <MobileActionButton type="submit" variant="light" loading={pending} className={className}>
       {pending ? pendingLabel : label}
     </MobileActionButton>
   );
@@ -316,7 +316,7 @@ export function GateForm({
         <div className="flex w-full flex-col gap-[10px] pt-[18px]">
           {/* عميل — primary/recommended action (project brand #192126). UNCHANGED logic. */}
           <MobileActionButton
-            variant="primary"
+            variant="light"
             onClick={() => setStep("customer_type")}
           >
             {t.customer}
@@ -349,7 +349,7 @@ export function GateForm({
         <div className="flex w-full flex-col gap-[10px] pt-[18px]">
           {/* عميل جديد — primary/recommended action (project brand #192126). UNCHANGED logic. */}
           <MobileActionButton
-            variant="primary"
+            variant="light"
             onClick={() => setStep("customer_new")}
           >
             {t.newCustomer}

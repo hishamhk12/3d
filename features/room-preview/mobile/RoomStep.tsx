@@ -146,7 +146,7 @@ export default function RoomStep({
 
           {/* Primary action — single action page → project primary brand colour */}
           {uploadCardState === "idle" ? (
-            <MobileActionButton variant="primary" onClick={openPicker} className="mt-5">
+            <MobileActionButton variant="light" onClick={openPicker} className="mt-5">
               {isAr ? "اختيار صورة من المعرض" : "Select image from gallery"}
             </MobileActionButton>
           ) : null}
@@ -208,7 +208,7 @@ export default function RoomStep({
 
             {!isSavingRoom ? (
               <MobileActionButton
-                variant="primary"
+                variant="light"
                 onClick={openPicker}
                 className="mt-4"
                 icon={<RefreshCw className="size-5" strokeWidth={2.25} />}

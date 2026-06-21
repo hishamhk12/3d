@@ -212,7 +212,7 @@ export default function ProductQrStep({
             </div>
 
             <MobileActionButton
-              variant="primary"
+              variant="light"
               onClick={() => void startScanner()}
               disabled={isBusy || isLookingUp || scannerStatus !== "idle"}
               className="mt-5"
@@ -271,7 +271,7 @@ export default function ProductQrStep({
             </div>
 
             <MobileActionButton
-              variant="primary"
+              variant="light"
               onClick={() => void onGenerateWithProductCode(product.id)}
               loading={isBusy}
               className="mt-5"

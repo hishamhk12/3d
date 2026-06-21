@@ -1,7 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useId, useRef, useState } from "react";
-import type { PointerEvent } from "react";
+import Image from "next/image";
 
 type BeforeAfterSliderProps = {
   beforeImageUrl?: string | null;
@@ -17,13 +17,6 @@ type BeforeAfterSliderProps = {
   fit?: "cover" | "contain";
 };
 
-type ImageBox = {
-  left: number;
-  top: number;
-  width: number;
-  height: number;
-};
-
 export function BeforeAfterSlider({
   beforeImageUrl,
   afterImageUrl,
@@ -32,81 +25,35 @@ export function BeforeAfterSlider({
   alt = "Before and after preview",
   className = "",
   imageClassName = "",
+  sizes = "100vw",
+  priority = false,
+  unoptimized = false,
   fit = "cover",
 }: BeforeAfterSliderProps) {
   const id = useId();
   const [beforeReveal, setBeforeReveal] = useState(50);
-  const [imageBox, setImageBox] = useState<ImageBox | null>(null);
   const beforeSrc = beforeImageUrl || afterImageUrl;
-  const containImageClass =
-    "block h-auto w-auto max-h-full max-w-full object-contain";
-  const coverImageClass =
-    "block h-full w-full max-h-full max-w-full object-cover";
-  const imageClass = fit === "contain" ? containImageClass : coverImageClass;
+  const objectClass = fit === "contain" ? "object-contain" : "object-cover";
 
+  // ── Drag state (all in refs — never trigger re-renders during drag) ──────
   const containerRef = useRef<HTMLDivElement>(null);
-  const afterImageRef = useRef<HTMLImageElement>(null);
   const isDraggingRef = useRef(false);
   const pendingXRef = useRef<number | null>(null);
   const rafRef = useRef<number | null>(null);
 
-  const measureDisplayedImage = useCallback(() => {
-    const container = containerRef.current;
-    const image = afterImageRef.current;
-    if (!container || !image) return;
-
-    const containerRect = container.getBoundingClientRect();
-    const imageRect = image.getBoundingClientRect();
-    if (containerRect.width <= 0 || containerRect.height <= 0 || imageRect.width <= 0 || imageRect.height <= 0) {
-      return;
-    }
-
-    setImageBox({
-      left: imageRect.left - containerRect.left,
-      top: imageRect.top - containerRect.top,
-      width: imageRect.width,
-      height: imageRect.height,
-    });
-  }, []);
-
-  useEffect(() => {
-    measureDisplayedImage();
-
-    const container = containerRef.current;
-    const image = afterImageRef.current;
-    if (!container) return undefined;
-
-    const observer = new ResizeObserver(measureDisplayedImage);
-    observer.observe(container);
-    if (image) observer.observe(image);
-
-    window.addEventListener("resize", measureDisplayedImage);
-    window.visualViewport?.addEventListener("resize", measureDisplayedImage);
-
-    return () => {
-      observer.disconnect();
-      window.removeEventListener("resize", measureDisplayedImage);
-      window.visualViewport?.removeEventListener("resize", measureDisplayedImage);
-    };
-  }, [measureDisplayedImage]);
-
+  // Reads pendingXRef and commits to state. Called inside rAF or synchronously
+  // on pointer-up to flush the last position with zero visual lag.
   const commitPosition = useCallback(() => {
     rafRef.current = null;
     const x = pendingXRef.current;
     if (x === null || !containerRef.current) return;
-
-    const containerRect = containerRef.current.getBoundingClientRect();
-    const box = imageBox ?? {
-      left: 0,
-      top: 0,
-      width: containerRect.width,
-      height: containerRect.height,
-    };
-    const pct = Math.min(100, Math.max(0, ((x - containerRect.left - box.left) / box.width) * 100));
+    const rect = containerRef.current.getBoundingClientRect();
+    const pct = Math.min(100, Math.max(0, ((x - rect.left) / rect.width) * 100));
     setBeforeReveal(pct);
     pendingXRef.current = null;
-  }, [imageBox]);
+  }, []);
 
+  // Store clientX and request one rAF per frame — no extra setState calls.
   const scheduleUpdate = useCallback(
     (clientX: number) => {
       pendingXRef.current = clientX;
@@ -118,7 +65,7 @@ export function BeforeAfterSlider({
   );
 
   const onPointerDown = useCallback(
-    (e: PointerEvent<HTMLDivElement>) => {
+    (e: React.PointerEvent<HTMLDivElement>) => {
       e.preventDefault();
       e.currentTarget.setPointerCapture(e.pointerId);
       isDraggingRef.current = true;
@@ -128,7 +75,7 @@ export function BeforeAfterSlider({
   );
 
   const onPointerMove = useCallback(
-    (e: PointerEvent<HTMLDivElement>) => {
+    (e: React.PointerEvent<HTMLDivElement>) => {
       if (!isDraggingRef.current) return;
       e.preventDefault();
       scheduleUpdate(e.clientX);
@@ -137,14 +84,15 @@ export function BeforeAfterSlider({
   );
 
   const onPointerUp = useCallback(
-    (e: PointerEvent<HTMLDivElement>) => {
+    (e: React.PointerEvent<HTMLDivElement>) => {
       if (!isDraggingRef.current) return;
       isDraggingRef.current = false;
       try {
         e.currentTarget.releasePointerCapture(e.pointerId);
       } catch {
-        // Already released.
+        // already released — safe to ignore
       }
+      // Flush pending position immediately so lift feels instant.
       if (rafRef.current !== null) {
         cancelAnimationFrame(rafRef.current);
         commitPosition();
@@ -153,118 +101,120 @@ export function BeforeAfterSlider({
     [commitPosition],
   );
 
-  const onPointerCancel = useCallback((e: PointerEvent<HTMLDivElement>) => {
+  const onPointerCancel = useCallback((e: React.PointerEvent<HTMLDivElement>) => {
     isDraggingRef.current = false;
     try {
       e.currentTarget.releasePointerCapture(e.pointerId);
     } catch {
-      // Already released.
+      // already released
     }
   }, []);
 
+  // Cancel any pending rAF on unmount to avoid stale state updates.
   useEffect(() => {
     return () => {
       if (rafRef.current !== null) cancelAnimationFrame(rafRef.current);
     };
   }, []);
 
-  const box = imageBox ?? { left: 0, top: 0, width: 0, height: 0 };
-  const dividerLeft = box.left + (box.width * beforeReveal) / 100;
-  const overlaysReady = box.width > 0 && box.height > 0;
-
   return (
     <div
       ref={containerRef}
-      className={`relative isolate overflow-hidden bg-[#071729] select-none ${className}`}
+      className={`relative isolate overflow-hidden select-none bg-[#071729] ${className}`}
+      // touch-action:none tells the browser to surrender scroll/zoom handling
+      // so pointer events are always cancellable and never stolen by the UA.
       style={{ touchAction: "none" }}
       onPointerDown={onPointerDown}
       onPointerMove={onPointerMove}
       onPointerUp={onPointerUp}
       onPointerCancel={onPointerCancel}
     >
-      <div className="absolute inset-0 flex h-full w-full items-center justify-center overflow-hidden">
-        <img
-          ref={afterImageRef}
-          src={afterImageUrl}
-          alt={alt}
+      {/* ── After side: blur background ─────────────────────────────────── */}
+      <Image
+        src={afterImageUrl}
+        alt=""
+        fill
+        draggable={false}
+        unoptimized={unoptimized}
+        priority={priority}
+        sizes={sizes}
+        className="pointer-events-none scale-110 object-cover object-center opacity-90 blur-2xl"
+        aria-hidden
+      />
+      <div className="pointer-events-none absolute inset-0 bg-black/35" aria-hidden />
+
+      {/* ── After side: foreground ──────────────────────────────────────── */}
+      <Image
+        src={afterImageUrl}
+        alt={alt}
+        fill
+        draggable={false}
+        unoptimized={unoptimized}
+        priority={priority}
+        sizes={sizes}
+        className={`pointer-events-none z-10 ${objectClass} object-center ${imageClassName}`}
+      />
+
+      {/* ── Before side: clipped reveal ─────────────────────────────────── */}
+      <div
+        className="pointer-events-none absolute inset-0 z-20"
+        style={{ clipPath: `inset(0 ${100 - beforeReveal}% 0 0)` }}
+        aria-hidden
+      >
+        <Image
+          src={beforeSrc}
+          alt=""
+          fill
           draggable={false}
-          decoding="async"
-          loading="eager"
-          className={`pointer-events-none ${imageClass} ${imageClassName}`}
-          onLoad={measureDisplayedImage}
+          unoptimized={unoptimized}
+          priority={priority}
+          sizes={sizes}
+          className="pointer-events-none scale-110 object-cover object-center opacity-90 blur-2xl"
+          aria-hidden
+        />
+        <div className="pointer-events-none absolute inset-0 bg-black/35" aria-hidden />
+        <Image
+          src={beforeSrc}
+          alt=""
+          fill
+          draggable={false}
+          unoptimized={unoptimized}
+          priority={priority}
+          sizes={sizes}
+          className={`pointer-events-none ${objectClass} object-center ${imageClassName}`}
         />
       </div>
 
-      {overlaysReady ? (
-        <div
-          className="pointer-events-none absolute z-20 overflow-hidden"
-          style={{
-            left: box.left,
-            top: box.top,
-            width: box.width,
-            height: box.height,
-            clipPath: `inset(0 ${100 - beforeReveal}% 0 0)`,
-          }}
-          aria-hidden
-        >
-          <img
-            src={beforeSrc}
-            alt=""
-            draggable={false}
-            decoding="async"
-            loading="eager"
-            className={`pointer-events-none h-full w-full max-h-full max-w-full ${
-              fit === "contain" ? "object-contain" : "object-cover"
-            } object-center ${imageClassName}`}
-            onLoad={measureDisplayedImage}
-          />
-        </div>
-      ) : null}
+      {/* ── Labels ──────────────────────────────────────────────────────── */}
+      <div className="pointer-events-none absolute inset-x-3 top-3 z-20 flex items-center justify-between text-[11px] font-bold">
+        <span className="rounded-full border border-white/15 bg-black/50 px-2.5 py-1 text-white/85 backdrop-blur-md">
+          {afterLabel}
+        </span>
+        <span className="rounded-full border border-white/15 bg-black/50 px-2.5 py-1 text-white/85 backdrop-blur-md">
+          {beforeLabel}
+        </span>
+      </div>
 
-      {overlaysReady ? (
-        <div
-          className="pointer-events-none absolute z-30 flex items-center justify-between text-[11px] font-bold"
-          style={{
-            left: box.left + 12,
-            right: `calc(100% - ${box.left + box.width - 12}px)`,
-            top: box.top + 12,
-          }}
-        >
-          <span className="rounded-full border border-white/15 bg-black/50 px-2.5 py-1 text-white/85 backdrop-blur-md">
-            {afterLabel}
-          </span>
-          <span className="rounded-full border border-white/15 bg-black/50 px-2.5 py-1 text-white/85 backdrop-blur-md">
-            {beforeLabel}
-          </span>
-        </div>
-      ) : null}
+      {/* ── Divider line ─────────────────────────────────────────────────── */}
+      <div
+        className="pointer-events-none absolute inset-y-0 z-20 w-px bg-white/85 shadow-[0_0_18px_rgba(0,0,0,0.45)]"
+        style={{ left: `${beforeReveal}%` }}
+      />
 
-      {overlaysReady ? (
-        <>
-          <div
-            className="pointer-events-none absolute z-30 w-px bg-white/85 shadow-[0_0_18px_rgba(0,0,0,0.45)]"
-            style={{
-              left: dividerLeft,
-              top: box.top,
-              height: box.height,
-            }}
-          />
+      {/* ── Handle knob (visual only — hit area is the entire container) ── */}
+      <div
+        className="pointer-events-none absolute top-1/2 z-30 grid h-11 w-11 -translate-x-1/2 -translate-y-1/2 place-items-center rounded-full border border-white/80 bg-white text-slate-950 shadow-[0_10px_30px_rgba(0,0,0,0.45)]"
+        style={{ left: `${beforeReveal}%` }}
+      >
+        <span className="flex items-center gap-1 text-[15px] font-black leading-none" aria-hidden>
+          <span>‹</span>
+          <span>›</span>
+        </span>
+      </div>
 
-          <div
-            className="pointer-events-none absolute z-40 grid h-11 w-11 -translate-x-1/2 -translate-y-1/2 place-items-center rounded-full border border-white/80 bg-white text-slate-950 shadow-[0_10px_30px_rgba(0,0,0,0.45)]"
-            style={{
-              left: dividerLeft,
-              top: box.top + box.height / 2,
-            }}
-          >
-            <span className="flex items-center gap-1 text-[15px] font-black leading-none" aria-hidden>
-              <span>‹</span>
-              <span>›</span>
-            </span>
-          </div>
-        </>
-      ) : null}
-
+      {/* ── Accessible keyboard fallback ─────────────────────────────────── */}
+      {/* pointer-events-none so touch/mouse events pass through to the container;
+          the element is still keyboard-focusable and responds to arrow keys. */}
       <label htmlFor={id} className="sr-only">
         {beforeLabel} / {afterLabel}
       </label>

@@ -303,6 +303,11 @@ const en = {
       baseUrlMissingDescription:
         "Set `NEXT_PUBLIC_BASE_URL` in `.env.local` so the QR code can point to your public app URL. No QR code is generated until this is configured.",
       mobilePathLabel: "Mobile path",
+      stage: {
+        timeRemaining: "Time remaining",
+        waitingConnection: "Waiting for connection",
+        connected: "Connected",
+      },
     },
   },
   panorama: {
@@ -728,6 +733,11 @@ const ar: TranslationDictionary = {
       baseUrlMissingDescription:
         "أضف `NEXT_PUBLIC_BASE_URL` داخل `.env.local` حتى يتمكن رمز QR من الإشارة إلى رابط التطبيق العام. لن يتم إنشاء رمز QR قبل ضبط هذا المتغير.",
       mobilePathLabel: "مسار الهاتف",
+      stage: {
+        timeRemaining: "الوقت المتبقي",
+        waitingConnection: "في انتظار الاتصال",
+        connected: "تم الاتصال",
+      },
     },
   },
   panorama: {

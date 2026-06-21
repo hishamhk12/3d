@@ -7,9 +7,11 @@ import { BeforeAfterSlider } from "@/components/room-preview/BeforeAfterSlider";
 import { RenderLoadingAnimation } from "@/features/room-preview/shared/RenderLoadingAnimation";
 import { SCREEN_ERROR_RESET_MS } from "@/lib/room-preview/constants";
 import { useScreenSession } from "@/features/room-preview/screen/useScreenSession";
-import StatusPanel from "@/features/room-preview/screen/StatusPanel";
+import SessionStage from "@/features/room-preview/screen/SessionStage";
+import type { TranslationDictionary } from "@/lib/i18n/dictionaries";
+import type { RoomPreviewSessionStatus } from "@/lib/room-preview/types";
 
-// ─── Helper ───────────────────────────────────────────────────────────────────
+// ─── Helpers ──────────────────────────────────────────────────────────────────
 
 /** Formats seconds as "4:59" for ≥60s or "12" for <60s. */
 function formatCountdown(seconds: number): string {
@@ -21,24 +23,51 @@ function formatCountdown(seconds: number): string {
   return String(seconds);
 }
 
+/** Concise session-status label shown inside the session bar. */
+function getScreenStatusMessage(status: RoomPreviewSessionStatus, t: TranslationDictionary) {
+  if (status === "result_ready")     return t.roomPreview.screen.statuses.ready;
+  if (status === "rendering")        return t.roomPreview.screen.statuses.rendering;
+  if (status === "ready_to_render")  return t.roomPreview.screen.statuses.preparing;
+  if (status === "product_selected") return t.roomPreview.screen.statuses.waitingRender;
+  if (status === "failed")           return t.roomPreview.screen.statuses.failed;
+  if (status === "room_selected")    return t.roomPreview.screen.statuses.waitingItem;
+  if (status === "mobile_connected") return t.roomPreview.screen.statuses.waitingRoom;
+  return t.roomPreview.screen.statuses.waitingPhone;
+}
+
+/** Centers the small non-stage view states (loading / errors) within the kiosk page. */
+function CenteredShell({ children }: { children: React.ReactNode }) {
+  return (
+    <div className="relative z-[1] flex min-h-[100svh] w-full items-center justify-center px-6 py-10">
+      <div className="w-full max-w-md">{children}</div>
+    </div>
+  );
+}
+
 // ─── ScreenSessionClient ──────────────────────────────────────────────────────
 
-export default function ScreenSessionClient({ sessionId }: { sessionId: string }) {
+export default function ScreenSessionClient({
+  sessionId,
+  qrDataUrl = null,
+}: {
+  sessionId: string;
+  qrDataUrl?: string | null;
+}) {
   const {
     t,
     locale,
     session,
     viewState,
     error,
-    pollError,
-    resetCountdown,
-    idleCountdown,
     errorCountdown,
     completionCountdown,
-    hasSelectedProduct,
-    hasSelectedRoom,
     hasRenderResult,
   } = useScreenSession({ sessionId });
+
+  const devEntryHref =
+    process.env.NODE_ENV === "development"
+      ? `/api/room-preview/dev-entry?sessionId=${sessionId}&lang=${locale}`
+      : null;
 
   // Tracks whether we've witnessed a "rendering" status in this page load.
   // Used to decide whether to play the fade-out transition when result arrives.
@@ -49,16 +78,18 @@ export default function ScreenSessionClient({ sessionId }: { sessionId: string }
 
   if (viewState === "loading") {
     return (
-      <div className="w-full rounded-3xl border border-white/10 bg-white/10 p-6 text-center shadow-[0_20px_60px_rgba(0,0,0,0.4)] backdrop-blur-xl animate-in fade-in duration-700 sm:p-8">
-        <p className="text-sm tracking-widest text-white/60 uppercase">
-          {t.roomPreview.screen.sessionStatus}
-        </p>
-        <p className="mt-4 text-3xl font-bold text-white tracking-tight">{t.roomPreview.screen.loadingTitle}</p>
-        <div className="mt-6 flex items-center justify-center gap-3 text-base text-white/80">
-          <LoaderCircle className="size-6 animate-spin text-cyan-400" />
-          {t.roomPreview.screen.loadingDescription}
+      <CenteredShell>
+        <div className="w-full rounded-3xl border border-white/10 bg-white/10 p-6 text-center shadow-[0_20px_60px_rgba(0,0,0,0.4)] backdrop-blur-xl animate-in fade-in duration-700 sm:p-8">
+          <p className="text-sm tracking-widest text-white/60 uppercase">
+            {t.roomPreview.screen.sessionStatus}
+          </p>
+          <p className="mt-4 text-3xl font-bold text-white tracking-tight">{t.roomPreview.screen.loadingTitle}</p>
+          <div className="mt-6 flex items-center justify-center gap-3 text-base text-white/80">
+            <LoaderCircle className="size-6 animate-spin text-cyan-400" />
+            {t.roomPreview.screen.loadingDescription}
+          </div>
         </div>
-      </div>
+      </CenteredShell>
     );
   }
 
@@ -81,48 +112,48 @@ export default function ScreenSessionClient({ sessionId }: { sessionId: string }
 
   if (viewState === "not_found") {
     return (
-      <div className="w-full">
+      <CenteredShell>
         <SessionStatePanel
           title={t.roomPreview.screen.notFoundTitle}
           description={error ?? t.roomPreview.screen.notFoundDescription}
         />
         {errorCountdownFooter}
-      </div>
+      </CenteredShell>
     );
   }
 
   if (viewState === "expired") {
     return (
-      <div className="w-full">
+      <CenteredShell>
         <SessionStatePanel
           title={t.roomPreview.screen.expiredTitle}
           description={error ?? t.roomPreview.screen.expiredDescription}
         />
         {errorCountdownFooter}
-      </div>
+      </CenteredShell>
     );
   }
 
   if (viewState === "failed") {
     return (
-      <div className="w-full">
+      <CenteredShell>
         <SessionStatePanel
           title={t.roomPreview.screen.failedTitle}
           description={error ?? t.roomPreview.screen.failedDescription}
         />
         {errorCountdownFooter}
-      </div>
+      </CenteredShell>
     );
   }
 
   if (!session) {
     return (
-      <div className="w-full">
+      <CenteredShell>
         <SessionStatePanel
           title={t.roomPreview.screen.failedTitle}
           description={t.roomPreview.shared.noSessionData}
         />
-      </div>
+      </CenteredShell>
     );
   }
 
@@ -181,9 +212,9 @@ export default function ScreenSessionClient({ sessionId }: { sessionId: string }
     return (
       <>
         {/* key forces a full remount when a new render result arrives */}
-        <div key={session.renderResult!.imageUrl!} className="screen-kiosk-result animate-in fade-in duration-700">
+        <div key={session.renderResult!.imageUrl!} className="fixed inset-0 z-50 overflow-hidden bg-black animate-in fade-in duration-700">
           <div className="absolute inset-0 z-0 bg-gradient-to-br from-[#1d1d1f] to-black" />
-          <div className="screen-kiosk-result__inner z-10">
+          <div className="absolute inset-0 z-10 flex items-center justify-center">
             <BeforeAfterSlider
               beforeImageUrl={session.selectedRoom?.imageUrl}
               afterImageUrl={session.renderResult!.imageUrl!}
@@ -212,16 +243,14 @@ export default function ScreenSessionClient({ sessionId }: { sessionId: string }
     );
   }
 
-  // ── Ready: status panel ───────────────────────────────────────────────────
+  // ── Ready: visionOS session stage (Figma node 10:936 composition) ─────────
 
   return (
-    <StatusPanel
+    <SessionStage
       session={session}
-      hasSelectedProduct={hasSelectedProduct}
-      hasSelectedRoom={hasSelectedRoom}
-      pollError={pollError}
-      resetCountdown={resetCountdown}
-      idleCountdown={idleCountdown}
+      qrDataUrl={qrDataUrl}
+      statusLabel={getScreenStatusMessage(session.status, t)}
+      devEntryHref={devEntryHref}
     />
   );
 }

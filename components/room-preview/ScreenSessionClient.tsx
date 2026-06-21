@@ -1,7 +1,8 @@
 "use client";
 
 import { useRef } from "react";
-import { LoaderCircle } from "lucide-react";
+import AnimatedScanLoader from "@/components/ui/animated-scan-loader";
+import BrandedGlassStage from "@/components/room-preview/BrandedGlassStage";
 import SessionStatePanel from "@/components/room-preview/SessionStatePanel";
 import { BeforeAfterSlider } from "@/components/room-preview/BeforeAfterSlider";
 import { RenderLoadingAnimation } from "@/features/room-preview/shared/RenderLoadingAnimation";
@@ -77,19 +78,26 @@ export default function ScreenSessionClient({
   // ── Non-ready states ──────────────────────────────────────────────────────
 
   if (viewState === "loading") {
+    // Keep the branded logo scan loader visible — continuous with the launcher's
+    // BrandedQrLoadingScreen — until the real session payload is ready. This
+    // replaces the previous intermediate "جار تحميل الجلسة..." card so the flow
+    // reads as one uninterrupted branded loading screen. (Renders inside the
+    // page's existing screen-kiosk-page <main>, so no nested <main>.)
     return (
-      <CenteredShell>
-        <div className="w-full rounded-3xl border border-white/10 bg-white/10 p-6 text-center shadow-[0_20px_60px_rgba(0,0,0,0.4)] backdrop-blur-xl animate-in fade-in duration-700 sm:p-8">
-          <p className="text-sm tracking-widest text-white/60 uppercase">
-            {t.roomPreview.screen.sessionStatus}
-          </p>
-          <p className="mt-4 text-3xl font-bold text-white tracking-tight">{t.roomPreview.screen.loadingTitle}</p>
-          <div className="mt-6 flex items-center justify-center gap-3 text-base text-white/80">
-            <LoaderCircle className="size-6 animate-spin text-cyan-400" />
-            {t.roomPreview.screen.loadingDescription}
-          </div>
+      <BrandedGlassStage backgroundImage='url("/room-preview/private.jpg")'>
+        <div
+          style={{
+            position: "absolute",
+            inset: 0,
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+            pointerEvents: "none",
+          }}
+        >
+          <AnimatedScanLoader />
         </div>
-      </CenteredShell>
+      </BrandedGlassStage>
     );
   }
 

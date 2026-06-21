@@ -70,15 +70,36 @@ function useFitScale(canvasW: number, canvasH: number) {
   useLayoutEffect(() => {
     const el = ref.current;
     if (!el) return;
+    // Measure the actual rendered stage box (the dvw/dvh glass panel) — the real
+    // available viewport, never assumed physical dimensions.
     const update = () => {
       const { width, height } = el.getBoundingClientRect();
       if (width === 0 || height === 0) return;
       setScale(Math.min(width / canvasW, height / canvasH, 1));
     };
     update();
+
+    // One resize-aware fit calculation: recompute whenever the available
+    // viewport changes — element resize, window resize, orientation change,
+    // fullscreen enter/exit, and (when supported) visual-viewport changes from
+    // browser toolbars showing/hiding.
     const ro = new ResizeObserver(update);
     ro.observe(el);
-    return () => ro.disconnect();
+    window.addEventListener("resize", update);
+    window.addEventListener("orientationchange", update);
+    document.addEventListener("fullscreenchange", update);
+    const vv = window.visualViewport;
+    vv?.addEventListener("resize", update);
+    vv?.addEventListener("scroll", update);
+
+    return () => {
+      ro.disconnect();
+      window.removeEventListener("resize", update);
+      window.removeEventListener("orientationchange", update);
+      document.removeEventListener("fullscreenchange", update);
+      vv?.removeEventListener("resize", update);
+      vv?.removeEventListener("scroll", update);
+    };
   }, [canvasW, canvasH]);
 
   return { ref, scale };
@@ -237,6 +258,14 @@ function QrCard({
 
 // ─── Connection card (Figma incoming-call-popup 12:1040 → connection state) ──
 
+// Wi-Fi indicator states.
+//  • inactive: existing neutral grey glass badge (preserved).
+//  • active:   exact iOS active Wi-Fi fill from Figma node 6023:1853 —
+//    rgba(0,136,255,0.95) blue layered over rgba(255,255,255,0.5), white icon.
+const WIFI_INACTIVE_BG = "linear-gradient(180deg, #b7b2ac 0%, #a09a9b 100%)";
+const WIFI_ACTIVE_BG =
+  "linear-gradient(90deg, rgba(0,136,255,0.95) 0%, rgba(0,136,255,0.95) 100%), linear-gradient(90deg, rgba(255,255,255,0.5) 0%, rgba(255,255,255,0.5) 100%)";
+
 function ConnectionCard({ connected }: { connected: boolean }) {
   const { t } = useI18n();
   const stateLabel = connected
@@ -250,10 +279,16 @@ function ConnectionCard({ connected }: { connected: boolean }) {
       dir="rtl"
     >
       <div className="flex items-center gap-[12px]">
-        {/* original circular badge — connection icon replaces the contact photo */}
+        {/* circular Wi-Fi badge — neutral glass when waiting, exact Figma iOS
+            blue (node 6023:1853) once the phone genuinely connects. The CSS
+            transition only fires on the real inactive→active value change. */}
         <div
-          className="flex size-[48px] shrink-0 items-center justify-center overflow-hidden rounded-[90px] bg-gradient-to-b from-[#b7b2ac] to-[#a09a9b]"
-          style={{ boxShadow: "2px 1px 5px 0px rgba(0,0,0,0.25)" }}
+          className="flex size-[48px] shrink-0 items-center justify-center overflow-hidden rounded-[90px] transition-[background,transform] duration-300 ease-out"
+          style={{
+            background: connected ? WIFI_ACTIVE_BG : WIFI_INACTIVE_BG,
+            transform: connected ? "scale(1.04)" : "scale(1)",
+            boxShadow: "2px 1px 5px 0px rgba(0,0,0,0.25)",
+          }}
         >
           <Wifi size={24} strokeWidth={2.2} className="text-white" />
         </div>
@@ -338,7 +373,12 @@ export default function SessionStage({ session, qrDataUrl, statusLabel, devEntry
                 baseUrlMissingDescription={t.roomPreview.screen.baseUrlMissingDescription}
               />
             </EventTilt3DCard>
-            <ConnectionCard connected={session.mobileConnected} />
+            <ConnectionCard
+              connected={
+                session.mobileConnected ||
+                (session.status !== "created" && session.status !== "waiting_for_mobile")
+              }
+            />
             {devEntryHref ? (
               <a
                 href={devEntryHref}

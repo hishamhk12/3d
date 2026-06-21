@@ -60,8 +60,11 @@ export default function BrandedGlassStage({ backgroundImage, children }: Branded
           className="qr-glass-panel"
           style={{
             position: "relative",
-            width: "95vw",
-            height: "92vh",
+            // Dynamic viewport units so the panel matches the *actual* visible
+            // area (accounts for browser chrome/toolbars) instead of the larger
+            // static `vh`/`vw`, which overflowed and clipped on real displays.
+            width: "95dvw",
+            height: "92dvh",
             maxWidth: "none",
             flexShrink: 0,
             borderRadius: 48,

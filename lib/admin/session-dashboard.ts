@@ -28,14 +28,14 @@ export async function getDashboardMetrics() {
   // Null expiresAt (legacy orphan) is intentionally excluded — those sessions are dead.
   const liveFilter = { expiresAt: { gt: now } };
 
+  // The five unfiltered per-status counts (rendering / result_ready / completed /
+  // failed / expired) are collapsed into one groupBy to cut the parallel query
+  // fan-out — fewer concurrent connections per render (same numbers as before).
+  // Counts that carry an extra filter (live, waiting, successToday) stay separate.
   const [
     liveCount,
     waitingCount,
-    renderingCount,
-    resultReadyCount,
-    completedCount,
-    failedCount,
-    expiredCount,
+    statusCounts,
     successToday,
     failedJobsLastHour,
     completedJobsToday,
@@ -46,20 +46,9 @@ export async function getDashboardMetrics() {
     prisma.roomPreviewSession.count({
       where: { status: "waiting_for_mobile", ...liveFilter },
     }),
-    prisma.roomPreviewSession.count({
-      where: { status: "rendering" },
-    }),
-    prisma.roomPreviewSession.count({
-      where: { status: "result_ready" },
-    }),
-    prisma.roomPreviewSession.count({
-      where: { status: "completed" },
-    }),
-    prisma.roomPreviewSession.count({
-      where: { status: "failed" },
-    }),
-    prisma.roomPreviewSession.count({
-      where: { status: "expired" },
+    prisma.roomPreviewSession.groupBy({
+      by: ["status"],
+      _count: { _all: true },
     }),
     prisma.roomPreviewSession.count({
       where: {
@@ -75,6 +64,14 @@ export async function getDashboardMetrics() {
       select: { createdAt: true, updatedAt: true },
     }),
   ]);
+
+  const countByStatus = (status: RoomPreviewSessionStatus) =>
+    statusCounts.find((row) => row.status === status)?._count._all ?? 0;
+  const renderingCount = countByStatus("rendering");
+  const resultReadyCount = countByStatus("result_ready");
+  const completedCount = countByStatus("completed");
+  const failedCount = countByStatus("failed");
+  const expiredCount = countByStatus("expired");
 
   const avgRenderMs =
     completedJobsToday.length > 0

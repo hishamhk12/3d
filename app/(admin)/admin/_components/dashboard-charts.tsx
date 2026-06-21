@@ -4,9 +4,18 @@ import RenderFailuresChart from "@/components/admin/charts/RenderFailuresChart";
 import SessionStatusChart from "@/components/admin/charts/SessionStatusChart";
 import SessionTimelineChart from "@/components/admin/charts/SessionTimelineChart";
 import { getAdminDashboardChartData } from "@/lib/admin/dashboard-charts";
+import { isTransientDbError, logAdminDataError } from "@/lib/admin/db-resilience";
+import { DataUnavailable } from "./data-unavailable";
 
 export async function DashboardCharts() {
-  const chartData = await getAdminDashboardChartData();
+  let chartData;
+  try {
+    chartData = await getAdminDashboardChartData();
+  } catch (err) {
+    if (!isTransientDbError(err)) throw err;
+    logAdminDataError("dashboard-charts", err);
+    return <DataUnavailable title="Dashboard charts unavailable" />;
+  }
 
   return (
     <>

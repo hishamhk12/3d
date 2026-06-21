@@ -1,5 +1,7 @@
 import Image from "next/image";
 import { getAdminRenderJobs } from "@/lib/admin/session-dashboard";
+import { isTransientDbError, logAdminDataError } from "@/lib/admin/db-resilience";
+import { DataUnavailable } from "./data-unavailable";
 
 function relativeTime(isoString: string): string {
   const diffMs = Date.now() - new Date(isoString).getTime();
@@ -52,7 +54,14 @@ function JobStatusBadge({ status }: { status: string }) {
 }
 
 export async function RenderJobsFeed() {
-  const jobs = await getAdminRenderJobs();
+  let jobs;
+  try {
+    jobs = await getAdminRenderJobs();
+  } catch (err) {
+    if (!isTransientDbError(err)) throw err;
+    logAdminDataError("render-jobs-feed", err);
+    return <DataUnavailable title="Render jobs unavailable" />;
+  }
 
   if (jobs.length === 0) {
     return (

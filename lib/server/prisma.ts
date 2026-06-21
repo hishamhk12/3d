@@ -11,25 +11,30 @@ if (!connectionString) {
 }
 
 // In serverless environments (Vercel) many short-lived function invocations
-// run concurrently, each potentially opening its own connection pool. Without
-// an explicit limit, 50 concurrent functions × pg's default of 10 = 500
-// connection attempts — well above what most managed Postgres providers allow.
+// run concurrently, each opening its own pg pool. Each pooled connection holds a
+// dedicated *session* on the Supabase Session Pooler — which is capped at 15
+// clients — so a high per-instance limit across several warm instances exhausts
+// that cap (EMAXCONNSESSION / XX000). Keep the per-instance limit small and use
+// the Supabase Transaction Pooler (port 6543) for runtime traffic; it multiplexes
+// connections per transaction instead of holding a session each.
 //
 // DATABASE_POOL_SIZE controls this per-deployment:
-//   - Raw Postgres (no external pooler): 3–5
-//   - With PgBouncer / Neon pooled / Supabase Supavisor: 1–2
+//   - Raw Postgres (local dev / no external pooler): 3–5
+//   - Vercel runtime via Supabase Transaction Pooler / PgBouncer / Supavisor: 1–2
 //     (the pooler multiplexes, so each serverless connection counts less)
 //
 // idleTimeoutMillis: release idle connections after 10 s so short-lived
 //   invocations don't hold slots between requests.
-// connectionTimeoutMillis: fail fast (5 s) rather than queue forever when
+// connectionTimeoutMillis: fail fast (12 s) rather than queue forever when
 //   the DB is under load or unreachable.
 function parsePoolSize(raw: string | undefined, fallback: number): number {
   const n = parseInt(raw ?? "", 10);
   return Number.isFinite(n) && n > 0 ? n : fallback;
 }
 
-const MAX_CONNECTIONS = parsePoolSize(process.env.DATABASE_POOL_SIZE, 5);
+// Conservative serverless-safe default. Set DATABASE_POOL_SIZE=1 in production
+// when using the Supabase Transaction Pooler (port 6543).
+const MAX_CONNECTIONS = parsePoolSize(process.env.DATABASE_POOL_SIZE, 3);
 
 const globalForPrisma = globalThis as unknown as {
   prisma?: PrismaClient;

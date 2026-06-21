@@ -1,11 +1,11 @@
 "use client";
 
 import Image from "next/image";
-import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useCallback, useEffect, useState } from "react";
 import FadeContent from "@/components/reactbits/FadeContent";
 import { CircularGallery, type CircularGalleryItem } from "@/components/circular-gallery";
+import { LiquidMetalButton } from "@/components/ui/liquid-metal-button";
 
 // Destination of the «جربها في غرفتك الآن» CTA. Clicking it plays a ReactBits
 // FadeContent transition first, then navigates here.
@@ -51,15 +51,11 @@ export function Carousel3D({ images }: Carousel3DProps) {
     router.prefetch(TRY_NOW_TARGET);
   }, [router]);
 
-  // CTA click → start the FadeContent transition (suppress the native link
-  // navigation); FadeContent's onComplete performs the actual navigation.
-  const startTryNowTransition = useCallback(
-    (event: React.MouseEvent<HTMLAnchorElement>) => {
-      event.preventDefault();
-      setIsTransitioning(true);
-    },
-    [],
-  );
+  // CTA click → start the FadeContent transition; FadeContent's onComplete
+  // performs the actual navigation to TRY_NOW_TARGET (route unchanged).
+  const startTryNowTransition = useCallback(() => {
+    setIsTransitioning(true);
+  }, []);
 
   // Uniformly scale the fixed stage to fit the viewport — leaving vertical room
   // for the CTA below — without ever upscaling (keeps the room photos crisp).
@@ -187,34 +183,29 @@ export function Carousel3D({ images }: Carousel3DProps) {
         )}
       </div>
 
-      {/* ---- Main CTA — light variant, centered slightly below the gallery ---- */}
-      <Link
-        href={TRY_NOW_TARGET}
+      {/* ---- Main CTA — 21st.dev Liquid Metal Button (frosted-glass inner),
+          same position / dimensions / route / transition as before. ---- */}
+      <LiquidMetalButton
         onClick={startTryNowTransition}
-        aria-disabled={isTransitioning}
-        aria-label="ابدأ التجربة"
-        className="c3d-cta"
-        style={{
-          position: "relative",
-          zIndex: 12,
-          flexShrink: 0,
-          display: "flex",
-          alignItems: "center",
-          justifyContent: "center",
-          height: 72,
-          padding: "0 48px",
-          borderRadius: 100,
-          background: "rgba(120,120,128,0.16)",
-          color: "#000000",
-          textDecoration: "none",
-          fontFamily: "var(--font-tajawal), sans-serif",
-          fontWeight: 700,
-          fontSize: 26,
-          letterSpacing: "0.01em",
-        }}
+        height={72}
+        paddingX={48}
+        radius={100}
+        ariaLabel="ابدأ التجربة"
+        style={{ position: "relative", zIndex: 12, flexShrink: 0 }}
       >
-        <span style={{ whiteSpace: "nowrap" }}>جربها في غرفتك الآن</span>
-      </Link>
+        <span
+          style={{
+            fontFamily: "var(--font-tajawal), sans-serif",
+            fontWeight: 700,
+            fontSize: 26,
+            letterSpacing: "0.01em",
+            color: "#000000",
+            whiteSpace: "nowrap",
+          }}
+        >
+          جربها في غرفتك الآن
+        </span>
+      </LiquidMetalButton>
 
       {/* ---- ReactBits FadeContent transition overlay ----
           Mounted on CTA click. It fades a full-screen veil (matching the

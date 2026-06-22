@@ -11,6 +11,7 @@ import {
   RoomUploadStatus,
   type RoomUploadStatusState,
 } from "@/features/room-preview/mobile/RoomUploadStatus";
+import { dismissMobileKeyboard } from "@/features/room-preview/shared/helpers";
 
 interface RoomStepProps {
   isSavingRoom: boolean;
@@ -35,8 +36,20 @@ export default function RoomStep({
   const inputRef = useRef<HTMLInputElement>(null);
   const [isPortraitPreview, setIsPortraitPreview] = useState(false);
 
+  // Step-entry safety: if a text field from the previous (gate) step is still
+  // focused after the soft navigation, blur it so the keyboard closes and the
+  // upload page opens at full viewport height. No autofocus; the hidden file
+  // input is never focused here.
+  useEffect(() => {
+    dismissMobileKeyboard();
+  }, []);
+
   const openPicker = () => {
-    if (!isSavingRoom) inputRef.current?.click();
+    if (isSavingRoom) return;
+    // Ensure no stale text field keeps the keyboard open, then trigger the picker
+    // synchronously within the same tap so Safari never blocks the file dialog.
+    dismissMobileKeyboard();
+    inputRef.current?.click();
   };
 
   const hasPreview = Boolean(selectedRoom?.imageUrl);

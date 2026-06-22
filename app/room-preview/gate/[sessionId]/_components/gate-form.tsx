@@ -9,6 +9,7 @@ import { selectCustomerRole, submitGateForm } from "../actions";
 import RoomPreviewBackButton from "@/components/room-preview/RoomPreviewBackButton";
 import { MobileActionButton } from "@/components/room-preview/MobileActionButton";
 import { trackClientSessionEvent } from "@/lib/room-preview/session-diagnostics-client";
+import { dismissMobileKeyboard } from "@/features/room-preview/shared/helpers";
 import {
   COUNTRY_DIAL_OPTIONS,
   DEFAULT_COUNTRY,
@@ -244,6 +245,12 @@ export function GateForm({
   const [expIndex, setExpIndex] = useState(0);
 
   function handleSubmit() {
+    // onSubmit only fires once the browser's native (HTML5 `required`) validation
+    // passes — on client-validation failure the browser keeps the invalid field
+    // focused and never submits, so we never blur it. Here, right before the server
+    // action soft-navigates to the upload step, drop focus from the active field so
+    // iPhone Safari closes the keyboard and the next page opens at full height.
+    dismissMobileKeyboard();
     trackClientSessionEvent(sessionId, {
       source: "mobile",
       eventType: "gate_submit_prevent_default_confirmed",

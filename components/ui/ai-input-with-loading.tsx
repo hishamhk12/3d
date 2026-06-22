@@ -1,5 +1,11 @@
 "use client";
 
+// Visual port of 21st.dev's kokonutd/ai-input-with-loading (light mode): soft
+// translucent bg-black/5 rounded-3xl field, right-aligned send button with the
+// CornerRightDown arrow, a rotating black square while loading, and a small
+// centered status line below. The integration props (controlled value, real
+// loading state, RTL textareaProps, inline product-code typeahead via inputRef)
+// are kept so the seller chat behaves exactly as before.
 import {
   useEffect,
   useRef,
@@ -7,6 +13,7 @@ import {
   type KeyboardEvent,
   type RefObject,
 } from "react";
+import { CornerRightDown } from "lucide-react";
 import { Textarea, type TextareaProps } from "@/components/ui/textarea";
 import { useAutoResizeTextarea } from "@/hooks/use-auto-resize-textarea";
 import { cn } from "@/lib/utils";
@@ -23,6 +30,9 @@ interface AIInputWithLoadingProps {
   textareaClassName?: string;
   sendButtonClassName?: string;
   sendLabel: string;
+  /** Helper status line shown below the input. */
+  idleStatus: string;
+  loadingStatus: string;
 }
 
 export function AIInputWithLoading({
@@ -30,13 +40,15 @@ export function AIInputWithLoading({
   onValueChange,
   onSubmit,
   isLoading,
-  minHeight = 36,
+  minHeight = 56,
   maxHeight = 144,
   inputRef,
   textareaProps,
   textareaClassName,
   sendButtonClassName,
   sendLabel,
+  idleStatus,
+  loadingStatus,
 }: AIInputWithLoadingProps) {
   const { textareaRef, adjustHeight } = useAutoResizeTextarea({ minHeight, maxHeight });
   const submittingRef = useRef(false);
@@ -78,55 +90,59 @@ export function AIInputWithLoading({
   void ignoredOnKeyDown;
 
   return (
-    <div className="relative min-w-0 flex-1">
-      <Textarea
-        {...restTextareaProps}
-        ref={setTextareaRef}
-        value={value}
-        onChange={(event) => {
-          onValueChange(event.target.value, event);
-          adjustHeight();
-        }}
-        onKeyDown={handleKeyDown}
-        disabled={isLoading}
-        className={cn(
-          "min-h-0 w-full resize-none overflow-y-auto rounded-[18px] border border-[#d1d1d6] bg-white py-[7px] pl-4 pr-11 text-right text-sm leading-5 text-[#0f1721] outline-none transition placeholder:text-[#aeaeb2] focus:border-[#aeaeb2] focus-visible:ring-0 focus-visible:ring-offset-0 disabled:cursor-not-allowed disabled:opacity-100",
-          textareaClassName,
-        )}
-        style={{ height: minHeight, minHeight, maxHeight }}
-      />
-      <button
-        type="button"
-        onClick={() => void submit()}
-        disabled={isLoading || !value.trim()}
-        aria-label={sendLabel}
-        title={sendLabel}
-        className={cn(
-          "sc-send absolute bottom-1 right-1 grid h-7 w-7 place-items-center rounded-full bg-[#34c759] text-white transition hover:brightness-95 disabled:opacity-40",
-          sendButtonClassName,
-        )}
-      >
-        {isLoading ? (
-          <span
-            aria-hidden
-            className="h-4 w-4 animate-spin rounded-sm bg-white"
-            style={{ animationDuration: "1.2s" }}
-          />
-        ) : (
-          <svg
-            aria-hidden
-            viewBox="0 0 24 24"
-            className="h-[18px] w-[18px]"
-            fill="none"
-            stroke="currentColor"
-            strokeWidth={2.4}
-            strokeLinecap="round"
-            strokeLinejoin="round"
-          >
-            <path d="M12 19V6M6.5 11.5 12 6l5.5 5.5" />
-          </svg>
-        )}
-      </button>
+    <div className="min-w-0 flex-1">
+      <div className="relative">
+        <Textarea
+          {...restTextareaProps}
+          ref={setTextareaRef}
+          value={value}
+          onChange={(event) => {
+            onValueChange(event.target.value, event);
+            adjustHeight();
+          }}
+          onKeyDown={handleKeyDown}
+          disabled={isLoading}
+          className={cn(
+            // Soft translucent neutral field (light-mode AIInputWithLoading look).
+            "w-full resize-none overflow-y-auto rounded-3xl border-none bg-black/5 py-4 pl-6 pr-10",
+            "text-right text-base leading-[1.2] text-black placeholder:text-black/70",
+            // Subtle persistent ring; a slightly stronger ring on focus.
+            "ring-1 ring-black/10 transition focus-visible:ring-2 focus-visible:ring-black/20 focus-visible:outline-none",
+            "disabled:cursor-not-allowed disabled:opacity-100 [&::-webkit-resizer]:hidden",
+            textareaClassName,
+          )}
+          style={{ height: minHeight, minHeight, maxHeight }}
+        />
+        <button
+          type="button"
+          onClick={() => void submit()}
+          disabled={isLoading || !value.trim()}
+          aria-label={sendLabel}
+          title={sendLabel}
+          className={cn(
+            "sc-send absolute right-3 top-1/2 grid -translate-y-1/2 place-items-center rounded-xl bg-black/5 p-1.5 text-black transition disabled:opacity-40",
+            sendButtonClassName,
+          )}
+        >
+          {isLoading ? (
+            <span
+              aria-hidden
+              className="h-4 w-4 animate-spin rounded-sm bg-black"
+              style={{ animationDuration: "1.2s" }}
+            />
+          ) : (
+            <CornerRightDown
+              aria-hidden
+              className={cn("h-4 w-4 transition-opacity", value.trim() ? "opacity-100" : "opacity-30")}
+            />
+          )}
+        </button>
+      </div>
+
+      {/* Status helper — fixed small height so the layout never jumps. */}
+      <p className="mx-auto mt-1.5 h-4 text-center text-xs leading-4 text-black/70">
+        {isLoading ? loadingStatus : idleStatus}
+      </p>
     </div>
   );
 }

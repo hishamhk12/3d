@@ -61,7 +61,7 @@ const ChatMessages = forwardRef<HTMLDivElement, Props>(function ChatMessages(
                 key={s}
                 onClick={() => onAsk(s)}
                 disabled={loading}
-                className="sc-pill max-w-[88%] whitespace-normal rounded-[10px] border border-[#165dff] bg-[rgba(22,93,255,0.10)] px-[14px] py-[6px] text-sm text-[#165dff] transition hover:bg-[rgba(22,93,255,0.18)] disabled:opacity-50"
+                className="sc-pill max-w-[88%] whitespace-normal rounded-full border border-black/10 bg-black/5 px-[14px] py-[6px] text-sm text-black/80 transition hover:bg-black/[0.08] disabled:opacity-50"
               >
                 {s}
               </button>

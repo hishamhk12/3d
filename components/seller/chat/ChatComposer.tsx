@@ -198,21 +198,22 @@ export default function ChatComposer({
           e.preventDefault();
           submit();
         }}
-        className="flex shrink-0 items-center gap-2 px-3 pb-5 pt-2"
+        className="flex shrink-0 items-start gap-2 px-3 pb-5 pt-2"
       >
-        {/* Camera — presentational (no image-upload in inventory chat). */}
+        {/* Camera — presentational (no image-upload in inventory chat).
+            Shares the AI input's soft translucent treatment so it reads as one system. */}
         <button
           type="button"
           aria-label="الكاميرا"
           title="الكاميرا"
           disabled={loading}
           tabIndex={-1}
-          className="grid h-9 w-9 shrink-0 place-items-center text-[#8e8e93] transition disabled:opacity-50"
+          className="mt-1.5 grid h-11 w-11 shrink-0 place-items-center rounded-full bg-black/5 text-black/70 ring-1 ring-black/10 transition hover:bg-black/[0.08] disabled:opacity-50"
         >
           <svg
             aria-hidden
             viewBox="0 0 24 24"
-            className="h-[26px] w-[26px]"
+            className="h-[24px] w-[24px]"
             fill="none"
             stroke="currentColor"
             strokeWidth={1.6}
@@ -229,10 +230,12 @@ export default function ChatComposer({
           onValueChange={onComposerChange}
           onSubmit={submit}
           isLoading={loading}
-          minHeight={36}
+          minHeight={56}
           maxHeight={144}
           inputRef={inputRef}
           sendLabel="إرسال"
+          idleStatus="جاهز للإرسال"
+          loadingStatus="جاري التفكير..."
           textareaProps={{
             placeholder,
             dir: "rtl",

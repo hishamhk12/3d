@@ -6,6 +6,7 @@ import { Camera, LoaderCircle, QrCode, RotateCcw } from "lucide-react";
 import { parseProductCodeFromQrValue } from "@/lib/room-preview/product-qr";
 import { useI18n } from "@/lib/i18n/provider";
 import { MobileActionButton } from "@/components/room-preview/MobileActionButton";
+import { useParticleBurst } from "@/components/ui/particle-button";
 import type { RoomPreviewProduct } from "@/lib/room-preview/types";
 
 type ProductLookupResponse =
@@ -53,6 +54,9 @@ export default function ProductQrStep({
 }: ProductQrStepProps) {
   const { locale } = useI18n();
   const isAr = locale === "ar";
+  // Particle Button animation reused on the real gray "إنشاء" button below —
+  // attaches the six-particle burst + brief press without changing its markup.
+  const { burst: renderBurst, particles: renderParticles } = useParticleBurst();
   const videoRef = useRef<HTMLVideoElement | null>(null);
   const scannerRef = useRef<{ stop: () => void; destroy: () => void } | null>(null);
   const handledScanRef = useRef<string | null>(null);
@@ -272,12 +276,16 @@ export default function ProductQrStep({
 
             <MobileActionButton
               variant="light"
-              onClick={() => void onGenerateWithProductCode(product.id)}
+              onClick={(e) => {
+                renderBurst(e);
+                void onGenerateWithProductCode(product.id);
+              }}
               loading={isBusy}
               className="mt-5"
             >
               {isAr ? "إنشاء" : "Generate"}
             </MobileActionButton>
+            {renderParticles}
             <button
               type="button"
               onClick={resetProduct}

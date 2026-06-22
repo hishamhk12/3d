@@ -531,10 +531,8 @@ export default function MobileSessionClient({
           session={session}
           isSavingProduct={isRenderingSession}
           showResult={showResult}
-          onCreateRender={handleCreateRender}
           onBack={handleRetakeRoomPhoto}
           onProcessingBack={handleGuardedBack}
-          hasRenderError={error !== null || restartDone}
           onModify={handleModifyResult}
         />
       ) : null}

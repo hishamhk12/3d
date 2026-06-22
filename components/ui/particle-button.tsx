@@ -68,18 +68,25 @@ function SuccessParticles({
   );
 }
 
-export const ParticleButton = forwardRef<HTMLButtonElement, ParticleButtonProps>(
-function ParticleButton({
-    children,
-    onClick,
-    successDuration = 1000,
-    particleClassName,
-    showParticles = true,
-    canTrigger,
-    className,
-    disabled,
-    ...props
-  }, ref) {
+interface UseParticleBurstOptions {
+  successDuration?: number;
+  particleClassName?: string;
+  showParticles?: boolean;
+}
+
+/**
+ * The reusable Particle Button animation: on `burst(event)` it emits six
+ * particles from the clicked element's centre (via a body portal) and flags a
+ * brief press scale-down for ~100ms. Returns `particles` (render it anywhere —
+ * it portals to <body>) and `isPressed`. Respects prefers-reduced-motion and
+ * cleans up its timers on unmount. Lets the same animation be attached to an
+ * existing button without changing that button's markup or styling.
+ */
+export function useParticleBurst({
+  successDuration = 1000,
+  particleClassName,
+  showParticles = true,
+}: UseParticleBurstOptions = {}) {
   const [particleBurst, setParticleBurst] = useState<{
     origin: ParticleOrigin;
     vectors: ParticleVector[];
@@ -97,57 +104,83 @@ function ParticleButton({
     [],
   );
 
-  async function handleClick(event: MouseEvent<HTMLButtonElement>) {
-    if (disabled || (canTrigger && !canTrigger())) return;
+  function burst(event: MouseEvent<HTMLElement>) {
+    if (!showParticles || prefersReducedMotion) return;
 
-    if (showParticles && !prefersReducedMotion) {
-      const rect = event.currentTarget.getBoundingClientRect();
-      setParticleBurst({
-        origin: {
-          x: rect.left + rect.width / 2,
-          y: rect.top + rect.height / 2,
-        },
-        vectors: createParticleVectors(),
-      });
+    const rect = event.currentTarget.getBoundingClientRect();
+    setParticleBurst({
+      origin: {
+        x: rect.left + rect.width / 2,
+        y: rect.top + rect.height / 2,
+      },
+      vectors: createParticleVectors(),
+    });
 
-      if (clearTimerRef.current) clearTimeout(clearTimerRef.current);
-      clearTimerRef.current = setTimeout(() => {
-        setParticleBurst(null);
-        clearTimerRef.current = null;
-      }, successDuration);
+    if (clearTimerRef.current) clearTimeout(clearTimerRef.current);
+    clearTimerRef.current = setTimeout(() => {
+      setParticleBurst(null);
+      clearTimerRef.current = null;
+    }, successDuration);
 
-      setIsPressed(true);
-      if (pressTimerRef.current) clearTimeout(pressTimerRef.current);
-      pressTimerRef.current = setTimeout(() => {
-        setIsPressed(false);
-        pressTimerRef.current = null;
-      }, 100);
-    }
-
-    await onClick?.(event);
+    setIsPressed(true);
+    if (pressTimerRef.current) clearTimeout(pressTimerRef.current);
+    pressTimerRef.current = setTimeout(() => {
+      setIsPressed(false);
+      pressTimerRef.current = null;
+    }, 100);
   }
 
-  return (
-    <>
-      {particleBurst ? (
-        <SuccessParticles
-          origin={particleBurst.origin}
-          vectors={particleBurst.vectors}
-          particleClassName={particleClassName}
-        />
-      ) : null}
-      <button
-        ref={ref}
-        {...props}
-        disabled={disabled}
-        onClick={handleClick}
-        className={cn(
-          isPressed && "scale-95",
-          className,
-        )}
-      >
-        {children}
-      </button>
-    </>
-  );
-});
+  const particles = particleBurst ? (
+    <SuccessParticles
+      origin={particleBurst.origin}
+      vectors={particleBurst.vectors}
+      particleClassName={particleClassName}
+    />
+  ) : null;
+
+  return { burst, particles, isPressed };
+}
+
+export const ParticleButton = forwardRef<HTMLButtonElement, ParticleButtonProps>(
+  function ParticleButton(
+    {
+      children,
+      onClick,
+      successDuration = 1000,
+      particleClassName,
+      showParticles = true,
+      canTrigger,
+      className,
+      disabled,
+      ...props
+    },
+    ref,
+  ) {
+    const { burst, particles, isPressed } = useParticleBurst({
+      successDuration,
+      particleClassName,
+      showParticles,
+    });
+
+    async function handleClick(event: MouseEvent<HTMLButtonElement>) {
+      if (disabled || (canTrigger && !canTrigger())) return;
+      burst(event);
+      await onClick?.(event);
+    }
+
+    return (
+      <>
+        {particles}
+        <button
+          ref={ref}
+          {...props}
+          disabled={disabled}
+          onClick={handleClick}
+          className={cn(isPressed && "scale-95", className)}
+        >
+          {children}
+        </button>
+      </>
+    );
+  },
+);

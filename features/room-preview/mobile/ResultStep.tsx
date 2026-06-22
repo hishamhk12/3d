@@ -1,15 +1,13 @@
 "use client";
 
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect } from "react";
 import { createPortal } from "react-dom";
 import { ZoomIn, X } from "lucide-react";
 import { ImageComparison } from "@/components/image-comparison-slider";
 import DownloadHoverButton from "@/components/ui/download-hover-button";
-import { ParticleButton } from "@/components/ui/particle-button";
 import RoomPreviewBackButton from "@/components/room-preview/RoomPreviewBackButton";
 import { useI18n } from "@/lib/i18n/provider";
 import { RenderLoadingAnimation } from "@/features/room-preview/shared/RenderLoadingAnimation";
-import { trackClientSessionEvent } from "@/lib/room-preview/session-diagnostics-client";
 import type { RoomPreviewSession } from "@/lib/room-preview/types";
 
 // ── Main component ─────────────────────────────────────────────────────────────
@@ -18,28 +16,21 @@ interface ResultStepProps {
   session: RoomPreviewSession;
   isSavingProduct: boolean;
   showResult: boolean;
-  onCreateRender: () => Promise<void>;
   onModify: () => void;
   onBack: () => void;
   onProcessingBack: () => void;
-  /** When true the idle render button is hidden — the parent's two-button recovery UI handles retry. */
-  hasRenderError?: boolean;
 }
 
 export default function ResultStep({
   session,
   isSavingProduct,
   showResult,
-  onCreateRender,
   onBack,
   onProcessingBack,
-  hasRenderError = false,
 }: ResultStepProps) {
   const { locale, t } = useI18n();
   const [isFullscreen, setIsFullscreen] = useState(false);
-  const [btnState, setBtnState] = useState<"idle" | "loading">("idle");
   const [localShowResult, setLocalShowResult] = useState(showResult);
-  const renderClickLockedRef = useRef(false);
 
   useEffect(() => {
     if (showResult) {
@@ -47,7 +38,6 @@ export default function ResultStep({
       return () => clearTimeout(timer);
     }
     const timer = setTimeout(() => {
-      setBtnState("idle");
       setLocalShowResult(false);
     }, 0);
     return () => clearTimeout(timer);
@@ -71,9 +61,6 @@ export default function ResultStep({
   const beforeImageUrl = session.selectedRoom?.imageUrl ?? afterImageUrl;
 
   const showLoadingScreen = (isSavingProduct || showResult) && !localShowResult;
-  // Hide the idle CTA when the parent is displaying its own two-button failure recovery UI,
-  // so the customer never sees duplicate "retry render" triggers at the same time.
-  const showIdleButton = !localShowResult && !isSavingProduct && !showResult && !hasRenderError;
 
   const fullscreenLightbox = isFullscreen ? (
     <div
@@ -186,80 +173,6 @@ export default function ResultStep({
           style={{ top: "max(16px, env(safe-area-inset-top))", left: 16 }}
         />
       ) : null}
-
-      {/* CTA button (idle only) */}
-      {showIdleButton && (
-        <div className="relative flex items-center justify-center h-20 w-full mt-4">
-          <ParticleButton
-            type="button"
-            className={`btn-cta relative flex items-center justify-center overflow-hidden transition-[width,transform,opacity] duration-500 ease-out disabled:opacity-50 ${
-              btnState === "loading" ? "rounded-full" : ""
-            }`}
-            style={{
-              height: 68,
-              width: btnState === "loading" ? 68 : 220,
-              padding: btnState === "loading" ? 0 : undefined,
-            }}
-            canTrigger={() =>
-              !renderClickLockedRef.current &&
-              btnState === "idle" &&
-              !isSavingProduct &&
-              Boolean(session.selectedRoom?.imageUrl) &&
-              Boolean(session.selectedProduct?.id && session.selectedProduct?.imageUrl) &&
-              session.status !== "ready_to_render" &&
-              session.status !== "rendering"
-            }
-            particleClassName="bg-[var(--text-on-gold)]"
-            onClick={() => {
-              console.log("[render] clicked", {
-                locked: renderClickLockedRef.current,
-                btnState,
-                isSavingProduct,
-                sessionId: session.id,
-                sessionStatus: session.status,
-              });
-              trackClientSessionEvent(session.id, {
-                source: "mobile",
-                eventType: "render_start_clicked",
-                level: "info",
-                metadata: {
-                  locked: renderClickLockedRef.current,
-                  currentBtnState: btnState,
-                  isSavingProduct,
-                  currentStatus: session.status,
-                  hasRoomImage: Boolean(session.selectedRoom?.imageUrl),
-                  hasProduct: Boolean(session.selectedProduct?.id && session.selectedProduct?.imageUrl),
-                  productId: session.selectedProduct?.id ?? null,
-                },
-              });
-              if (renderClickLockedRef.current) return;
-              renderClickLockedRef.current = true;
-              setBtnState("loading");
-              return onCreateRender().finally(() => {
-                renderClickLockedRef.current = false;
-              });
-            }}
-            disabled={btnState === "loading"}
-          >
-            {btnState === "idle" && (
-              <div className="button-state-in flex items-center gap-2">
-                <span className="text-xl font-bold text-[var(--text-on-gold)]">{t.common.actions.create}</span>
-              </div>
-            )}
-            {btnState === "loading" && (
-              <div className="button-state-in flex items-center justify-center gap-1.5">
-                {[0, 1, 2].map((i) => (
-                  <span
-                    key={i}
-                    className="loading-dot size-2 rounded-full bg-[var(--text-on-gold)]/60"
-                    style={{ animationDelay: `${i * 0.12}s` }}
-                  />
-                ))}
-              </div>
-            )}
-          </ParticleButton>
-        </div>
-      )}
 
       {/* Result overlay portal */}
       {resultOverlay}

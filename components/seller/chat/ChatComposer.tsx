@@ -210,8 +210,6 @@ export default function ChatComposer({
           maxHeight={144}
           inputRef={inputRef}
           sendLabel="إرسال"
-          idleStatus="جاهز للإرسال"
-          loadingStatus="جاري التفكير..."
           textareaProps={{
             placeholder,
             dir: "rtl",

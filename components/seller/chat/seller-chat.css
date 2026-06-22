@@ -60,10 +60,17 @@
 
 /* ── Mobile web (Safari) viewport + keyboard behavior ──────────────────────────
    Scoped to the seller-chat page only (via :has) so nothing leaks into the rest
-   of the 3d app. `--sc-app-height` is set from window.visualViewport so the UI
-   tracks the *real* visible area when the iPhone keyboard / Safari chrome change.
-   The page wrapper becomes the viewport; the shell flex-fills it (header fixed,
-   messages scroll, composer pinned above the keyboard). */
+   of the 3d app. `--sc-app-height` (visualViewport.height) and `--sc-app-offset-top`
+   (visualViewport.offsetTop) are set from JS so the UI tracks the *real* visible
+   area when the iPhone keyboard / Safari chrome change.
+
+   The page is position:fixed and pinned to the visible visual viewport
+   (top = offsetTop, height = visible height). Fixed elements are laid out against
+   the layout viewport, which does NOT shrink when the keyboard opens; compensating
+   with `top: offsetTop` re-aligns the shell to the visible region so the keyboard
+   only steals height from the scrollable messages area instead of pushing the whole
+   chat out of view. The shell flex-fills it (header fixed, messages scroll, composer
+   pinned above the keyboard). */
 @media (max-width: 639px) {
   html:has(.seller-chat-scope.sc-page),
   body:has(.seller-chat-scope.sc-page) {
@@ -73,6 +80,10 @@
   }
 
   .seller-chat-scope.sc-page {
+    position: fixed;
+    top: var(--sc-app-offset-top, 0px);
+    left: 0;
+    right: 0;
     height: var(--sc-app-height, 100dvh);
     min-height: 0;
     overflow: hidden;

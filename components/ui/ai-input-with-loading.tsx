@@ -1,11 +1,11 @@
 "use client";
 
 // Visual port of 21st.dev's kokonutd/ai-input-with-loading (light mode): soft
-// translucent bg-black/5 rounded-3xl field, right-aligned send button with the
-// CornerRightDown arrow, a rotating black square while loading, and a small
-// centered status line below. The integration props (controlled value, real
-// loading state, RTL textareaProps, inline product-code typeahead via inputRef)
-// are kept so the seller chat behaves exactly as before.
+// translucent bg-black/5 rounded-3xl field, right-aligned circular send button
+// with an upward arrow, and a rotating black square while loading. The
+// integration props (controlled value, real loading state, RTL textareaProps,
+// inline product-code typeahead via inputRef) are kept so the seller chat
+// behaves exactly as before.
 import {
   useEffect,
   useRef,
@@ -13,7 +13,7 @@ import {
   type KeyboardEvent,
   type RefObject,
 } from "react";
-import { CornerRightDown } from "lucide-react";
+import { ArrowUp } from "lucide-react";
 import { Textarea, type TextareaProps } from "@/components/ui/textarea";
 import { useAutoResizeTextarea } from "@/hooks/use-auto-resize-textarea";
 import { cn } from "@/lib/utils";
@@ -30,9 +30,6 @@ interface AIInputWithLoadingProps {
   textareaClassName?: string;
   sendButtonClassName?: string;
   sendLabel: string;
-  /** Helper status line shown below the input. */
-  idleStatus: string;
-  loadingStatus: string;
 }
 
 export function AIInputWithLoading({
@@ -47,8 +44,6 @@ export function AIInputWithLoading({
   textareaClassName,
   sendButtonClassName,
   sendLabel,
-  idleStatus,
-  loadingStatus,
 }: AIInputWithLoadingProps) {
   const { textareaRef, adjustHeight } = useAutoResizeTextarea({ minHeight, maxHeight });
   const submittingRef = useRef(false);
@@ -131,18 +126,13 @@ export function AIInputWithLoading({
               style={{ animationDuration: "1.2s" }}
             />
           ) : (
-            <CornerRightDown
+            <ArrowUp
               aria-hidden
               className={cn("h-4 w-4 transition-opacity", value.trim() ? "opacity-100" : "opacity-30")}
             />
           )}
         </button>
       </div>
-
-      {/* Status helper — fixed small height so the layout never jumps. */}
-      <p className="mx-auto mt-1.5 h-4 text-center text-xs leading-4 text-black/70">
-        {isLoading ? loadingStatus : idleStatus}
-      </p>
     </div>
   );
 }

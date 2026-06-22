@@ -84,33 +84,56 @@ export default function SellerChatExperience({
     };
   }, []);
 
-  // Mobile web (iPhone Safari): drive --sc-app-height from the *real* visible
-  // viewport so the keyboard / Safari chrome never compress the UI and the body
-  // never scrolls. Keeps the latest message visible when the keyboard opens, but
-  // only if the user was already near the bottom (never yanks them off older
-  // messages they're reading). Scoped entirely to this page via the CSS above.
+  // Mobile web (iPhone Safari): drive --sc-app-height (visible height) and
+  // --sc-app-offset-top (visualViewport.offsetTop) from the *real* visible
+  // viewport. The page is position:fixed and pinned to that region (see the CSS),
+  // so when the keyboard opens it only shrinks the scrollable messages area —
+  // the whole shell is never scrolled out of view. We write the CSS vars only
+  // when they actually change (Safari fires `scroll` continuously during the
+  // keyboard animation) and coalesce into a single rAF to avoid layout thrash.
+  // The messages list is kept at the bottom only if the user was already near it.
   useEffect(() => {
     const root = document.documentElement;
     const vv = window.visualViewport;
+    let frame = 0;
+    let lastH = -1;
+    let lastTop = -1;
+
     function apply() {
-      const h = vv ? vv.height : window.innerHeight;
-      root.style.setProperty("--sc-app-height", `${Math.round(h)}px`);
+      frame = 0;
+      const h = Math.round(vv ? vv.height : window.innerHeight);
+      const top = Math.round(vv ? vv.offsetTop : 0);
+      if (h !== lastH) {
+        lastH = h;
+        root.style.setProperty("--sc-app-height", `${h}px`);
+      }
+      if (top !== lastTop) {
+        lastTop = top;
+        root.style.setProperty("--sc-app-offset-top", `${top}px`);
+      }
       const list = listRef.current;
       if (list && list.scrollHeight - list.scrollTop - list.clientHeight < 140) {
-        requestAnimationFrame(() => list.scrollTo({ top: list.scrollHeight }));
+        list.scrollTo({ top: list.scrollHeight });
       }
     }
+
+    function schedule() {
+      if (frame === 0) frame = requestAnimationFrame(apply);
+    }
+
     apply();
-    vv?.addEventListener("resize", apply);
-    vv?.addEventListener("scroll", apply);
-    window.addEventListener("resize", apply);
-    window.addEventListener("orientationchange", apply);
+    vv?.addEventListener("resize", schedule);
+    vv?.addEventListener("scroll", schedule);
+    window.addEventListener("resize", schedule);
+    window.addEventListener("orientationchange", schedule);
     return () => {
-      vv?.removeEventListener("resize", apply);
-      vv?.removeEventListener("scroll", apply);
-      window.removeEventListener("resize", apply);
-      window.removeEventListener("orientationchange", apply);
+      if (frame) cancelAnimationFrame(frame);
+      vv?.removeEventListener("resize", schedule);
+      vv?.removeEventListener("scroll", schedule);
+      window.removeEventListener("resize", schedule);
+      window.removeEventListener("orientationchange", schedule);
       root.style.removeProperty("--sc-app-height");
+      root.style.removeProperty("--sc-app-offset-top");
     };
   }, []);
 

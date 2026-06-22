@@ -9,7 +9,7 @@ import { selectCustomerRole, submitGateForm } from "../actions";
 import RoomPreviewBackButton from "@/components/room-preview/RoomPreviewBackButton";
 import { MobileActionButton } from "@/components/room-preview/MobileActionButton";
 import { trackClientSessionEvent } from "@/lib/room-preview/session-diagnostics-client";
-import { dismissMobileKeyboard } from "@/features/room-preview/shared/helpers";
+import { dismissMobileKeyboard } from "@/hooks/use-dismiss-keyboard-on-enter";
 import {
   COUNTRY_DIAL_OPTIONS,
   DEFAULT_COUNTRY,

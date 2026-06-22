@@ -11,7 +11,7 @@ import {
   RoomUploadStatus,
   type RoomUploadStatusState,
 } from "@/features/room-preview/mobile/RoomUploadStatus";
-import { dismissMobileKeyboard } from "@/features/room-preview/shared/helpers";
+import { dismissMobileKeyboard } from "@/hooks/use-dismiss-keyboard-on-enter";
 
 interface RoomStepProps {
   isSavingRoom: boolean;
@@ -35,14 +35,6 @@ export default function RoomStep({
   const { locale, t, dir } = useI18n();
   const inputRef = useRef<HTMLInputElement>(null);
   const [isPortraitPreview, setIsPortraitPreview] = useState(false);
-
-  // Step-entry safety: if a text field from the previous (gate) step is still
-  // focused after the soft navigation, blur it so the keyboard closes and the
-  // upload page opens at full viewport height. No autofocus; the hidden file
-  // input is never focused here.
-  useEffect(() => {
-    dismissMobileKeyboard();
-  }, []);
 
   const openPicker = () => {
     if (isSavingRoom) return;

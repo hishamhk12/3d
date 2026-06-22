@@ -11,6 +11,7 @@ import "@/components/seller/chat/seller-chat.css";
 import ChatHeader, { type ChatBotState } from "@/components/seller/chat/ChatHeader";
 import ChatMessages from "@/components/seller/chat/ChatMessages";
 import ChatComposer, { type ChatStyle } from "@/components/seller/chat/ChatComposer";
+import { useDismissKeyboardOnEnter } from "@/hooks/use-dismiss-keyboard-on-enter";
 import type { ChatMessage } from "@/components/seller/chat/types";
 import type { InventoryDTO } from "@/lib/seller/chat/inventory-types";
 
@@ -51,6 +52,11 @@ export default function SellerChatExperience({
   const [style, setStyle] = useState<ChatStyle>("balanced");
   const [reaction, setReaction] = useState<null | "success" | "error">(null);
   const listRef = useRef<HTMLDivElement>(null);
+
+  // Clean entry: if focus/keyboard survived the soft navigation into the chat
+  // (e.g. from the seller login form), clear it so the page opens at full height
+  // and the composer is focused only when the user taps it.
+  useDismissKeyboardOnEnter();
 
   // Persisted style (tone/verbosity only).
   useEffect(() => {

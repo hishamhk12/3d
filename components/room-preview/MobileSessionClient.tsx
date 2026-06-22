@@ -8,6 +8,7 @@ import { ROOM_PREVIEW_ROUTES } from "@/lib/room-preview/constants";
 import { abandonSession } from "@/lib/room-preview/session-client";
 import { trackClientSessionEvent } from "@/lib/room-preview/session-diagnostics-client";
 import { useMobileSession } from "@/features/room-preview/mobile/useMobileSession";
+import { useDismissKeyboardOnEnter } from "@/hooks/use-dismiss-keyboard-on-enter";
 import RoomStep    from "@/features/room-preview/mobile/RoomStep";
 import ProductStep from "@/features/room-preview/mobile/ProductStep";
 import ProductQrStep from "@/features/room-preview/mobile/ProductQrStep";
@@ -114,6 +115,9 @@ export default function MobileSessionClient({
   showProductListFallback = false,
 }: MobileSessionClientProps) {
   useMobileBrowserLifecycle(sessionId);
+  // Clean entry: clear any focus/keyboard that survived the soft navigation from
+  // the customer gate form so this page opens at full viewport height.
+  useDismissKeyboardOnEnter();
   const [useProductListFallback, setUseProductListFallback] = useState(false);
   // Local loading state while the abandon API call is in flight.
   const [isAbandoning, setIsAbandoning] = useState(false);

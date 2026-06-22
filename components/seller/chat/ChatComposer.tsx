@@ -7,6 +7,7 @@
 // route, fragment detect/replace, keyboard nav). Voice/mic is intentionally
 // removed. Selecting a suggestion inserts the CODE only and never submits.
 import { useEffect, useMemo, useRef, useState } from "react";
+import { AIInputWithLoading } from "@/components/ui/ai-input-with-loading";
 import CodeAutocomplete from "@/components/seller/chat/CodeAutocomplete";
 import {
   debounce,
@@ -40,10 +41,10 @@ export default function ChatComposer({
   onStyleChange: (s: ChatStyle) => void;
   loading: boolean;
   placeholder: string;
-  onSend: (text: string) => void;
+  onSend: (text: string) => void | Promise<void>;
 }) {
   const [input, setInput] = useState("");
-  const inputRef = useRef<HTMLInputElement>(null);
+  const inputRef = useRef<HTMLTextAreaElement>(null);
 
   const [codeSugs, setCodeSugs] = useState<ProductSuggestion[]>([]);
   const [codeOpen, setCodeOpen] = useState(false);
@@ -82,8 +83,7 @@ export default function ChatComposer({
     setCodeHighlight(-1);
   }
 
-  function onComposerChange(e: React.ChangeEvent<HTMLInputElement>) {
-    const value = e.target.value;
+  function onComposerChange(value: string, e: React.ChangeEvent<HTMLTextAreaElement>) {
     setInput(value);
     const caret = e.target.selectionStart ?? value.length;
     const frag = detectCodeFragment(value, caret);
@@ -118,7 +118,7 @@ export default function ChatComposer({
     });
   }
 
-  function onComposerKeyDown(e: React.KeyboardEvent<HTMLInputElement>) {
+  function onComposerKeyDown(e: React.KeyboardEvent<HTMLTextAreaElement>) {
     if (!codeOpen) return; // menu closed → Enter submits the form
     if (e.key === "ArrowDown" || e.key === "ArrowUp") {
       if (codeSugs.length === 0) return;
@@ -150,12 +150,12 @@ export default function ChatComposer({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [codeOpen]);
 
-  function submit() {
-    const q = input.trim();
+  function submit(value = input) {
+    const q = value.trim();
     if (!q || loading) return;
     closeCodeMenu();
     setInput("");
-    onSend(q);
+    return onSend(q);
   }
 
   return (
@@ -224,43 +224,26 @@ export default function ChatComposer({
           </svg>
         </button>
 
-        <div className="relative min-w-0 flex-1">
-          <input
-            ref={inputRef}
-            value={input}
-            onChange={onComposerChange}
-            onKeyDown={onComposerKeyDown}
-            placeholder={placeholder}
-            dir="rtl"
-            disabled={loading}
-            maxLength={MAX_QUESTION}
-            role="combobox"
-            aria-expanded={codeOpen}
-            aria-autocomplete="list"
-            aria-controls="seller-chat-code-suggestions"
-            className="h-9 w-full rounded-full border border-[#d1d1d6] bg-white pl-4 pr-11 text-sm text-[#0f1721] outline-none transition placeholder:text-[#aeaeb2] focus:border-[#aeaeb2]"
-          />
-          <button
-            type="submit"
-            disabled={loading || !input.trim()}
-            aria-label="إرسال"
-            title="إرسال"
-            className="sc-send absolute right-1 top-1/2 grid h-7 w-7 -translate-y-1/2 place-items-center rounded-full bg-[#34c759] text-white transition hover:brightness-95 disabled:opacity-40"
-          >
-            <svg
-              aria-hidden
-              viewBox="0 0 24 24"
-              className="h-[18px] w-[18px]"
-              fill="none"
-              stroke="currentColor"
-              strokeWidth={2.4}
-              strokeLinecap="round"
-              strokeLinejoin="round"
-            >
-              <path d="M12 19V6M6.5 11.5 12 6l5.5 5.5" />
-            </svg>
-          </button>
-        </div>
+        <AIInputWithLoading
+          value={input}
+          onValueChange={onComposerChange}
+          onSubmit={submit}
+          isLoading={loading}
+          minHeight={36}
+          maxHeight={144}
+          inputRef={inputRef}
+          sendLabel="إرسال"
+          textareaProps={{
+            placeholder,
+            dir: "rtl",
+            maxLength: MAX_QUESTION,
+            role: "combobox",
+            "aria-expanded": codeOpen,
+            "aria-autocomplete": "list",
+            "aria-controls": "seller-chat-code-suggestions",
+            onKeyDown: onComposerKeyDown,
+          }}
+        />
       </form>
     </>
   );

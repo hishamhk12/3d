@@ -2,13 +2,11 @@
 
 import { useState, useEffect, useRef } from "react";
 import { createPortal } from "react-dom";
-import Image from "next/image";
-import { Download, RotateCcw, Share2, ZoomIn, X } from "lucide-react";
-import { AnimatedButton } from "@/components/ui/AnimatedButton";
+import { ZoomIn, X } from "lucide-react";
 import { ImageComparison } from "@/components/image-comparison-slider";
+import DownloadHoverButton from "@/components/ui/download-hover-button";
 import RoomPreviewBackButton from "@/components/room-preview/RoomPreviewBackButton";
 import { useI18n } from "@/lib/i18n/provider";
-import { getProductTypeLabel } from "@/features/room-preview/shared/helpers";
 import { RenderLoadingAnimation } from "@/features/room-preview/shared/RenderLoadingAnimation";
 import { trackClientSessionEvent } from "@/lib/room-preview/session-diagnostics-client";
 import type { RoomPreviewSession } from "@/lib/room-preview/types";
@@ -32,12 +30,11 @@ export default function ResultStep({
   isSavingProduct,
   showResult,
   onCreateRender,
-  onModify,
   onBack,
   onProcessingBack,
   hasRenderError = false,
 }: ResultStepProps) {
-  const { dir, locale, t } = useI18n();
+  const { locale, t } = useI18n();
   const [isFullscreen, setIsFullscreen] = useState(false);
   const [btnState, setBtnState] = useState<"idle" | "loading">("idle");
   const [localShowResult, setLocalShowResult] = useState(showResult);
@@ -66,9 +63,6 @@ export default function ResultStep({
       document.documentElement.style.overflow = prevHtml;
     };
   }, [localShowResult, isFullscreen]);
-
-  const selectedProduct = session.selectedProduct;
-  const localizedProductType = getProductTypeLabel(selectedProduct?.productType ?? null, locale);
 
   // Real session images: before = uploaded room, after = generated render.
   // Keep the existing fallback so the slider never receives an undefined URL.
@@ -117,12 +111,6 @@ export default function ResultStep({
           className="fixed inset-0 z-[9998] flex flex-col animate-in fade-in duration-700"
           style={{ height: "100dvh" }}
         >
-          <RoomPreviewBackButton
-            ariaLabel={t.common.actions.back}
-            onClick={onModify}
-            size={40}
-            style={{ top: "max(16px, env(safe-area-inset-top))", left: 16, zIndex: 10001 }}
-          />
           {/* Image — fills all space above action bar */}
           <div
             className="group relative min-h-0 flex-1 overflow-hidden bg-black"
@@ -146,47 +134,6 @@ export default function ResultStep({
               className="h-full w-full"
               imageFit="contain"
             />
-
-            <div className="pointer-events-none absolute inset-x-0 bottom-0 h-1/2 bg-gradient-to-t from-black/85 via-black/35 to-transparent" />
-
-            {/* Floating product card */}
-            {selectedProduct ? (
-              <div
-                className="absolute inset-x-3 bottom-3 animate-in slide-in-from-bottom-3 fade-in duration-700"
-                style={{ animationDelay: "350ms", animationFillMode: "backwards" }}
-              >
-                <div className="rounded-[22px] border border-white/12 bg-black/60 p-3 shadow-[0_8px_32px_rgba(0,0,0,0.50)] backdrop-blur-2xl">
-                  <div className={`flex items-center gap-3 ${dir === "rtl" ? "flex-row-reverse" : ""}`}>
-                    <div className="relative h-14 w-14 shrink-0 overflow-hidden rounded-[14px] border-2 border-white/20 shadow-md">
-                      <Image
-                        src={selectedProduct.imageUrl ?? ""}
-                        alt={selectedProduct.name ?? ""}
-                        fill
-                        unoptimized
-                        className="object-contain bg-black/20 p-1"
-                      />
-                    </div>
-                    <div className={`min-w-0 flex-1 ${dir === "rtl" ? "text-right" : "text-left"}`}>
-                      <p className="truncate text-sm font-semibold leading-tight text-white">
-                        {selectedProduct.name}
-                      </p>
-                      {localizedProductType ? (
-                        <p className="mt-0.5 text-xs text-white/55">{localizedProductType}</p>
-                      ) : null}
-                      {selectedProduct.barcode ? (
-                        <p className="mt-1 font-mono text-[10px] text-white/35">{selectedProduct.barcode}</p>
-                      ) : null}
-                    </div>
-                    <div className="shrink-0 flex items-center gap-1.5 rounded-full border border-[#F1B434]/35 bg-[#F1B434]/15 px-2.5 py-1.5">
-                      <span className="block h-1.5 w-1.5 animate-pulse rounded-full bg-[#F1B434]" />
-                      <span className="whitespace-nowrap text-[11px] font-semibold text-[#F1B434]">
-                        {locale === "ar" ? "جاهز" : "Ready"}
-                      </span>
-                    </div>
-                  </div>
-                </div>
-              </div>
-            ) : null}
           </div>
 
           {/* Completed state banner */}
@@ -200,52 +147,17 @@ export default function ResultStep({
             </div>
           ) : null}
 
-          {/* Action bar — pinned at bottom */}
+          {/* Action bar — pinned at bottom (Download only) */}
           <div
-            className={`grid gap-3 border-t border-white/10 bg-black/85 px-4 py-4 backdrop-blur-xl animate-in slide-in-from-bottom-2 fade-in duration-700 ${session.status === "completed" ? "grid-cols-2" : "grid-cols-3"}`}
+            className="flex justify-center border-t border-white/10 bg-black/85 px-4 py-4 backdrop-blur-xl animate-in slide-in-from-bottom-2 fade-in duration-700"
             style={{ animationDelay: "500ms", animationFillMode: "backwards" }}
           >
-            <a
+            <DownloadHoverButton
               href={session.renderResult?.imageUrl ?? "/rs/rs.png"}
-              download="bayt-alebaa-render.jpg"
-              className="flex flex-col items-center gap-2 rounded-[20px] border border-white/12 bg-white/08 py-4 transition active:scale-95 hover:bg-white/14"
-            >
-              <Download className="size-5 text-[#00AFD7]" />
-              <span className="text-[11px] font-semibold text-white/70">
-                {locale === "ar" ? "تحميل" : "Download"}
-              </span>
-            </a>
-
-            <AnimatedButton
-              type="button"
-              className="flex flex-col items-center gap-2 rounded-[20px] border border-white/12 bg-white/08 py-4 transition hover:bg-white/14"
-              onClick={() => {
-                if (typeof navigator !== "undefined" && navigator.share) {
-                  void navigator.share({
-                    title: locale === "ar" ? "تصميم غرفتي | بيت الإباء" : "My Room Design | Bayt Alebaa",
-                    url: window.location.href,
-                  });
-                }
-              }}
-            >
-              <Share2 className="size-5 text-[#00AFD7]" />
-              <span className="text-[11px] font-semibold text-white/70">
-                {locale === "ar" ? "مشاركة" : "Share"}
-              </span>
-            </AnimatedButton>
-
-            {session.status !== "completed" ? (
-              <AnimatedButton
-                type="button"
-                className="flex flex-col items-center gap-2 rounded-[20px] border border-white/12 bg-white/08 py-4 transition hover:bg-white/14"
-                onClick={onModify}
-              >
-                <RotateCcw className="size-5 text-[#00AFD7]" />
-                <span className="text-[11px] font-semibold text-white/70">
-                  {locale === "ar" ? "تعديل" : "Modify"}
-                </span>
-              </AnimatedButton>
-            ) : null}
+              downloadName="bayt-alebaa-render.jpg"
+              label={locale === "ar" ? "تحميل" : "Download"}
+              ariaLabel={locale === "ar" ? "تحميل" : "Download"}
+            />
           </div>
         </div>,
         document.body,

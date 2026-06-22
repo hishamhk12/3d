@@ -105,6 +105,8 @@ describe("SellerChatExperience — ask flow", () => {
     // user bubble + loading indicator
     expect(await screen.findByText("كم باقي من CRPT050.006؟")).toBeTruthy();
     expect(screen.getByText("جاري البحث…")).toBeTruthy();
+    expect(input.disabled).toBe(true);
+    expect(screen.getByRole("button", { name: "إرسال" }).querySelector(".animate-spin")).toBeTruthy();
 
     // request body carries only {question, style}
     const [url, init] = fetchMock.mock.calls[0];
@@ -121,6 +123,25 @@ describe("SellerChatExperience — ask flow", () => {
     expect(screen.getByText("متاح للبيع")).toBeTruthy();
     expect(screen.getByText("الرياض")).toBeTruthy();
     expect(screen.getByText("متوفر")).toBeTruthy(); // status badge
+    await waitFor(() => expect(input.disabled).toBe(false));
+  });
+
+  it("submits with Enter, keeps Shift+Enter for a new line, and caps auto-resize", async () => {
+    const fetchMock = vi.fn().mockResolvedValue(chatResponse());
+    vi.stubGlobal("fetch", fetchMock);
+
+    render(<SellerChatExperience {...SELLER} />);
+    const input = screen.getByRole("combobox") as HTMLTextAreaElement;
+    Object.defineProperty(input, "scrollHeight", { configurable: true, value: 220 });
+    fireEvent.change(input, { target: { value: "سطر أول\nسطر ثان" } });
+
+    expect(input.style.height).toBe("144px");
+    expect(input.style.maxHeight).toBe("144px");
+    expect(fireEvent.keyDown(input, { key: "Enter", shiftKey: true })).toBe(true);
+    expect(fetchMock).not.toHaveBeenCalled();
+
+    expect(fireEvent.keyDown(input, { key: "Enter" })).toBe(false);
+    await waitFor(() => expect(fetchMock).toHaveBeenCalledTimes(1));
   });
 
   it("redirects to the seller login when the session is expired (401)", async () => {

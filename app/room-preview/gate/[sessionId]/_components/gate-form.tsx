@@ -317,9 +317,9 @@ export function GateForm({
           {/* عميل — primary/recommended action (project brand #192126). UNCHANGED logic. */}
           <MobileActionButton
             variant="light"
-            onClick={() => {
+            onClick={async () => {
+              await selectCustomerRole(sessionId);
               setStep("customer_type");
-              void selectCustomerRole(sessionId);
             }}
           >
             {t.customer}

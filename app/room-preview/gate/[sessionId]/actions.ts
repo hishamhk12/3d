@@ -27,7 +27,7 @@ import {
   isRoomPreviewSessionExpiredError,
   isRoomPreviewSessionNotFoundError,
   RoomPreviewSessionTransitionError,
-  selectRoomPreviewSessionRole,
+  selectCustomerRoomPreviewRole,
 } from "@/lib/room-preview/session-service";
 
 export async function selectCustomerRole(sessionId: string) {
@@ -39,7 +39,7 @@ export async function selectCustomerRole(sessionId: string) {
       : verifySessionToken(token, sessionId);
 
   if (!sessionId || !tokenOk) return;
-  await selectRoomPreviewSessionRole(sessionId, "customer");
+  await selectCustomerRoomPreviewRole(sessionId);
 }
 
 function getClientIp(reqHeaders: Awaited<ReturnType<typeof headers>>): string | null {

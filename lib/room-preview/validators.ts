@@ -155,10 +155,8 @@ export function isRoomPreviewSession(value: unknown): value is RoomPreviewSessio
     typeof value.createdAt !== "string" ||
     typeof value.updatedAt !== "string" ||
     typeof value.mobileConnected !== "boolean" ||
-    (value.selectedRole !== undefined &&
-      value.selectedRole !== null &&
-      value.selectedRole !== "customer" &&
-      value.selectedRole !== "employee")
+    (value.customerRoleSelected !== undefined &&
+      typeof value.customerRoleSelected !== "boolean")
   ) {
     return false;
   }

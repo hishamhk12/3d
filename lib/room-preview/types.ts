@@ -86,7 +86,7 @@ export type RoomPreviewSession = {
   updatedAt: string;
   expiresAt: string | null;
   mobileConnected: boolean;
-  selectedRole?: "customer" | "employee" | null;
+  customerRoleSelected?: boolean;
   selectedRoom: SelectedRoom | null;
   selectedProduct: SelectedProduct | null;
   renderResult: RoomPreviewRenderResult | null;

@@ -15,9 +15,10 @@ import {
   expireSessionById,
   findActiveLiveSessions,
   getSessionById,
+  hasCustomerRoleSelection,
+  recordCustomerRoleSelection,
   saveSessionState,
   tryClaimMobileConnection,
-  updateSessionSelectedRole,
 } from "@/lib/room-preview/session-repository";
 import { findActiveScreenByToken } from "@/lib/room-preview/screen-repository";
 import { trackSessionEvent } from "@/lib/room-preview/session-diagnostics";
@@ -179,20 +180,29 @@ export async function createRoomPreviewSession(screenToken?: string) {
   return savedSession;
 }
 
-export async function getRoomPreviewSession(sessionId: string) {
+export async function getRoomPreviewSession(
+  sessionId: string,
+): Promise<RoomPreviewSession | null> {
   const session = await getSessionById(sessionId);
   if (session && isTimeExpired(session)) {
     return { ...session, status: "expired" as const };
   }
-  return session;
+  if (!session) return null;
+
+  return {
+    ...session,
+    customerRoleSelected: await hasCustomerRoleSelection(sessionId),
+  };
 }
 
-export async function selectRoomPreviewSessionRole(
-  sessionId: string,
-  role: "customer" | "employee",
-) {
-  await getRequiredRoomPreviewSession(sessionId);
-  const updatedSession = await updateSessionSelectedRole(sessionId, role);
+export async function selectCustomerRoomPreviewRole(sessionId: string) {
+  const session = await getRequiredRoomPreviewSession(sessionId);
+  await recordCustomerRoleSelection(sessionId);
+  const updatedSession = {
+    ...session,
+    customerRoleSelected: true,
+    updatedAt: new Date().toISOString(),
+  };
 
   publishRoomPreviewSessionEvent(updatedSession.id, {
     type: "session_updated",

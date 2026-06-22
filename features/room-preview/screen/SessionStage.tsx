@@ -374,7 +374,7 @@ export default function SessionStage({ session, qrDataUrl, statusLabel, devEntry
               />
             </EventTilt3DCard>
             <ConnectionCard
-              connected={session.selectedRole === "customer"}
+              connected={session.customerRoleSelected === true}
             />
             {devEntryHref ? (
               <a

@@ -137,6 +137,8 @@ function mergeIncomingSession(
 
   return {
     ...incoming,
+    customerRoleSelected:
+      incoming.customerRoleSelected ?? current.customerRoleSelected,
     selectedRoom:
       incoming.selectedRoom ??
       (STATUS_RANK[incoming.status] >= STATUS_RANK.room_selected ? current.selectedRoom : null),

@@ -26,7 +26,6 @@ function buildExpiresAt() {
 type SessionUpdateData = {
   status?: RoomPreviewSessionStatus;
   mobileConnected?: boolean;
-  selectedRole?: "customer" | "employee" | null;
   selectedRoom?: SelectedRoom | null;
   selectedProduct?: SelectedProduct | null;
   renderResult?: RoomPreviewRenderResult | null;
@@ -59,7 +58,6 @@ function mapSession(session: {
   id: string;
   status: string;
   mobileConnected: boolean;
-  selectedRole: string | null;
   selectedRoom: unknown;
   selectedProduct: unknown;
   renderResult: unknown;
@@ -71,10 +69,6 @@ function mapSession(session: {
     id: session.id,
     status: toStatus(session.status),
     mobileConnected: session.mobileConnected,
-    selectedRole:
-      session.selectedRole === "customer" || session.selectedRole === "employee"
-        ? session.selectedRole
-        : null,
     selectedRoom: toSelectedRoom(session.selectedRoom),
     selectedProduct: toSelectedProduct(session.selectedProduct),
     renderResult: toRenderResult(session.renderResult),
@@ -102,7 +96,6 @@ export async function createSession(
     data: {
       status: initialState?.status ?? "created",
       mobileConnected: initialState?.mobileConnected ?? false,
-      selectedRole: initialState?.selectedRole ?? null,
       selectedRoom: toJsonValue(initialState?.selectedRoom) ?? Prisma.JsonNull,
       selectedProduct: toJsonValue(initialState?.selectedProduct) ?? Prisma.JsonNull,
       renderResult: toJsonValue(initialState?.renderResult) ?? Prisma.JsonNull,
@@ -131,29 +124,46 @@ export async function getSessionById(id: string) {
   return session ? mapSession(session) : null;
 }
 
+const CUSTOMER_ROLE_SELECTED_EVENT = "gate_customer_role_selected";
+
+export async function recordCustomerRoleSelection(sessionId: string) {
+  const existing = await prisma.sessionEvent.findFirst({
+    where: { sessionId, eventType: CUSTOMER_ROLE_SELECTED_EVENT },
+    select: { id: true },
+  });
+
+  if (!existing) {
+    await prisma.sessionEvent.create({
+      data: {
+        sessionId,
+        source: "mobile",
+        eventType: CUSTOMER_ROLE_SELECTED_EVENT,
+        level: "info",
+        metadata: { role: "customer" },
+      },
+    });
+  }
+}
+
+export async function hasCustomerRoleSelection(sessionId: string) {
+  const event = await prisma.sessionEvent.findFirst({
+    where: { sessionId, eventType: CUSTOMER_ROLE_SELECTED_EVENT },
+    select: { id: true },
+  });
+
+  return event !== null;
+}
+
 export async function updateSession(id: string, data: SessionUpdateData) {
   const session = await prisma.roomPreviewSession.update({
     where: { id },
     data: {
       status: data.status,
       mobileConnected: data.mobileConnected,
-      selectedRole: data.selectedRole,
       selectedRoom: toJsonValue(data.selectedRoom),
       selectedProduct: toJsonValue(data.selectedProduct),
       renderResult: toJsonValue(data.renderResult),
     },
-  });
-
-  return mapSession(session);
-}
-
-export async function updateSessionSelectedRole(
-  sessionId: string,
-  selectedRole: "customer" | "employee",
-) {
-  const session = await prisma.roomPreviewSession.update({
-    where: { id: sessionId },
-    data: { selectedRole, updatedAt: new Date() },
   });
 
   return mapSession(session);

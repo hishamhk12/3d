@@ -5,6 +5,7 @@ import { createPortal } from "react-dom";
 import { ZoomIn, X } from "lucide-react";
 import { ImageComparison } from "@/components/image-comparison-slider";
 import DownloadHoverButton from "@/components/ui/download-hover-button";
+import { ParticleButton } from "@/components/ui/particle-button";
 import RoomPreviewBackButton from "@/components/room-preview/RoomPreviewBackButton";
 import { useI18n } from "@/lib/i18n/provider";
 import { RenderLoadingAnimation } from "@/features/room-preview/shared/RenderLoadingAnimation";
@@ -189,7 +190,7 @@ export default function ResultStep({
       {/* CTA button (idle only) */}
       {showIdleButton && (
         <div className="relative flex items-center justify-center h-20 w-full mt-4">
-          <button
+          <ParticleButton
             type="button"
             className={`btn-cta relative flex items-center justify-center overflow-hidden transition-[width,transform,opacity] duration-500 ease-out disabled:opacity-50 ${
               btnState === "loading" ? "rounded-full" : ""
@@ -199,6 +200,16 @@ export default function ResultStep({
               width: btnState === "loading" ? 68 : 220,
               padding: btnState === "loading" ? 0 : undefined,
             }}
+            canTrigger={() =>
+              !renderClickLockedRef.current &&
+              btnState === "idle" &&
+              !isSavingProduct &&
+              Boolean(session.selectedRoom?.imageUrl) &&
+              Boolean(session.selectedProduct?.id && session.selectedProduct?.imageUrl) &&
+              session.status !== "ready_to_render" &&
+              session.status !== "rendering"
+            }
+            particleClassName="bg-[var(--text-on-gold)]"
             onClick={() => {
               console.log("[render] clicked", {
                 locked: renderClickLockedRef.current,
@@ -224,7 +235,7 @@ export default function ResultStep({
               if (renderClickLockedRef.current) return;
               renderClickLockedRef.current = true;
               setBtnState("loading");
-              void onCreateRender().finally(() => {
+              return onCreateRender().finally(() => {
                 renderClickLockedRef.current = false;
               });
             }}
@@ -246,7 +257,7 @@ export default function ResultStep({
                 ))}
               </div>
             )}
-          </button>
+          </ParticleButton>
         </div>
       )}
 

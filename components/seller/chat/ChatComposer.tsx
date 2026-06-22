@@ -21,12 +21,6 @@ import {
 
 export type ChatStyle = "creative" | "balanced" | "precise";
 
-const STYLES: { value: ChatStyle; label: string }[] = [
-  { value: "creative", label: "إبداعي" },
-  { value: "balanced", label: "متوازن" },
-  { value: "precise", label: "دقيق" },
-];
-
 const CODE_ENDPOINT = "/api/seller/inventory/code-suggestions";
 const MAX_QUESTION = 500;
 
@@ -171,41 +165,21 @@ export default function ChatComposer({
         onChoose={chooseCodeSuggestion}
       />
 
-      {/* Mode selector (tone/verbosity only — never inventory facts). */}
-      <div dir="rtl" className="flex items-center justify-center gap-1.5 px-5 pb-1 pt-1">
-        {STYLES.map((s) => (
-          <button
-            key={s.value}
-            type="button"
-            onClick={() => onStyleChange(s.value)}
-            aria-pressed={style === s.value}
-            className={`sc-pill rounded-full border px-3 py-1 text-xs transition ${
-              style === s.value
-                ? "border-[#003a7d] bg-[#003a7d] text-white"
-                : "border-slate-300 bg-white text-[#5b6770] hover:bg-slate-50"
-            }`}
-          >
-            {s.label}
-          </button>
-        ))}
-      </div>
-
-      <div className="mx-5 h-px shrink-0 bg-[#eeeeeb]" />
-
       <form
         dir="ltr"
         onSubmit={(e) => {
           e.preventDefault();
           submit();
         }}
-        className="flex shrink-0 items-start gap-2 px-3 pb-5 pt-2"
+        className="flex shrink-0 items-start gap-2 border-t border-slate-100 px-3 pt-3"
+        style={{ paddingBottom: "calc(1rem + env(safe-area-inset-bottom))" }}
       >
-        {/* Camera — presentational (no image-upload in inventory chat).
-            Shares the AI input's soft translucent treatment so it reads as one system. */}
+        {/* Microphone — presentational placeholder (no audio capture wired yet).
+            Same size / position / translucent style as the previous camera control. */}
         <button
           type="button"
-          aria-label="الكاميرا"
-          title="الكاميرا"
+          aria-label="الميكروفون"
+          title="الميكروفون"
           disabled={loading}
           tabIndex={-1}
           className="mt-1.5 grid h-11 w-11 shrink-0 place-items-center rounded-full bg-black/5 text-black/70 ring-1 ring-black/10 transition hover:bg-black/[0.08] disabled:opacity-50"
@@ -220,8 +194,10 @@ export default function ChatComposer({
             strokeLinecap="round"
             strokeLinejoin="round"
           >
-            <path d="M4 8.5A1.5 1.5 0 0 1 5.5 7H8l1.2-1.8A1 1 0 0 1 10 4.8h4a1 1 0 0 1 .83.45L16 7h2.5A1.5 1.5 0 0 1 20 8.5V17a1.5 1.5 0 0 1-1.5 1.5h-13A1.5 1.5 0 0 1 4 17V8.5Z" />
-            <circle cx="12" cy="12.5" r="3.2" />
+            <path d="M12 3a2.5 2.5 0 0 0-2.5 2.5v5a2.5 2.5 0 0 0 5 0v-5A2.5 2.5 0 0 0 12 3Z" />
+            <path d="M6.5 10.5a5.5 5.5 0 0 0 11 0" />
+            <line x1="12" y1="16" x2="12" y2="21" />
+            <line x1="9" y1="21" x2="15" y2="21" />
           </svg>
         </button>
 

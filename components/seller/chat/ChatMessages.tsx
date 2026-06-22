@@ -31,9 +31,6 @@ const ChatMessages = forwardRef<HTMLDivElement, Props>(function ChatMessages(
       ref={ref}
       className="flex min-h-0 flex-1 flex-col gap-3 overflow-y-auto overflow-x-hidden overscroll-contain px-5 pb-6 pt-3"
     >
-      {/* Drag handle (Figma) */}
-      <div className="mx-auto mt-1 h-[5px] w-[37px] shrink-0 rounded-full bg-slate-300" />
-
       {messages.length === 0 && (
         <div className="flex flex-col items-center gap-3 px-2 pt-4 text-center">
           <div className="sc-robot-wrap">

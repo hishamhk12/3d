@@ -84,6 +84,9 @@
     flex: 1 1 auto;
     height: auto;
     min-height: 0;
+    /* Edge-to-edge on mobile: the composer owns the bottom safe-area inset, so
+       the shell adds no extra bottom padding (removes the blank gap below it). */
+    padding-bottom: 0;
   }
 
   /* Prevent iOS Safari focus auto-zoom (needs >=16px) without resizing the box. */

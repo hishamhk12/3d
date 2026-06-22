@@ -68,24 +68,22 @@ describe("SellerChatExperience — welcome + shell", () => {
     expect(container.querySelector(".sc-shell")).toBeTruthy();
     expect(container.querySelector("img")).toBeTruthy(); // hero robot
     expect(screen.getByText("مرحباً بك في مساعد المخزون")).toBeTruthy();
-    // header shows the safe seller/showroom identity at rest
-    expect(screen.getByText(/بائع تجريبي — معرض RIYADH/)).toBeTruthy();
     // exactly 3 welcome suggestion pills
     const pills = container.querySelectorAll(".sc-pill.max-w-\\[88\\%\\]");
     expect(pills.length).toBe(3);
   });
 
-  it("renders the Creative/Balanced/Precise mode selector (balanced default)", () => {
+  it("no longer renders the mode chips (Creative/Balanced/Precise)", () => {
     render(<SellerChatExperience {...SELLER} />);
-    const balanced = screen.getByRole("button", { name: "متوازن" });
-    expect(balanced.getAttribute("aria-pressed")).toBe("true");
-    expect(screen.getByRole("button", { name: "إبداعي" })).toBeTruthy();
-    expect(screen.getByRole("button", { name: "دقيق" })).toBeTruthy();
+    expect(screen.queryByRole("button", { name: "متوازن" })).toBeNull();
+    expect(screen.queryByRole("button", { name: "إبداعي" })).toBeNull();
+    expect(screen.queryByRole("button", { name: "دقيق" })).toBeNull();
   });
 
-  it("has a logout control", () => {
+  it("shows a single top back button and no logout control", () => {
     render(<SellerChatExperience {...SELLER} />);
-    expect(screen.getByRole("button", { name: "تسجيل الخروج" })).toBeTruthy();
+    expect(screen.getByRole("button", { name: "رجوع" })).toBeTruthy();
+    expect(screen.queryByRole("button", { name: "تسجيل الخروج" })).toBeNull();
   });
 });
 

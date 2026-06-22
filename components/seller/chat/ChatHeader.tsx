@@ -1,54 +1,43 @@
 "use client";
 
-// Seller-chat header — the Figma identity row: lavender avatar (neutral person
-// glyph, NOT the blue mascot), greeting + live status subtitle, and a logout
-// action on the end (replaces the chatbot's in-app Back button). Ported visual.
-import SellerLogoutButton from "@/components/seller/SellerLogoutButton";
+// Seller-chat header — a minimal native-style top bar with a single back button
+// (replaces the previous welcome/avatar strip and logout action).
+import { useRouter } from "next/navigation";
 
 export type ChatBotState = "idle" | "thinking" | "answering" | "success" | "error";
 
-const BUSY_STATUS_AR: Partial<Record<ChatBotState, string>> = {
-  thinking: "يفكّر…",
-  answering: "يُجيب…",
-  error: "تنبيه",
-};
-
-export default function ChatHeader({
-  state,
-  sellerName,
-  showroomCode,
-}: {
+export default function ChatHeader(_props: {
   state: ChatBotState;
   sellerName: string;
   showroomCode: string;
 }) {
-  const ring =
-    state === "error"
-      ? "ring-[#fa4616]/40"
-      : state === "idle" || state === "success"
-        ? "ring-slate-200"
-        : "ring-[#00afd7]/50";
-
-  // At rest: safe seller/showroom identity. While busy: the live status.
-  const subtitle = BUSY_STATUS_AR[state] ?? `${sellerName} — معرض ${showroomCode}`;
+  const router = useRouter();
 
   return (
-    <header className="flex shrink-0 items-center justify-between gap-3 border-b border-slate-100 px-5 py-3">
-      <div className="flex items-center gap-3">
-        <div
-          className={`grid h-12 w-12 shrink-0 place-items-center overflow-hidden rounded-full bg-[#dbd1fc] ring-2 ${ring}`}
+    <header
+      className="flex shrink-0 items-center justify-end border-b border-slate-100 px-3 py-2.5"
+      style={{ paddingTop: "max(0.625rem, env(safe-area-inset-top))" }}
+    >
+      <button
+        type="button"
+        onClick={() => router.back()}
+        aria-label="رجوع"
+        title="رجوع"
+        className="grid h-10 w-10 place-items-center rounded-full text-[#003a7d] transition hover:bg-slate-100 active:scale-95"
+      >
+        <svg
+          viewBox="0 0 24 24"
+          className="h-6 w-6"
+          fill="none"
+          stroke="currentColor"
+          strokeWidth={2}
+          strokeLinecap="round"
+          strokeLinejoin="round"
+          aria-hidden
         >
-          <svg viewBox="0 0 24 24" className="h-7 w-7 text-[#6d5bae]" fill="currentColor" aria-hidden>
-            <circle cx="12" cy="8" r="4" />
-            <path d="M4 21c0-4.4 3.6-8 8-8s8 3.6 8 8" />
-          </svg>
-        </div>
-        <div className="min-w-0 leading-tight">
-          <p className="text-base font-semibold text-[#003a7d]">مرحباً 👋</p>
-          <p className="truncate text-xs text-[#5b6770]">{subtitle}</p>
-        </div>
-      </div>
-      <SellerLogoutButton />
+          <path d="M15 18 9 12l6-6" />
+        </svg>
+      </button>
     </header>
   );
 }

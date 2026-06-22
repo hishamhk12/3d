@@ -228,8 +228,8 @@ export default function SellerChatExperience({
   const placeholder = "اكتب سؤالك… مثال: اعطني الأصناف المنخفضة بالرياض";
 
   return (
-    <div dir="rtl" className="seller-chat-scope sc-page mx-auto w-full max-w-[420px] px-2 py-3 sm:py-6">
-      <div className="sc-shell sc-shadow-card relative mx-auto flex w-full min-h-0 max-w-[393px] flex-col overflow-hidden rounded-[40px] border border-slate-200 bg-white sm:!h-[82vh]">
+    <div dir="rtl" className="seller-chat-scope sc-page mx-auto w-full px-0 py-0 sm:max-w-[420px] sm:px-2 sm:py-6">
+      <div className="sc-shell sc-shadow-card relative mx-auto flex w-full min-h-0 max-w-full flex-col overflow-hidden rounded-none border-0 border-slate-200 bg-white sm:max-w-[393px] sm:rounded-[40px] sm:border sm:!h-[82vh]">
         <ChatHeader state={botState} sellerName={sellerName} showroomCode={showroomCode} />
         <ChatMessages
           ref={listRef}

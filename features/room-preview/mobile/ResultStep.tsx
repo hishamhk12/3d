@@ -5,7 +5,7 @@ import { createPortal } from "react-dom";
 import Image from "next/image";
 import { Download, RotateCcw, Share2, ZoomIn, X } from "lucide-react";
 import { AnimatedButton } from "@/components/ui/AnimatedButton";
-import { BeforeAfterSlider } from "@/components/room-preview/BeforeAfterSlider";
+import { ImageComparison } from "@/components/image-comparison-slider";
 import RoomPreviewBackButton from "@/components/room-preview/RoomPreviewBackButton";
 import { useI18n } from "@/lib/i18n/provider";
 import { getProductTypeLabel } from "@/features/room-preview/shared/helpers";
@@ -70,6 +70,11 @@ export default function ResultStep({
   const selectedProduct = session.selectedProduct;
   const localizedProductType = getProductTypeLabel(selectedProduct?.productType ?? null, locale);
 
+  // Real session images: before = uploaded room, after = generated render.
+  // Keep the existing fallback so the slider never receives an undefined URL.
+  const afterImageUrl = session.renderResult?.imageUrl ?? "/rs/rs.png";
+  const beforeImageUrl = session.selectedRoom?.imageUrl ?? afterImageUrl;
+
   const showLoadingScreen = (isSavingProduct || showResult) && !localShowResult;
   // Hide the idle CTA when the parent is displaying its own two-button failure recovery UI,
   // so the customer never sees duplicate "retry render" triggers at the same time.
@@ -91,17 +96,15 @@ export default function ResultStep({
         className="fullscreen-scale-in relative h-[90svh] w-[96vw] max-h-[90svh] max-w-[96vw] overflow-hidden cursor-default"
         onClick={(e) => e.stopPropagation()}
       >
-        <BeforeAfterSlider
-          beforeImageUrl={session.selectedRoom?.imageUrl}
-          afterImageUrl={session.renderResult?.imageUrl ?? "/rs/rs.png"}
+        <ImageComparison
+          beforeImage={beforeImageUrl}
+          afterImage={afterImageUrl}
           beforeLabel={locale === "ar" ? "قبل" : "Before"}
           afterLabel={locale === "ar" ? "بعد" : "After"}
-          alt="Full screen preview"
+          altBefore={locale === "ar" ? "قبل التصميم" : "Before"}
+          altAfter={locale === "ar" ? "بعد التصميم" : "After"}
           className="h-full w-full"
-          sizes="96vw"
-          fit="contain"
-          priority
-          unoptimized
+          imageFit="contain"
         />
       </div>
     </div>
@@ -133,17 +136,15 @@ export default function ResultStep({
               <ZoomIn size={20} />
             </button>
 
-            <BeforeAfterSlider
-              beforeImageUrl={session.selectedRoom?.imageUrl}
-              afterImageUrl={session.renderResult?.imageUrl ?? "/rs/rs.png"}
+            <ImageComparison
+              beforeImage={beforeImageUrl}
+              afterImage={afterImageUrl}
               beforeLabel={locale === "ar" ? "قبل" : "Before"}
               afterLabel={locale === "ar" ? "بعد" : "After"}
-              alt={t.roomPreview.shared.renderedPreview}
+              altBefore={locale === "ar" ? "قبل التصميم" : "Before"}
+              altAfter={locale === "ar" ? "بعد التصميم" : "After"}
               className="h-full w-full"
-              sizes="100vw"
-              fit="contain"
-              priority
-              unoptimized
+              imageFit="contain"
             />
 
             <div className="pointer-events-none absolute inset-x-0 bottom-0 h-1/2 bg-gradient-to-t from-black/85 via-black/35 to-transparent" />

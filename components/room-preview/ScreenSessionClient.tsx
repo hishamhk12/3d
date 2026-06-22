@@ -4,7 +4,7 @@ import { useRef } from "react";
 import AnimatedScanLoader from "@/components/ui/animated-scan-loader";
 import BrandedGlassStage from "@/components/room-preview/BrandedGlassStage";
 import SessionStatePanel from "@/components/room-preview/SessionStatePanel";
-import { BeforeAfterSlider } from "@/components/room-preview/BeforeAfterSlider";
+import { ImageComparison } from "@/components/image-comparison-slider";
 import { RenderLoadingAnimation } from "@/features/room-preview/shared/RenderLoadingAnimation";
 import { SCREEN_ERROR_RESET_MS } from "@/lib/room-preview/constants";
 import { useScreenSession } from "@/features/room-preview/screen/useScreenSession";
@@ -223,17 +223,15 @@ export default function ScreenSessionClient({
         <div key={session.renderResult!.imageUrl!} className="fixed inset-0 z-50 overflow-hidden bg-black animate-in fade-in duration-700">
           <div className="absolute inset-0 z-0 bg-gradient-to-br from-[#1d1d1f] to-black" />
           <div className="absolute inset-0 z-10 flex items-center justify-center">
-            <BeforeAfterSlider
-              beforeImageUrl={session.selectedRoom?.imageUrl}
-              afterImageUrl={session.renderResult!.imageUrl!}
+            <ImageComparison
+              beforeImage={session.selectedRoom?.imageUrl ?? session.renderResult!.imageUrl!}
+              afterImage={session.renderResult!.imageUrl!}
               beforeLabel={locale === "ar" ? "قبل" : "Before"}
               afterLabel={locale === "ar" ? "بعد" : "After"}
-              alt={t.roomPreview.shared.renderedPreview}
+              altBefore={locale === "ar" ? "قبل التصميم" : "Before"}
+              altAfter={locale === "ar" ? "بعد التصميم" : "After"}
               className="h-full w-full"
-              sizes="100vw"
-              fit="contain"
-              priority
-              unoptimized
+              imageFit="contain"
             />
           </div>
         </div>

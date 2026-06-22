@@ -27,7 +27,20 @@ import {
   isRoomPreviewSessionExpiredError,
   isRoomPreviewSessionNotFoundError,
   RoomPreviewSessionTransitionError,
+  selectRoomPreviewSessionRole,
 } from "@/lib/room-preview/session-service";
+
+export async function selectCustomerRole(sessionId: string) {
+  const cookieStore = await cookies();
+  const token = cookieStore.get(MOBILE_TOKEN_COOKIE)?.value ?? "";
+  const tokenOk =
+    process.env.NODE_ENV === "development"
+      ? !token || verifySessionToken(token, sessionId)
+      : verifySessionToken(token, sessionId);
+
+  if (!sessionId || !tokenOk) return;
+  await selectRoomPreviewSessionRole(sessionId, "customer");
+}
 
 function getClientIp(reqHeaders: Awaited<ReturnType<typeof headers>>): string | null {
   return (

@@ -423,6 +423,14 @@ describe("isRoomPreviewSessionResponse", () => {
     expect(isRoomPreviewSessionResponse(validSession)).toBe(true);
   });
 
+  it("accepts the persisted customer role selection", () => {
+    expect(isRoomPreviewSessionResponse({ ...validSession, selectedRole: "customer" })).toBe(true);
+  });
+
+  it("rejects seller as a room-preview session role selection", () => {
+    expect(isRoomPreviewSessionResponse({ ...validSession, selectedRole: "seller" })).toBe(false);
+  });
+
   it("rejects non-session objects", () => {
     expect(isRoomPreviewSessionResponse({ success: true })).toBe(false);
   });

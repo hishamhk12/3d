@@ -5,7 +5,7 @@ import Image from "next/image";
 import { useRouter } from "next/navigation";
 import { useFormStatus } from "react-dom";
 import { ChevronLeft, ChevronRight } from "lucide-react";
-import { submitGateForm } from "../actions";
+import { selectCustomerRole, submitGateForm } from "../actions";
 import RoomPreviewBackButton from "@/components/room-preview/RoomPreviewBackButton";
 import { MobileActionButton } from "@/components/room-preview/MobileActionButton";
 import { trackClientSessionEvent } from "@/lib/room-preview/session-diagnostics-client";
@@ -317,7 +317,10 @@ export function GateForm({
           {/* عميل — primary/recommended action (project brand #192126). UNCHANGED logic. */}
           <MobileActionButton
             variant="light"
-            onClick={() => setStep("customer_type")}
+            onClick={() => {
+              setStep("customer_type");
+              void selectCustomerRole(sessionId);
+            }}
           >
             {t.customer}
           </MobileActionButton>

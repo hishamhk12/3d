@@ -374,10 +374,7 @@ export default function SessionStage({ session, qrDataUrl, statusLabel, devEntry
               />
             </EventTilt3DCard>
             <ConnectionCard
-              connected={
-                session.mobileConnected ||
-                (session.status !== "created" && session.status !== "waiting_for_mobile")
-              }
+              connected={session.selectedRole === "customer"}
             />
             {devEntryHref ? (
               <a

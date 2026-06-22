@@ -17,6 +17,7 @@ import {
   getSessionById,
   saveSessionState,
   tryClaimMobileConnection,
+  updateSessionSelectedRole,
 } from "@/lib/room-preview/session-repository";
 import { findActiveScreenByToken } from "@/lib/room-preview/screen-repository";
 import { trackSessionEvent } from "@/lib/room-preview/session-diagnostics";
@@ -184,6 +185,21 @@ export async function getRoomPreviewSession(sessionId: string) {
     return { ...session, status: "expired" as const };
   }
   return session;
+}
+
+export async function selectRoomPreviewSessionRole(
+  sessionId: string,
+  role: "customer" | "employee",
+) {
+  await getRequiredRoomPreviewSession(sessionId);
+  const updatedSession = await updateSessionSelectedRole(sessionId, role);
+
+  publishRoomPreviewSessionEvent(updatedSession.id, {
+    type: "session_updated",
+    session: updatedSession,
+  });
+
+  return updatedSession;
 }
 
 export async function connectMobileToSession(sessionId: string) {

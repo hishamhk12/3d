@@ -6,6 +6,7 @@ import { LIVE_STATUSES } from "@/lib/room-preview/session-status";
 import {
   ROOM_PREVIEW_SESSION_STATUSES,
   type RoomPreviewRenderResult,
+  type RoomPreviewSession,
   type RoomPreviewSessionStatus,
   type SelectedProduct,
   type SelectedRoom,
@@ -25,6 +26,7 @@ function buildExpiresAt() {
 type SessionUpdateData = {
   status?: RoomPreviewSessionStatus;
   mobileConnected?: boolean;
+  selectedRole?: "customer" | "employee" | null;
   selectedRoom?: SelectedRoom | null;
   selectedProduct?: SelectedProduct | null;
   renderResult?: RoomPreviewRenderResult | null;
@@ -57,17 +59,22 @@ function mapSession(session: {
   id: string;
   status: string;
   mobileConnected: boolean;
+  selectedRole: string | null;
   selectedRoom: unknown;
   selectedProduct: unknown;
   renderResult: unknown;
   expiresAt: Date | string | null;
   createdAt: Date | string;
   updatedAt: Date | string;
-}) {
+}): RoomPreviewSession {
   return {
     id: session.id,
     status: toStatus(session.status),
     mobileConnected: session.mobileConnected,
+    selectedRole:
+      session.selectedRole === "customer" || session.selectedRole === "employee"
+        ? session.selectedRole
+        : null,
     selectedRoom: toSelectedRoom(session.selectedRoom),
     selectedProduct: toSelectedProduct(session.selectedProduct),
     renderResult: toRenderResult(session.renderResult),
@@ -95,6 +102,7 @@ export async function createSession(
     data: {
       status: initialState?.status ?? "created",
       mobileConnected: initialState?.mobileConnected ?? false,
+      selectedRole: initialState?.selectedRole ?? null,
       selectedRoom: toJsonValue(initialState?.selectedRoom) ?? Prisma.JsonNull,
       selectedProduct: toJsonValue(initialState?.selectedProduct) ?? Prisma.JsonNull,
       renderResult: toJsonValue(initialState?.renderResult) ?? Prisma.JsonNull,
@@ -129,10 +137,23 @@ export async function updateSession(id: string, data: SessionUpdateData) {
     data: {
       status: data.status,
       mobileConnected: data.mobileConnected,
+      selectedRole: data.selectedRole,
       selectedRoom: toJsonValue(data.selectedRoom),
       selectedProduct: toJsonValue(data.selectedProduct),
       renderResult: toJsonValue(data.renderResult),
     },
+  });
+
+  return mapSession(session);
+}
+
+export async function updateSessionSelectedRole(
+  sessionId: string,
+  selectedRole: "customer" | "employee",
+) {
+  const session = await prisma.roomPreviewSession.update({
+    where: { id: sessionId },
+    data: { selectedRole, updatedAt: new Date() },
   });
 
   return mapSession(session);

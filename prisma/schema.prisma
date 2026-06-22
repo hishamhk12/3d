@@ -36,6 +36,8 @@ model RoomPreviewSession {
   id              String  @id @default(cuid())
   status          String
   mobileConnected Boolean @default(false)
+  /// Role explicitly selected on the mobile gate before the detail form is completed.
+  selectedRole    String?
   renderCount     Int     @default(0)
 
   selectedRoom    Json?

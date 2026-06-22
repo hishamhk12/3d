@@ -509,6 +509,19 @@ body {
   box-shadow: 0 0 0 3px var(--input-focus-ring);
 }
 
+/* Mobile: editable controls must compute to >=16px so iPhone Safari never
+   auto-zooms on focus (which otherwise leaves the page stuck zoomed-in and
+   shifted/clipped after blur). Desktop typography is unchanged. The element+class
+   selector (0,1,1) also overrides any `text-sm` utility on the field, e.g. the
+   country <select>. Height is unaffected (min-h-[48px] + padding stay). */
+@media (max-width: 639px) {
+  input.ds-input,
+  select.ds-input,
+  textarea.ds-input {
+    font-size: 16px;
+  }
+}
+
 /* ═══════════════════════════════════════════════════════════════════════════
    BADGE
    ═══════════════════════════════════════════════════════════════════════════ */

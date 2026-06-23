@@ -88,10 +88,13 @@ function getPublicBaseUrl(): string {
 
 // ─── Local storage helpers ────────────────────────────────────────────────────
 
-const LOCAL_PUBLIC_DIR = path.join(process.cwd(), "public");
+const LOCAL_UPLOADS_DIR = path.join(process.cwd(), "public", "uploads");
 
 function localKeyToFilePath(key: string): string {
-  return path.join(LOCAL_PUBLIC_DIR, ...key.split("/"));
+  if (!key.startsWith("uploads/")) {
+    throw new Error(`Local storage keys must start with uploads/: ${key}`);
+  }
+  return path.join(LOCAL_UPLOADS_DIR, ...key.slice("uploads/".length).split("/"));
 }
 
 function localKeyToPublicUrl(key: string): string {

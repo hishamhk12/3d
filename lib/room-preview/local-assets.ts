@@ -4,7 +4,23 @@ import { readdirSync } from "node:fs";
 import path from "node:path";
 
 const ROOM_PREVIEW_IMAGE_EXTENSIONS = new Set([".jpg", ".jpeg", ".png", ".webp"]);
-const ROOM_PREVIEW_PUBLIC_DIRECTORY = path.join(process.cwd(), "public");
+const ROOM_PREVIEW_TEST_ASSETS_DIRECTORY = path.join(process.cwd(), "public", "test-assets");
+const ROOM_PREVIEW_UPLOADS_DIRECTORY = path.join(process.cwd(), "public", "uploads");
+
+const ROOM_PREVIEW_ASSET_DIRECTORIES = new Map([
+  ["test-assets/rooms", path.join(ROOM_PREVIEW_TEST_ASSETS_DIRECTORY, "rooms")],
+]);
+
+const ROOM_PREVIEW_LOCAL_ASSET_SCOPES = [
+  {
+    directory: ROOM_PREVIEW_UPLOADS_DIRECTORY,
+    prefixSegments: ["uploads"],
+  },
+  {
+    directory: ROOM_PREVIEW_TEST_ASSETS_DIRECTORY,
+    prefixSegments: ["test-assets"],
+  },
+];
 
 function isImageFile(fileName: string) {
   return ROOM_PREVIEW_IMAGE_EXTENSIONS.has(path.extname(fileName).toLowerCase());
@@ -33,7 +49,12 @@ function buildPublicAssetUrl(...segments: string[]) {
 }
 
 export function getRoomPreviewAssetFiles(directorySegments: string[]) {
-  const absoluteDirectory = path.join(ROOM_PREVIEW_PUBLIC_DIRECTORY, ...directorySegments);
+  const directoryKey = directorySegments.join("/");
+  const absoluteDirectory = ROOM_PREVIEW_ASSET_DIRECTORIES.get(directoryKey);
+
+  if (!absoluteDirectory) {
+    return [];
+  }
 
   try {
     return readdirSync(absoluteDirectory, { withFileTypes: true })
@@ -62,11 +83,20 @@ export function getRoomPreviewPublicAssetPath(publicAssetUrl: string) {
     .filter(Boolean)
     .map((segment) => decodeURIComponent(segment));
 
-  const absoluteAssetPath = path.join(ROOM_PREVIEW_PUBLIC_DIRECTORY, ...assetSegments);
-  const relativeAssetPath = path.relative(ROOM_PREVIEW_PUBLIC_DIRECTORY, absoluteAssetPath);
+  const scope = ROOM_PREVIEW_LOCAL_ASSET_SCOPES.find(({ prefixSegments }) =>
+    prefixSegments.every((segment, index) => assetSegments[index] === segment),
+  );
+
+  if (!scope) {
+    throw new Error("Unsupported local room preview asset path.");
+  }
+
+  const scopedSegments = assetSegments.slice(scope.prefixSegments.length);
+  const absoluteAssetPath = path.join(scope.directory, ...scopedSegments);
+  const relativeAssetPath = path.relative(scope.directory, absoluteAssetPath);
 
   if (relativeAssetPath.startsWith("..") || path.isAbsolute(relativeAssetPath)) {
-    throw new Error("Resolved asset path is outside the public directory.");
+    throw new Error("Resolved asset path is outside the allowed public asset directory.");
   }
 
   return absoluteAssetPath;

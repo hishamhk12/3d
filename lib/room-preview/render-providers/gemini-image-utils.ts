@@ -47,6 +47,43 @@ export type PreparedImage = {
 
 export const IMAGE_FETCH_TIMEOUT_MS = 15_000;
 
+function getPublicAssetFetchUrl(url: string) {
+  const baseUrl =
+    process.env.NEXT_PUBLIC_BASE_URL?.replace(/\/+$/, "") ||
+    (process.env.VERCEL_URL ? `https://${process.env.VERCEL_URL}` : "") ||
+    (process.env.NODE_ENV === "development" ? `http://localhost:${process.env.PORT || "3000"}` : "");
+
+  if (!baseUrl) {
+    throw new Error("A public base URL is required to load QR product images.");
+  }
+
+  return new URL(url, baseUrl).toString();
+}
+
+async function fetchImage(url: string) {
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), IMAGE_FETCH_TIMEOUT_MS);
+
+  try {
+    const res = await fetch(url, { signal: controller.signal });
+    if (!res.ok) {
+      throw new Error(`Image fetch failed for "${url}": HTTP ${res.status}`);
+    }
+    const raw = res.headers.get("content-type")?.split(";")[0]?.trim() ?? "";
+    const ALLOWED = ["image/jpeg", "image/png", "image/webp"] as const;
+    if (!(ALLOWED as readonly string[]).includes(raw)) {
+      throw new Error(`Unsupported image content-type "${raw}" for URL "${url}".`);
+    }
+
+    return {
+      buffer: Buffer.from(await res.arrayBuffer()),
+      mimeType: raw,
+    };
+  } finally {
+    clearTimeout(timer);
+  }
+}
+
 /**
  * Load an image from a local path or remote URL, apply EXIF rotation, resize
  * if it exceeds the dimension limit, re-encode as JPEG, and return the
@@ -73,28 +110,18 @@ export async function loadAndPrepareImage(
   let rawBuffer: Buffer;
   let sourceMimeType: string;
 
-  if (url.startsWith("/")) {
+  if (url.startsWith("/qr-products/")) {
+    const fetched = await fetchImage(getPublicAssetFetchUrl(url));
+    sourceMimeType = fetched.mimeType;
+    rawBuffer = fetched.buffer;
+  } else if (url.startsWith("/")) {
     const absolutePath = getRoomPreviewPublicAssetPath(url);
     sourceMimeType = extensionToMimeType(path.extname(absolutePath).toLowerCase());
     rawBuffer = await fs.readFile(absolutePath);
   } else {
-    const controller = new AbortController();
-    const timer = setTimeout(() => controller.abort(), IMAGE_FETCH_TIMEOUT_MS);
-    try {
-      const res = await fetch(url, { signal: controller.signal });
-      if (!res.ok) {
-        throw new Error(`Image fetch failed for "${url}": HTTP ${res.status}`);
-      }
-      const raw = res.headers.get("content-type")?.split(";")[0]?.trim() ?? "";
-      const ALLOWED = ["image/jpeg", "image/png", "image/webp"] as const;
-      if (!(ALLOWED as readonly string[]).includes(raw)) {
-        throw new Error(`Unsupported image content-type "${raw}" for URL "${url}".`);
-      }
-      sourceMimeType = raw;
-      rawBuffer = Buffer.from(await res.arrayBuffer());
-    } finally {
-      clearTimeout(timer);
-    }
+    const fetched = await fetchImage(url);
+    sourceMimeType = fetched.mimeType;
+    rawBuffer = fetched.buffer;
   }
 
   // Phase 1: log raw bytes and source MIME before any processing.

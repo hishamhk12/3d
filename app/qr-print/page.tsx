@@ -8,7 +8,7 @@ export const metadata: Metadata = {
   title: "Product QR Labels",
 };
 
-// Always render fresh from the filesystem (products may be added between builds).
+// Render on demand so QR payloads can use the deployed request environment.
 export const dynamic = "force-dynamic";
 
 type QrLabel = {

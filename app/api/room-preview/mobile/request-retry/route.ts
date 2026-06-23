@@ -14,7 +14,7 @@ import {
 } from "@/lib/room-preview/session-service";
 import { getSessionById } from "@/lib/room-preview/session-repository";
 import { trackSessionEvent } from "@/lib/room-preview/session-diagnostics";
-import type { SelectedProduct } from "@/lib/room-preview/types";
+import type { RoomPreviewProduct, SelectedProduct } from "@/lib/room-preview/types";
 
 const log = getLogger("mobile-request-retry-api");
 
@@ -27,18 +27,14 @@ const RequestRetryBodySchema = z.object({
   barcode: z.string().trim().min(1).optional(),
 });
 
-function buildSessionProduct(product: {
-  barcode: string | null;
-  id: string;
-  imageUrl: string;
-  name: string;
-  productType: "floor_material";
-}) {
+function buildSessionProduct(product: RoomPreviewProduct) {
   return {
     id: product.id,
     barcode: product.barcode,
     name: product.name,
     productType: product.productType,
+    category: product.category,
+    targetSurface: product.targetSurface,
     imageUrl: product.imageUrl,
   } satisfies SelectedProduct;
 }
@@ -58,7 +54,8 @@ async function resolveRetryProduct(body: z.infer<typeof RequestRetryBodySchema>)
   return session?.selectedProduct?.id &&
     session.selectedProduct.name &&
     session.selectedProduct.imageUrl &&
-    session.selectedProduct.productType === "floor_material"
+    (session.selectedProduct.productType === "floor_material" ||
+      session.selectedProduct.productType === "wall_material")
     ? session.selectedProduct
     : null;
 }

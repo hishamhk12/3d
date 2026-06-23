@@ -85,7 +85,7 @@ function assertValidSelectedProduct(product: SelectedProduct) {
     !product.id ||
     !product.imageUrl ||
     !product.name ||
-    product.productType !== "floor_material"
+    (product.productType !== "floor_material" && product.productType !== "wall_material")
   ) {
     throw new RoomPreviewSessionTransitionError(
       "A valid product selection is required.",

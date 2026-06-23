@@ -69,6 +69,7 @@ vi.mock("@/lib/room-preview/customer-service", () => ({
 
 vi.mock("@/lib/room-preview/validators", () => ({
   isFloorMaterialProduct: vi.fn().mockReturnValue(true),
+  isRenderableProduct: vi.fn().mockReturnValue(true),
 }));
 
 // ─── Import module under test ─────────────────────────────────────────────────

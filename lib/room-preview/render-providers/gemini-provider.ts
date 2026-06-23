@@ -2,11 +2,12 @@ import "server-only";
 
 import type { GoogleGenAI } from "@google/genai";
 import {
-  buildRenderPrompt,
   PROMPT_VERSION_FAST,
   SENTINEL_FLOOR_NOT_VISIBLE,
   SENTINEL_MATERIAL_UNCLEAR,
 } from "@/lib/room-preview/prompt-template-v2";
+import { resolveRenderStrategy } from "@/lib/room-preview/render-strategies";
+import { normalizeSelectedProductClassification } from "@/lib/room-preview/validators";
 import type {
   RoomPreviewRenderProvider,
   RoomPreviewRenderProviderRequest,
@@ -54,7 +55,6 @@ import {
   getGeminiClient,
 } from "@/lib/room-preview/render-providers/gemini-client";
 import {
-  buildFallbackPrompt,
   isRetryableError,
   sleep,
 } from "@/lib/room-preview/render-providers/gemini-retry-utils";
@@ -230,18 +230,60 @@ export const geminiRoomPreviewRenderProvider = {
 
     const inputDimensions = { width: roomImage.width, height: roomImage.height };
 
-    const prompt = buildRenderPrompt(
-      product.productType ?? null,
-      product.name ?? null,
-      room.floorQuad ?? null,
-      inputDimensions,
-      PROMPT_VARIANT,
-    );
+    // Resolve the render strategy from PRODUCT DATA (category), never from the
+    // image. PARQUET → floor prompt (+ floorQuad); WALLPAPER → wall prompt
+    // (prompt-only, no floorQuad). Old sessions without a category default to
+    // PARQUET / floor via the normalizer.
+    const { category, targetSurface } = normalizeSelectedProductClassification(product);
+    const strategy = resolveRenderStrategy(category);
+    const usesFloorQuad = strategy.geometryMode === "floorQuad";
 
-    // Warn when rendering without a floor polygon — the model will estimate the floor
-    // region from the image content alone, which increases the risk of wrong-aspect
-    // output and scene composition drift.
-    if (!room.floorQuad) {
+    const prompt = strategy.buildPrompt({
+      productName: product.name ?? null,
+      floorPolygon: usesFloorQuad ? (room.floorQuad ?? null) : null,
+      dimensions: inputDimensions,
+      variant: PROMPT_VARIANT,
+    });
+
+    // Diagnostics: record which strategy + prompt actually ran so we can later
+    // tell parquet vs wallpaper renders apart (Phase 5).
+    log.info(
+      {
+        event: "render_strategy_resolved",
+        sessionId,
+        renderJobId: request.jobId,
+        productCode: product.id,
+        category,
+        targetSurface,
+        renderStrategy: strategy.id,
+        promptVersion: strategy.promptVersion,
+        geometryMode: strategy.geometryMode,
+      },
+      "render_strategy_resolved",
+    );
+    trackSessionEvent({
+      sessionId,
+      source: "renderer",
+      eventType: "render_strategy_resolved",
+      level: "info",
+      metadata: {
+        productCode: product.id,
+        category,
+        targetSurface,
+        renderStrategy: strategy.id,
+        promptVersion: strategy.promptVersion,
+        geometryMode: strategy.geometryMode,
+        renderJobId: request.jobId,
+      },
+    }).catch((evtErr) => {
+      log.warn({ evtErr, sessionId }, "render_strategy_resolved event failed (non-fatal)");
+    });
+
+    // Warn when a FLOOR-targeting render runs without a floor polygon — the model
+    // will estimate the floor region from the image content alone, which increases
+    // the risk of wrong-aspect output and scene composition drift. Wallpaper
+    // (prompt-only) intentionally has no polygon and is excluded from this warning.
+    if (usesFloorQuad && !room.floorQuad) {
       log.warn(
         { event: "floor_polygon_missing_prompt_only_mode", sessionId },
         "floor_polygon_missing_prompt_only_mode: no floorPolygon — Gemini will estimate the floor region from the image",
@@ -386,7 +428,12 @@ export const geminiRoomPreviewRenderProvider = {
               modelName,
               attempt,
               qualityMode: RENDER_QUALITY,
-              promptVersion: ACTIVE_PROMPT_VERSION,
+              promptVersion: strategy.promptVersion,
+              productCode: product.id,
+              category,
+              targetSurface,
+              renderStrategy: strategy.id,
+              geometryMode: strategy.geometryMode,
               promptLength: activePrompt.length,
               inputPixelCount: currentRoomImage.width * currentRoomImage.height,
               payloadPartCount: imageParts.length + 1,
@@ -527,7 +574,12 @@ export const geminiRoomPreviewRenderProvider = {
               attempt,
               sessionId,
               qualityMode: RENDER_QUALITY,
-              promptVersion: ACTIVE_PROMPT_VERSION,
+              promptVersion: strategy.promptVersion,
+              productCode: product.id,
+              category,
+              targetSurface,
+              renderStrategy: strategy.id,
+              geometryMode: strategy.geometryMode,
               outputDimensions: `${width}x${height}`,
               outputBytes: uploadBuffer.length,
               geminiMs,
@@ -556,12 +608,18 @@ export const geminiRoomPreviewRenderProvider = {
             exifOrientationApplied: true,
             savedRaw:              true,
             qualityMode:           RENDER_QUALITY,
-            promptVersion:         ACTIVE_PROMPT_VERSION,
+            productCode:           product.id,
+            category,
+            targetSurface,
+            productType:           product.productType ?? null,
+            renderStrategy:        strategy.id,
+            geometryMode:          strategy.geometryMode,
+            promptVersion:         strategy.promptVersion,
             promptLength:          prompt.length,
             inputPixelCount:       inputDimensions.width * inputDimensions.height,
             modelName,
             productName:           product.name ?? null,
-            floorPolygon:          room.floorQuad ?? null,
+            floorPolygon:          usesFloorQuad ? (room.floorQuad ?? null) : null,
             promptText:            prompt,
             outputImageUrl:        uploadResult.publicUrl,
             artifactUrls:          {} as Record<string, string>,
@@ -588,6 +646,7 @@ export const geminiRoomPreviewRenderProvider = {
               resolvedMaxProductImageDimensionPx:                 MAX_PRODUCT_IMAGE_DIMENSION_PX,
               resolvedPromptVariant:                              PROMPT_VARIANT,
               resolvedActivePromptVersion:                        ACTIVE_PROMPT_VERSION,
+              resolvedStrategyPromptVersion:                      strategy.promptVersion,
               resolvedGeminiCallTimeoutMs:                        GEMINI_CALL_TIMEOUT_MS,
               resolvedFirstAttemptTimeoutMs:                      GEMINI_FIRST_ATTEMPT_TIMEOUT_MS,
               resolvedRetryAttemptTimeoutMs:                      GEMINI_RETRY_ATTEMPT_TIMEOUT_MS,
@@ -657,7 +716,13 @@ export const geminiRoomPreviewRenderProvider = {
               winnerPromptVariant: currentPromptVariant,
               debugArtifactsEnabled: DEBUG_ARTIFACTS_ENABLED,
               qualityMode: RENDER_QUALITY,
-              promptVersion: ACTIVE_PROMPT_VERSION,
+              productCode: product.id,
+              category,
+              targetSurface,
+              productType: product.productType ?? null,
+              renderStrategy: strategy.id,
+              geometryMode: strategy.geometryMode,
+              promptVersion: strategy.promptVersion,
               promptLength: prompt.length,
               inputDimensions,
               inputPixelCount: inputDimensions.width * inputDimensions.height,
@@ -678,6 +743,7 @@ export const geminiRoomPreviewRenderProvider = {
                 resolvedMaxProductImageDimensionPx:                 MAX_PRODUCT_IMAGE_DIMENSION_PX,
                 resolvedPromptVariant:                              PROMPT_VARIANT,
                 resolvedActivePromptVersion:                        ACTIVE_PROMPT_VERSION,
+                resolvedStrategyPromptVersion:                      strategy.promptVersion,
                 resolvedGeminiCallTimeoutMs:                        GEMINI_CALL_TIMEOUT_MS,
                 resolvedFirstAttemptTimeoutMs:                      GEMINI_FIRST_ATTEMPT_TIMEOUT_MS,
                 resolvedRetryAttemptTimeoutMs:                      GEMINI_RETRY_ATTEMPT_TIMEOUT_MS,
@@ -829,7 +895,7 @@ export const geminiRoomPreviewRenderProvider = {
             // Switch to the short fallback prompt — omits polygon coords and
             // quality constraints that may have caused the model to over-think.
             currentPromptVariant = "fallback";
-            activePrompt = buildFallbackPrompt(product.name ?? null);
+            activePrompt = strategy.buildFallbackPrompt(product.name ?? null);
 
             log.info(
               {

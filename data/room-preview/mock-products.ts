@@ -52,13 +52,16 @@ function readProductsFromPublicFolder(): MockRoomPreviewProduct[] {
 
       const code = getProductCode(folderName);
 
-      return {
+      const product: MockRoomPreviewProduct = {
         id: code ?? `product-${index + 1}`,
         barcode: getProductBarcode(code),
         name: getProductName(folderName, code),
         productType: "floor_material",
+        category: "PARQUET",
+        targetSurface: "floor",
         imageUrl: toPublicProductUrl(folderName, productImage),
-      } satisfies MockRoomPreviewProduct;
+      };
+      return product;
     })
     .filter((product): product is MockRoomPreviewProduct => product !== null)
     .sort((a, b) => a.id.localeCompare(b.id));

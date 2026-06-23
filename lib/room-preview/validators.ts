@@ -3,8 +3,10 @@ import type {
   CreateRoomPreviewSessionResponse,
   DirectUploadUrlResponse,
   FloorQuad,
+  ProductCategory,
   ProductType,
   QuadPoint,
+  TargetSurface,
   RoomPreviewApiErrorResponse,
   RoomPreviewPreviewRegion,
   RoomPreviewRenderResult,
@@ -56,8 +58,20 @@ export function isFloorQuad(value: unknown): value is FloorQuad {
   return hasFourQuadPoints(value) && value.every(isQuadPoint);
 }
 
-export function isFloorMaterialProductType(value: unknown): value is ProductType {
+export function isFloorMaterialProductType(value: unknown): value is "floor_material" {
   return value === "floor_material";
+}
+
+export function isProductType(value: unknown): value is ProductType {
+  return value === "floor_material" || value === "wall_material";
+}
+
+export function isProductCategory(value: unknown): value is ProductCategory {
+  return value === "PARQUET" || value === "WALLPAPER";
+}
+
+export function isTargetSurface(value: unknown): value is TargetSurface {
+  return value === "floor" || value === "walls";
 }
 
 function isRoomPreviewPreviewRegion(value: unknown): value is RoomPreviewPreviewRegion {
@@ -111,9 +125,28 @@ export function isSelectedProduct(value: unknown): value is SelectedProduct {
     (typeof value.id === "string" || value.id === null) &&
     (typeof value.barcode === "string" || value.barcode === null) &&
     (typeof value.name === "string" || value.name === null) &&
-    (value.productType === null || isFloorMaterialProductType(value.productType)) &&
-    (typeof value.imageUrl === "string" || value.imageUrl === null)
+    (value.productType === null || isProductType(value.productType)) &&
+    (typeof value.imageUrl === "string" || value.imageUrl === null) &&
+    // category / targetSurface are optional for backward compatibility with
+    // sessions persisted before the wallpaper rollout. Validate only if present.
+    (!("category" in value) || value.category === undefined || isProductCategory(value.category)) &&
+    (!("targetSurface" in value) || value.targetSurface === undefined || isTargetSurface(value.targetSurface))
   );
+}
+
+/**
+ * Default classification applied to a persisted product that predates the
+ * wallpaper rollout (or any product missing category/targetSurface). Keeps old
+ * sessions rendering as PARQUET / floor exactly as before.
+ */
+export function normalizeSelectedProductClassification(product: SelectedProduct): {
+  category: ProductCategory;
+  targetSurface: TargetSurface;
+} {
+  return {
+    category: product.category ?? "PARQUET",
+    targetSurface: product.targetSurface ?? "floor",
+  };
 }
 
 export function roomHasValidFloorQuad(
@@ -124,13 +157,30 @@ export function roomHasValidFloorQuad(
 
 export function isFloorMaterialProduct(
   value: SelectedProduct | null | undefined,
-): value is SelectedProduct & { productType: ProductType } {
+): value is SelectedProduct & { productType: "floor_material" } {
   return Boolean(
     value?.id &&
       value.imageUrl &&
       value.name &&
       value.productType &&
       isFloorMaterialProductType(value.productType),
+  );
+}
+
+/**
+ * A product that has the fields required to start a render AND a supported
+ * product type (floor or wall material). Replaces the floor-only gate so
+ * wallpaper products can render while still rejecting unknown/empty products.
+ */
+export function isRenderableProduct(
+  value: SelectedProduct | null | undefined,
+): value is SelectedProduct & { productType: ProductType } {
+  return Boolean(
+    value?.id &&
+      value.imageUrl &&
+      value.name &&
+      value.productType &&
+      isProductType(value.productType),
   );
 }
 

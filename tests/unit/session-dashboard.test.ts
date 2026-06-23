@@ -6,12 +6,17 @@ import { describe, it, expect, vi, beforeEach } from "vitest";
 
 const mockSessionCount = vi.fn();
 const mockSessionFindMany = vi.fn();
+const mockSessionGroupBy = vi.fn();
 const mockJobCount = vi.fn();
 const mockJobFindMany = vi.fn();
 
 vi.mock("@/lib/server/prisma", () => ({
   prisma: {
-    roomPreviewSession: { count: mockSessionCount, findMany: mockSessionFindMany },
+    roomPreviewSession: {
+      count: mockSessionCount,
+      findMany: mockSessionFindMany,
+      groupBy: mockSessionGroupBy,
+    },
     renderJob: { count: mockJobCount, findMany: mockJobFindMany },
   },
 }));
@@ -53,6 +58,10 @@ beforeEach(() => {
   vi.clearAllMocks();
   mockSessionCount.mockResolvedValue(0);
   mockSessionFindMany.mockResolvedValue([]);
+  // groupBy returns an array of { status, _count: { _all } } rows. The default
+  // empty array matches the all-zero scenario these tests model (no sessions),
+  // so every per-status count resolves to 0 via the `?? 0` fallback in source.
+  mockSessionGroupBy.mockResolvedValue([]);
   mockJobCount.mockResolvedValue(0);
   mockJobFindMany.mockResolvedValue([]);
 });

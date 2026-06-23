@@ -14,7 +14,7 @@ import {
   selectProductForSession,
 } from "@/lib/room-preview/session-service";
 import { trackSessionEvent } from "@/lib/room-preview/session-diagnostics";
-import type { RoomPreviewSession, SelectedProduct } from "@/lib/room-preview/types";
+import type { RoomPreviewProduct, RoomPreviewSession, SelectedProduct } from "@/lib/room-preview/types";
 
 const log = getLogger("product-api");
 
@@ -28,18 +28,14 @@ const ProductBodySchema = z
     message: "A product id, barcode, or product code is required.",
   });
 
-function buildSessionProduct(product: {
-  barcode: string | null;
-  id: string;
-  imageUrl: string;
-  name: string;
-  productType: "floor_material";
-}) {
+function buildSessionProduct(product: RoomPreviewProduct) {
   return {
     id: product.id,
     barcode: product.barcode,
     name: product.name,
     productType: product.productType,
+    category: product.category,
+    targetSurface: product.targetSurface,
     imageUrl: product.imageUrl,
   } satisfies SelectedProduct;
 }
@@ -170,6 +166,8 @@ export async function POST(
       productImageUrl: session.selectedProduct.imageUrl,
       barcode: session.selectedProduct.barcode,
       productType: session.selectedProduct.productType,
+      category: session.selectedProduct.category ?? "PARQUET",
+      targetSurface: session.selectedProduct.targetSurface ?? "floor",
       status: session.status,
     },
     "Product saved",
@@ -193,6 +191,8 @@ export async function POST(
         newProductId,
         productImageUrl: session.selectedProduct.imageUrl,
         newSku: session.selectedProduct.barcode ?? undefined,
+        category: session.selectedProduct.category ?? "PARQUET",
+        targetSurface: session.selectedProduct.targetSurface ?? "floor",
         ...(previousProduct !== null && {
           previousProductId: previousProduct.id,
           previousSku: previousProduct.barcode ?? undefined,

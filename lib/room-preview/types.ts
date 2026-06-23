@@ -5,8 +5,18 @@ export type QuadPoint = {
 };
 
 export type FloorQuad = readonly [QuadPoint, QuadPoint, QuadPoint, QuadPoint];
-export type ProductType = "floor_material";
+export type ProductType = "floor_material" | "wall_material";
 export type RoomPreviewProductType = ProductType;
+
+/**
+ * High-level product family that drives render-strategy + prompt selection.
+ * Resolved from the product's source (e.g. the qr-products subfolder), never
+ * inferred from the image or guessed by the model.
+ */
+export type ProductCategory = "PARQUET" | "WALLPAPER";
+
+/** Which surface a category's render strategy targets. */
+export type TargetSurface = "floor" | "walls";
 export type RoomPreviewRenderJobStatus = "pending" | "processing" | "completed" | "failed";
 export type RoomPreviewRenderKind = "composited_preview";
 
@@ -61,6 +71,12 @@ export type SelectedProduct = {
   name: string | null;
   productType: ProductType | null;
   imageUrl: string | null;
+  /**
+   * Optional for backward compatibility with sessions persisted before the
+   * wallpaper rollout. When absent, consumers default to PARQUET / floor.
+   */
+  category?: ProductCategory;
+  targetSurface?: TargetSurface;
 };
 
 export type RenderResult = {
@@ -109,6 +125,8 @@ export type RoomPreviewProduct = {
   barcode: string | null;
   name: string;
   productType: ProductType;
+  category: ProductCategory;
+  targetSurface: TargetSurface;
   imageUrl: string;
 };
 

@@ -8,7 +8,7 @@ import type {
   RoomPreviewSession,
 } from "@/lib/room-preview/types";
 import type { RoomPreviewRenderProviderResult } from "@/lib/room-preview/render-providers/types";
-import { isFloorMaterialProduct } from "@/lib/room-preview/validators";
+import { isRenderableProduct } from "@/lib/room-preview/validators";
 
 // ─── Constants ────────────────────────────────────────────────────────────────
 
@@ -52,8 +52,8 @@ export function buildFailedRenderJobReason(
  * Validates that a session has the room/product fields required to start a
  * render and returns the typed `RenderJobInput` payload for the provider.
  *
- * Throws if any required field is missing or if the product is not a
- * `floor_material` (the only type supported in this render phase).
+ * Throws if any required field is missing or if the product type is not a
+ * supported render type (`floor_material` or `wall_material`).
  */
 export function buildRenderJobInput(session: RoomPreviewSession): RenderJobInput {
   if (!session.selectedRoom?.imageUrl || !session.selectedRoom.source) {
@@ -64,8 +64,8 @@ export function buildRenderJobInput(session: RoomPreviewSession): RenderJobInput
     throw new Error("A selected product is required before creating a render job.");
   }
 
-  if (!isFloorMaterialProduct(session.selectedProduct)) {
-    throw new Error("Only floor_material products are supported in this render phase.");
+  if (!isRenderableProduct(session.selectedProduct)) {
+    throw new Error("Only floor_material or wall_material products are supported.");
   }
 
   return {

@@ -11,10 +11,20 @@ import {
   isRoomPreviewSessionExpiredError,
   isRoomPreviewSessionNotFoundError,
   RoomPreviewSessionTransitionError,
+  removeProductFromSession,
   selectProductForSession,
 } from "@/lib/room-preview/session-service";
 import { trackSessionEvent } from "@/lib/room-preview/session-diagnostics";
-import type { RoomPreviewProduct, RoomPreviewSession, SelectedProduct } from "@/lib/room-preview/types";
+import {
+  getSelectedProductDiagnostics,
+  getSelectedProductForSurface,
+} from "@/lib/room-preview/selected-products";
+import type {
+  RoomPreviewProduct,
+  RoomPreviewSession,
+  SelectedProduct,
+  TargetSurface,
+} from "@/lib/room-preview/types";
 
 const log = getLogger("product-api");
 
@@ -27,6 +37,8 @@ const ProductBodySchema = z
   .refine((d) => d.productId != null || d.barcode != null || d.productCode != null, {
     message: "A product id, barcode, or product code is required.",
   });
+
+const ProductSurfaceSchema = z.enum(["floor", "walls"]);
 
 function buildSessionProduct(product: RoomPreviewProduct) {
   return {
@@ -114,9 +126,11 @@ export async function POST(
 
   let session: RoomPreviewSession | null = null;
   let previousProduct: SelectedProduct | null = null;
+  let previousProductsBySurface: RoomPreviewSession["selectedProductsBySurface"] = undefined;
+  const selectedProduct = buildSessionProduct(product);
 
   try {
-    ({ session, previousProduct } = await selectProductForSession(sessionId, buildSessionProduct(product)));
+    ({ session, previousProduct, previousProductsBySurface } = await selectProductForSession(sessionId, selectedProduct));
     log.info({ sessionId, productId: product.id, ms: Date.now() - t0 }, "product_db_updated");
   } catch (error) {
     if (isRoomPreviewSessionNotFoundError(error)) {
@@ -150,36 +164,46 @@ export async function POST(
     return NextResponse.json({ error: "Failed to save product." }, { status: 500 });
   }
 
-  if (!session || !session.selectedProduct?.id || !session.selectedProduct.imageUrl) {
+  const savedSurfaceProduct = session
+    ? getSelectedProductForSurface(session, selectedProduct.targetSurface ?? "floor")
+    : null;
+
+  if (!session || !savedSurfaceProduct?.id || !savedSurfaceProduct.imageUrl) {
     log.error(
-      { sessionId, productId: product.id, sessionProduct: session?.selectedProduct },
+      { sessionId, productId: product.id, sessionProduct: session?.selectedProduct, savedSurfaceProduct },
       "Missing product state after save",
     );
     return NextResponse.json({ error: "Failed to save product." }, { status: 500 });
   }
 
+  const selectedProductDiagnostics = getSelectedProductDiagnostics(session.selectedProductsBySurface);
+
   log.info(
     {
       event: "product_selected_image_url",
       sessionId,
-      productId: session.selectedProduct.id,
-      productImageUrl: session.selectedProduct.imageUrl,
-      barcode: session.selectedProduct.barcode,
-      productType: session.selectedProduct.productType,
-      category: session.selectedProduct.category ?? "PARQUET",
-      targetSurface: session.selectedProduct.targetSurface ?? "floor",
+      productId: savedSurfaceProduct.id,
+      productImageUrl: savedSurfaceProduct.imageUrl,
+      barcode: savedSurfaceProduct.barcode,
+      productType: savedSurfaceProduct.productType,
+      category: savedSurfaceProduct.category ?? "PARQUET",
+      targetSurface: savedSurfaceProduct.targetSurface ?? "floor",
+      ...selectedProductDiagnostics,
       status: session.status,
     },
     "Product saved",
   );
 
-  const newProductId = session.selectedProduct.id;
-  const isSameProduct = previousProduct?.id === newProductId;
+  const newProductId = savedSurfaceProduct.id;
+  const previousSurfaceProduct =
+    previousProductsBySurface?.[savedSurfaceProduct.targetSurface ?? "floor"] ??
+    (previousProduct?.targetSurface === savedSurfaceProduct.targetSurface ? previousProduct : null);
+  const isSameProduct = previousSurfaceProduct?.id === newProductId;
 
   // Skip noisy duplicate events when the customer re-taps the same product.
   if (!isSameProduct) {
-    const hasExistingProduct = previousProduct !== null;
-    const eventType = hasExistingProduct ? "product_changed" : "product_selected";
+    const hasExistingProduct = previousSurfaceProduct !== null;
+    const eventType = hasExistingProduct ? "product_replaced" : "product_added";
 
     void trackSessionEvent({
       sessionId,
@@ -188,14 +212,16 @@ export async function POST(
       level: "info",
       statusAfter: session.status,
       metadata: {
+        productCode: savedSurfaceProduct.id,
         newProductId,
-        productImageUrl: session.selectedProduct.imageUrl,
-        newSku: session.selectedProduct.barcode ?? undefined,
-        category: session.selectedProduct.category ?? "PARQUET",
-        targetSurface: session.selectedProduct.targetSurface ?? "floor",
-        ...(previousProduct !== null && {
-          previousProductId: previousProduct.id,
-          previousSku: previousProduct.barcode ?? undefined,
+        productImageUrl: savedSurfaceProduct.imageUrl,
+        newSku: savedSurfaceProduct.barcode ?? undefined,
+        category: savedSurfaceProduct.category ?? "PARQUET",
+        targetSurface: savedSurfaceProduct.targetSurface ?? "floor",
+        ...selectedProductDiagnostics,
+        ...(previousSurfaceProduct !== null && {
+          previousProductId: previousSurfaceProduct.id,
+          previousSku: previousSurfaceProduct.barcode ?? undefined,
         }),
       },
     });
@@ -203,7 +229,80 @@ export async function POST(
 
   return NextResponse.json({
     success: true,
-    product: session.selectedProduct,
+    product: savedSurfaceProduct,
     session,
   });
+}
+
+export async function DELETE(
+  request: Request,
+  context: RouteContext<"/api/room-preview/sessions/[sessionId]/product">,
+) {
+  const { sessionId } = await context.params;
+
+  const unauthorized = guardSession(request, sessionId);
+  if (unauthorized) return unauthorized;
+
+  const url = new URL(request.url);
+  const parsedSurface = ProductSurfaceSchema.safeParse(url.searchParams.get("surface"));
+  if (!parsedSurface.success) {
+    return NextResponse.json(
+      { error: "surface must be either floor or walls." },
+      { status: 400 },
+    );
+  }
+
+  const surface: TargetSurface = parsedSurface.data;
+
+  try {
+    const { session, previousProductsBySurface } = await removeProductFromSession(sessionId, surface);
+    const selectedProductDiagnostics = getSelectedProductDiagnostics(session.selectedProductsBySurface);
+    const removedProduct = previousProductsBySurface?.[surface] ?? null;
+
+    void trackSessionEvent({
+      sessionId,
+      source: "server",
+      eventType: "product_removed",
+      level: "info",
+      statusAfter: session.status,
+      metadata: {
+        productCode: removedProduct?.id ?? null,
+        targetSurface: surface,
+        surface,
+        removedProductId: removedProduct?.id ?? null,
+        removedSku: removedProduct?.barcode ?? null,
+        ...selectedProductDiagnostics,
+      },
+    });
+
+    return NextResponse.json({
+      success: true,
+      product: session.selectedProduct,
+      session,
+    });
+  } catch (error) {
+    if (isRoomPreviewSessionNotFoundError(error)) {
+      return NextResponse.json(
+        { code: error.code, error: error.message },
+        { status: 404 },
+      );
+    }
+
+    if (isRoomPreviewSessionExpiredError(error)) {
+      return NextResponse.json(
+        { code: error.code, error: error.message },
+        { status: 410 },
+      );
+    }
+
+    if (error instanceof RoomPreviewSessionTransitionError) {
+      return NextResponse.json(
+        { code: error.code, error: error.message },
+        { status: 400 },
+      );
+    }
+
+    log.error({ err: error, sessionId, surface }, "Failed to remove selected product");
+    return NextResponse.json({ error: "Failed to remove product." }, { status: 500 });
+  }
 }

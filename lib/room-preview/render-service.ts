@@ -51,6 +51,7 @@ async function persistSessionTransition(nextSession: RoomPreviewSession) {
     mobileConnected: nextSession.mobileConnected,
     selectedRoom: nextSession.selectedRoom,
     selectedProduct: nextSession.selectedProduct,
+    selectedProductsBySurface: nextSession.selectedProductsBySurface,
     renderResult: nextSession.renderResult,
   });
 

@@ -6,9 +6,13 @@ import {
 import type {
   SaveRoomPreviewSessionProductResponse,
   SaveRoomPreviewSessionProductResult,
+  RemoveRoomPreviewSessionProductResponse,
+  TargetSurface,
 } from "@/lib/room-preview/types";
 import {
   assertValidResponse,
+  isRoomPreviewSession,
+  isSelectedProduct,
   isSaveRoomPreviewSessionProductResponse,
 } from "@/lib/room-preview/validators";
 
@@ -23,6 +27,34 @@ function assertProductSaveResponse(data: unknown) {
     throw new RoomPreviewRequestError(
       "invalid_response",
       "The server returned an invalid product selection response.",
+    );
+  }
+}
+
+function isRemoveRoomPreviewSessionProductResponse(
+  value: unknown,
+): value is RemoveRoomPreviewSessionProductResponse {
+  return (
+    typeof value === "object" &&
+    value !== null &&
+    (value as { success?: unknown }).success === true &&
+    ((value as { product?: unknown }).product === null ||
+      isSelectedProduct((value as { product?: unknown }).product)) &&
+    isRoomPreviewSession((value as { session?: unknown }).session)
+  );
+}
+
+function assertProductRemoveResponse(data: unknown) {
+  try {
+    return assertValidResponse<RemoveRoomPreviewSessionProductResponse>(
+      data,
+      isRemoveRoomPreviewSessionProductResponse,
+      "The server returned an invalid product removal response.",
+    );
+  } catch {
+    throw new RoomPreviewRequestError(
+      "invalid_response",
+      "The server returned an invalid product removal response.",
     );
   }
 }
@@ -57,11 +89,11 @@ export async function saveRoomPreviewSessionProduct(
 
   const saveResponse = assertProductSaveResponse(data);
   const session = saveResponse.session;
-  const selectedProduct = session.selectedProduct;
+  const selectedProduct = saveResponse.product;
 
   if (!selectedProduct?.id || !selectedProduct.imageUrl) {
     console.error("[room-preview] Missing product state after save", {
-      reloadedProduct: selectedProduct,
+      reloadedProduct: session.selectedProduct,
       requestedSelection: options,
       savedProduct: saveResponse.product,
       sessionId,
@@ -74,7 +106,8 @@ export async function saveRoomPreviewSessionProduct(
   if ("productId" in options && selectedProduct.id !== options.productId) {
     console.error("[room-preview] Product id mismatch after save", {
       expectedProductId: options.productId,
-      reloadedProduct: selectedProduct,
+      reloadedProduct: session.selectedProduct,
+      savedProduct: selectedProduct,
       sessionId,
     });
 
@@ -84,7 +117,8 @@ export async function saveRoomPreviewSessionProduct(
   if ("barcode" in options && selectedProduct.barcode !== options.barcode) {
     console.error("[room-preview] Product barcode mismatch after save", {
       expectedBarcode: options.barcode,
-      reloadedProduct: selectedProduct,
+      reloadedProduct: session.selectedProduct,
+      savedProduct: selectedProduct,
       sessionId,
     });
 
@@ -94,7 +128,8 @@ export async function saveRoomPreviewSessionProduct(
   if ("productCode" in options && selectedProduct.id !== options.productCode) {
     console.error("[room-preview] Product code mismatch after save", {
       expectedProductCode: options.productCode,
-      reloadedProduct: selectedProduct,
+      reloadedProduct: session.selectedProduct,
+      savedProduct: selectedProduct,
       sessionId,
     });
 
@@ -105,4 +140,20 @@ export async function saveRoomPreviewSessionProduct(
     product: saveResponse.product,
     session,
   } satisfies SaveRoomPreviewSessionProductResult;
+}
+
+export async function removeRoomPreviewSessionProduct(
+  sessionId: string,
+  surface: TargetSurface,
+) {
+  const data = await requestRoomPreviewJson(
+    `${ROOM_PREVIEW_ROUTES.productApi(sessionId)}?surface=${encodeURIComponent(surface)}`,
+    {
+      method: "DELETE",
+      cache: "no-store",
+    },
+    "Could not remove the selected product for this session.",
+  );
+
+  return assertProductRemoveResponse(data);
 }

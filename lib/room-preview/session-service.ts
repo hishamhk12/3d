@@ -5,6 +5,7 @@ import { publishRoomPreviewSessionEvent } from "@/lib/room-preview/session-event
 import {
   createRoomPreviewSessionState,
   markReadyToRenderTransition,
+  removeSelectedProductTransition,
   RoomPreviewSessionTransitionError,
   selectProductTransition,
   selectRoomTransition,
@@ -27,6 +28,7 @@ import type {
   RoomPreviewSession,
   SelectedProduct,
   SelectedRoom,
+  TargetSurface,
 } from "@/lib/room-preview/types";
 
 const log = getLogger("session-service");
@@ -87,6 +89,7 @@ async function persistTransition(
     mobileConnected: nextSession.mobileConnected,
     selectedRoom: nextSession.selectedRoom,
     selectedProduct: nextSession.selectedProduct,
+    selectedProductsBySurface: nextSession.selectedProductsBySurface,
     renderResult: nextSession.renderResult,
   });
 
@@ -154,6 +157,7 @@ export async function createRoomPreviewSession(screenToken?: string) {
     mobileConnected: createdState.mobileConnected,
     selectedRoom: createdState.selectedRoom,
     selectedProduct: createdState.selectedProduct,
+    selectedProductsBySurface: createdState.selectedProductsBySurface,
     renderResult: createdState.renderResult,
   });
 
@@ -268,9 +272,19 @@ export async function selectRoomForSession(sessionId: string, room: SelectedRoom
 export async function selectProductForSession(sessionId: string, product: SelectedProduct) {
   const session = await getRequiredRoomPreviewSession(sessionId);
   const previousProduct = session.selectedProduct;
+  const previousProductsBySurface = session.selectedProductsBySurface;
   const productSelectedSession = selectProductTransition(session, product);
   const persistedSession = await persistTransition(productSelectedSession, session.status);
-  return { session: persistedSession, previousProduct };
+  return { session: persistedSession, previousProduct, previousProductsBySurface };
+}
+
+export async function removeProductFromSession(sessionId: string, surface: TargetSurface) {
+  const session = await getRequiredRoomPreviewSession(sessionId);
+  const previousProduct = session.selectedProduct;
+  const previousProductsBySurface = session.selectedProductsBySurface;
+  const productRemovedSession = removeSelectedProductTransition(session, surface);
+  const persistedSession = await persistTransition(productRemovedSession, session.status);
+  return { session: persistedSession, previousProduct, previousProductsBySurface };
 }
 
 export async function startRenderSession(sessionId: string) {

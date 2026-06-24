@@ -226,6 +226,31 @@ describe("POST /api/room-preview/sessions/[sessionId]/render", () => {
       expect(res.status).toBe(400);
       expect(body.code).toBe("SESSION_INVALID_STATE");
     });
+
+    it("returns MULTI_PRODUCT_RENDER_NOT_IMPLEMENTED when two products are selected", async () => {
+      vi.mocked(getSessionById).mockResolvedValue({
+        ...productSelectedSession,
+        selectedProductsBySurface: {
+          floor: productSelectedSession.selectedProduct!,
+          walls: {
+            id: "wallpaper-1",
+            barcode: null,
+            name: "Wallpaper",
+            productType: "wall_material",
+            category: "WALLPAPER",
+            targetSurface: "walls",
+            imageUrl: "https://example.com/wallpaper.jpg",
+          },
+        },
+      });
+
+      const res = await POST(makeRequest(SESSION_ID), makeContext(SESSION_ID));
+      const body = await res.json();
+
+      expect(res.status).toBe(400);
+      expect(body.code).toBe("MULTI_PRODUCT_RENDER_NOT_IMPLEMENTED");
+      expect(executeRenderPipeline).not.toHaveBeenCalled();
+    });
   });
 
   describe("rate limiting", () => {

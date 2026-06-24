@@ -57,6 +57,10 @@ import {
   sessionInvalidStateResponse,
   sessionNotFoundResponse,
 } from "@/lib/room-preview/render-route-guards";
+import {
+  getSelectedProductCount,
+  normalizeSelectedProducts,
+} from "@/lib/room-preview/selected-products";
 
 const log = getLogger("render-api");
 
@@ -126,6 +130,16 @@ export async function POST(
     // doesn't trigger a wasted increment + decrement cycle.
     if (!session) throw new RoomPreviewSessionNotFoundError();
     if (isEffectivelyExpired(session)) throw new RoomPreviewSessionExpiredError();
+
+    if (getSelectedProductCount(normalizeSelectedProducts(session)) > 1) {
+      return NextResponse.json(
+        {
+          code: "MULTI_PRODUCT_RENDER_NOT_IMPLEMENTED",
+          error: "Rendering multiple products is not implemented yet.",
+        },
+        { status: 400 },
+      );
+    }
 
     // ── 5. Dedupe — return cached result if inputs haven't changed ──────────
     const roomImageUrl = session.selectedRoom?.imageUrl;
@@ -273,6 +287,7 @@ export async function POST(
       mobileConnected: readySession.mobileConnected,
       selectedRoom:    readySession.selectedRoom,
       selectedProduct: readySession.selectedProduct,
+      selectedProductsBySurface: readySession.selectedProductsBySurface,
       renderResult:    readySession.renderResult,
     });
 

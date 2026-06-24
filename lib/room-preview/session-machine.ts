@@ -4,7 +4,15 @@ import type {
   RoomPreviewSessionStatus,
   SelectedProduct,
   SelectedRoom,
+  TargetSurface,
 } from "@/lib/room-preview/types";
+import {
+  getPrimarySelectedProduct,
+  getSelectedProductCount,
+  normalizeSelectedProducts,
+  removeSelectedProductBySurface,
+  upsertSelectedProductBySurface,
+} from "@/lib/room-preview/selected-products";
 
 export class RoomPreviewSessionTransitionError extends Error {
   code = "SESSION_INVALID_STATE" as const;
@@ -54,6 +62,7 @@ export function createRoomPreviewSessionState(sessionId: string): RoomPreviewSes
     mobileConnected: false,
     selectedRoom: null,
     selectedProduct: null,
+    selectedProductsBySurface: {},
     renderResult: null,
   };
 }
@@ -148,6 +157,7 @@ export function selectRoomTransition(
     ...session,
     selectedRoom: room,
     selectedProduct: session.status === "failed" ? null : session.selectedProduct,
+    selectedProductsBySurface: session.status === "failed" ? {} : session.selectedProductsBySurface,
     renderResult: null,
   };
 
@@ -197,9 +207,66 @@ export function selectProductTransition(
 
   assertValidSelectedProduct(product);
 
+  const selectedProductsBySurface = upsertSelectedProductBySurface(
+    normalizeSelectedProducts(session),
+    product,
+  );
+
   return touchSession(session, {
-    selectedProduct: product,
+    selectedProductsBySurface,
+    selectedProduct: getPrimarySelectedProduct(selectedProductsBySurface),
     status: "product_selected",
+    renderResult: null,
+  });
+}
+
+export function removeSelectedProductTransition(
+  session: RoomPreviewSession,
+  surface: TargetSurface,
+): RoomPreviewSession {
+  const isHardLocked =
+    session.status === "ready_to_render" ||
+    session.status === "rendering" ||
+    session.status === "completed" ||
+    session.status === "expired";
+
+  if (isHardLocked) {
+    throw new RoomPreviewSessionTransitionError(
+      "This session can no longer accept a product removal.",
+      session.status,
+    );
+  }
+
+  assertAllowedStatus(
+    session,
+    ["room_selected", "product_selected", "result_ready", "failed"],
+    "Select a room before removing a product.",
+  );
+
+  if (!session.mobileConnected) {
+    throw new RoomPreviewSessionTransitionError(
+      "Connect the mobile device before removing a product.",
+      session.status,
+    );
+  }
+
+  if (!session.selectedRoom?.imageUrl) {
+    throw new RoomPreviewSessionTransitionError(
+      "Select a room before removing a product.",
+      session.status,
+    );
+  }
+
+  const selectedProductsBySurface = removeSelectedProductBySurface(
+    normalizeSelectedProducts(session),
+    surface,
+  );
+  const selectedProduct = getPrimarySelectedProduct(selectedProductsBySurface);
+
+  return touchSession(session, {
+    selectedProductsBySurface,
+    selectedProduct,
+    status: getSelectedProductCount(selectedProductsBySurface) > 0 ? "product_selected" : "room_selected",
     renderResult: null,
   });
 }

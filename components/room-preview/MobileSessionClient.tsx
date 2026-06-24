@@ -13,8 +13,17 @@ import RoomStep    from "@/features/room-preview/mobile/RoomStep";
 import ProductStep from "@/features/room-preview/mobile/ProductStep";
 import ProductQrStep from "@/features/room-preview/mobile/ProductQrStep";
 import ResultStep  from "@/features/room-preview/mobile/ResultStep";
+import SelectedProductsStep from "@/features/room-preview/mobile/SelectedProductsStep";
 import { ROOM_PREVIEW_ACTIVE_SESSION_STORAGE_KEY } from "@/lib/room-preview/product-qr";
-import type { RoomPreviewProduct, RoomPreviewSession } from "@/lib/room-preview/types";
+import { removeRoomPreviewSessionProduct } from "@/lib/room-preview/product-service";
+import {
+  getSelectedProductCount,
+  normalizeSelectedProducts,
+} from "@/lib/room-preview/selected-products";
+import type {
+  RoomPreviewProduct,
+  TargetSurface,
+} from "@/lib/room-preview/types";
 
 type MobileSessionClientProps = {
   sessionId: string;
@@ -121,14 +130,22 @@ export default function MobileSessionClient({
   const [useProductListFallback, setUseProductListFallback] = useState(false);
   // Local loading state while the abandon API call is in flight.
   const [isAbandoning, setIsAbandoning] = useState(false);
+  const [productScanMode, setProductScanMode] = useState<
+    { type: "add" } | { type: "change"; surface: TargetSurface } | null
+  >(null);
+  const [isRemovingSurface, setIsRemovingSurface] = useState<TargetSurface | null>(null);
+  const [consumedInitialProductCode, setConsumedInitialProductCode] = useState(false);
+  const [productActionError, setProductActionError] = useState<string | null>(null);
 
   const {
     t,
+    locale,
     session,
     viewState,
     isSavingProduct,
     showResult,
     setShowResult,
+    replaceSession,
     roomSaveStatusLabel,
     error,
     successMessage,
@@ -179,14 +196,6 @@ export default function MobileSessionClient({
     if (!localProductId) return session?.selectedProduct ?? null;
     return products.find((p) => p.id === localProductId) ?? session?.selectedProduct ?? null;
   }, [localProductId, products, session?.selectedProduct]);
-
-  const qrProductSaveRef = useRef<{ code: string; promise: Promise<RoomPreviewSession | null> } | null>(null);
-
-  const handleQrProductResolved = useCallback((productCode: string) => {
-    console.info("[room-preview] qr_product_save_start", { sessionId, productCode, t: Date.now() });
-    const savePromise = handleProductCodeSelect(productCode);
-    qrProductSaveRef.current = { code: productCode, promise: savePromise };
-  }, [handleProductCodeSelect, sessionId]);
 
   const handleGuardedBack = useCallback(() => {
     window.history.back();
@@ -317,8 +326,22 @@ export default function MobileSessionClient({
 
   const isRenderingSession = session.status === "ready_to_render" || session.status === "rendering";
   const shouldUseProductList = useProductListFallback;
+  const selectedProductsBySurface = normalizeSelectedProducts(session);
+  const effectiveProductScanMode =
+    productScanMode ??
+    (initialProductCode && hasSavedProduct && !consumedInitialProductCode ? { type: "add" as const } : null);
   const shouldShowProductQrStep =
     hasSavedRoom &&
+    !shouldUseProductList &&
+    (!hasSavedProduct || effectiveProductScanMode !== null) &&
+    !isRenderingSession &&
+    !showResult &&
+    session.status !== "result_ready" &&
+    session.status !== "failed";
+  const shouldShowSelectedProductsStep =
+    hasSavedRoom &&
+    hasSavedProduct &&
+    effectiveProductScanMode === null &&
     !shouldUseProductList &&
     !isRenderingSession &&
     !showResult &&
@@ -332,29 +355,63 @@ export default function MobileSessionClient({
      session.status === "result_ready" ||
      session.status === "failed");
   const initialQrProductCode =
-    initialProductCode ??
-    (!shouldUseProductList && session.selectedProduct?.imageUrl?.startsWith("/qr-products/")
+    (!consumedInitialProductCode ? initialProductCode : null) ??
+    (!hasSavedProduct && !shouldUseProductList && session.selectedProduct?.imageUrl?.startsWith("/qr-products/")
       ? session.selectedProduct.id
       : null);
 
   const handleQrGenerate = async (productCode: string) => {
-    let selectedSession: RoomPreviewSession | null = null;
-    if (qrProductSaveRef.current?.code === productCode) {
-      console.info("[room-preview] qr_product_awaiting_save", { sessionId, productCode, t: Date.now() });
-      selectedSession = await qrProductSaveRef.current.promise;
-      qrProductSaveRef.current = null;
-    } else {
-      selectedSession = await handleProductCodeSelect(productCode);
-    }
+    const selectedSession = await handleProductCodeSelect(productCode);
     if (!selectedSession) return;
+    setConsumedInitialProductCode(true);
     await handleCreateRender(selectedSession);
+  };
+
+  const handleQrSaveOnly = async (productCode: string) => {
+    const selectedSession = await handleProductCodeSelect(productCode);
+    if (!selectedSession) return;
+    setConsumedInitialProductCode(true);
+    setProductActionError(null);
+    setProductScanMode(null);
+  };
+
+  const handleRemoveProduct = async (surface: TargetSurface) => {
+    setIsRemovingSurface(surface);
+    setProductActionError(null);
+    const removedProductCode = selectedProductsBySurface[surface]?.id ?? null;
+    try {
+      const response = await removeRoomPreviewSessionProduct(sessionId, surface);
+      setConsumedInitialProductCode(true);
+      const nextSelectedProducts = normalizeSelectedProducts(response.session);
+      trackClientSessionEvent(sessionId, {
+        source: "mobile",
+        eventType: "product_removed",
+        level: "info",
+        statusAfter: response.session.status,
+        metadata: {
+          productCode: removedProductCode,
+          targetSurface: surface,
+          selectedProductCount: getSelectedProductCount(nextSelectedProducts),
+          selectedProductCodes: Object.values(nextSelectedProducts)
+            .map((product) => product?.id)
+            .filter(Boolean),
+          selectedTargetSurfaces: Object.keys(nextSelectedProducts),
+        },
+      });
+      replaceSession(response.session);
+      setProductScanMode(null);
+      setIsRemovingSurface(null);
+    } catch {
+      setProductActionError(locale === "ar" ? "تعذر إزالة المنتج. حاول مرة أخرى." : "Could not remove the product. Please try again.");
+      setIsRemovingSurface(null);
+    }
   };
 
   // The room-upload step is rendered as the page itself: a route-contained
   // white surface (no card, no eyebrow, no outer background).
   // Every other step keeps the existing glass card + eyebrow unchanged.
   const isRoomUploadStep = isConnected && !hasSavedRoom;
-  const isWhiteMobileStep = isRoomUploadStep || shouldShowProductQrStep;
+  const isWhiteMobileStep = isRoomUploadStep || shouldShowProductQrStep || shouldShowSelectedProductsStep;
   const isRoomUploadError = isRoomUploadStep && roomSaveStatus === "error";
 
   return (
@@ -421,8 +478,46 @@ export default function MobileSessionClient({
           isBusy={isSavingProduct || isRenderingSession}
           canUseProductListFallback={showProductListFallback}
           onUseProductListFallback={() => setUseProductListFallback(true)}
-          onProductResolved={handleQrProductResolved}
+          mode={
+            effectiveProductScanMode?.type === "change"
+              ? "change"
+              : effectiveProductScanMode?.type === "add"
+                ? "add"
+                : "initial"
+          }
+          expectedSurface={effectiveProductScanMode?.type === "change" ? effectiveProductScanMode.surface : null}
+          selectedProductsBySurface={selectedProductsBySurface}
+          onCancel={
+            hasSavedProduct
+              ? () => {
+                  setConsumedInitialProductCode(true);
+                  setProductScanMode(null);
+                }
+              : undefined
+          }
+          onSaveProductCode={handleQrSaveOnly}
           onGenerateWithProductCode={handleQrGenerate}
+        />
+      ) : null}
+
+      {shouldShowSelectedProductsStep ? (
+        <SelectedProductsStep
+          session={session}
+          locale={locale}
+          isBusy={isSavingProduct || isRenderingSession || isRemovingSurface !== null}
+          removingSurface={isRemovingSurface}
+          onAddAnother={() => {
+            setProductActionError(null);
+            setConsumedInitialProductCode(true);
+            setProductScanMode({ type: "add" });
+          }}
+          onChangeSurface={(surface) => {
+            setProductActionError(null);
+            setConsumedInitialProductCode(true);
+            setProductScanMode({ type: "change", surface });
+          }}
+          onRemoveSurface={(surface) => void handleRemoveProduct(surface)}
+          onCreateRender={() => void handleCreateRender()}
         />
       ) : null}
 
@@ -520,6 +615,12 @@ export default function MobileSessionClient({
             </button>
           </div>
         </div>
+      ) : null}
+
+      {productActionError ? (
+        <p className="mt-4 rounded-[18px] border border-red-400/25 bg-red-50 px-4 py-3 text-center text-sm leading-6 text-red-700">
+          {productActionError}
+        </p>
       ) : null}
 
       {roomSaveStatus === "error" && !isRoomUploadError ? <p className="mt-4 text-sm font-semibold text-red-600 dark:text-red-400">{t.roomPreview.mobile.room.saveFailed}</p> : null}

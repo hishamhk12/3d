@@ -6,6 +6,7 @@ import {
   createRoomPreviewSessionState,
   failRenderingTransition,
   markReadyToRenderTransition,
+  removeSelectedProductTransition,
   selectProductTransition,
   selectRoomTransition,
   startRenderingTransition,
@@ -50,7 +51,19 @@ const validProduct: SelectedProduct = {
   barcode: "123456",
   name: "Oak Flooring",
   productType: "floor_material",
+  category: "PARQUET",
+  targetSurface: "floor",
   imageUrl: "https://example.com/product.jpg",
+};
+
+const validWallpaperProduct: SelectedProduct = {
+  id: "wallpaper-1",
+  barcode: "WALL-1",
+  name: "Ivory Wallpaper",
+  productType: "wall_material",
+  category: "WALLPAPER",
+  targetSurface: "walls",
+  imageUrl: "https://example.com/wallpaper.jpg",
 };
 
 const validRenderResult: RoomPreviewRenderResult = {
@@ -71,6 +84,7 @@ describe("createRoomPreviewSessionState", () => {
     expect(session.mobileConnected).toBe(false);
     expect(session.selectedRoom).toBeNull();
     expect(session.selectedProduct).toBeNull();
+    expect(session.selectedProductsBySurface).toEqual({});
     expect(session.renderResult).toBeNull();
   });
 
@@ -225,6 +239,7 @@ describe("selectRoomTransition", () => {
     const next = selectRoomTransition(session, validRoom);
     expect(next.status).toBe("room_selected");
     expect(next.selectedProduct).toBeNull();
+    expect(next.selectedProductsBySurface).toEqual({});
   });
 });
 
@@ -241,6 +256,7 @@ describe("selectProductTransition", () => {
     const next = selectProductTransition(roomSelectedSession, validProduct);
     expect(next.status).toBe("product_selected");
     expect(next.selectedProduct).toEqual(validProduct);
+    expect(next.selectedProductsBySurface?.floor).toEqual(validProduct);
   });
 
   it("allows re-selecting a product from product_selected", () => {
@@ -252,6 +268,42 @@ describe("selectProductTransition", () => {
     });
     const next = selectProductTransition(session, validProduct);
     expect(next.status).toBe("product_selected");
+  });
+
+  it("adds a second product on a different surface without clearing the first", () => {
+    const session = makeSession({
+      status: "product_selected",
+      mobileConnected: true,
+      selectedRoom: validRoom,
+      selectedProduct: validProduct,
+      selectedProductsBySurface: { floor: validProduct },
+    });
+    const next = selectProductTransition(session, validWallpaperProduct);
+
+    expect(next.selectedProductsBySurface?.floor).toEqual(validProduct);
+    expect(next.selectedProductsBySurface?.walls).toEqual(validWallpaperProduct);
+    expect(next.selectedProduct).toEqual(validProduct);
+  });
+
+  it("replaces only the matching surface", () => {
+    const replacementFloor: SelectedProduct = {
+      ...validProduct,
+      id: "product-2",
+      barcode: "654321",
+      name: "Walnut Flooring",
+    };
+    const session = makeSession({
+      status: "product_selected",
+      mobileConnected: true,
+      selectedRoom: validRoom,
+      selectedProduct: validProduct,
+      selectedProductsBySurface: { floor: validProduct, walls: validWallpaperProduct },
+    });
+    const next = selectProductTransition(session, replacementFloor);
+
+    expect(next.selectedProductsBySurface?.floor).toEqual(replacementFloor);
+    expect(next.selectedProductsBySurface?.walls).toEqual(validWallpaperProduct);
+    expect(next.selectedProduct).toEqual(replacementFloor);
   });
 
   it("clears renderResult when a new product is selected", () => {
@@ -354,6 +406,51 @@ describe("selectProductTransition", () => {
     });
     const next = selectProductTransition(session, validProduct);
     expect(next.status).toBe("product_selected");
+  });
+});
+
+describe("removeSelectedProductTransition", () => {
+  const productSelectedSession = makeSession({
+    status: "product_selected",
+    mobileConnected: true,
+    selectedRoom: validRoom,
+    selectedProduct: validProduct,
+    selectedProductsBySurface: { floor: validProduct, walls: validWallpaperProduct },
+  });
+
+  it("removes floor without removing walls", () => {
+    const next = removeSelectedProductTransition(productSelectedSession, "floor");
+
+    expect(next.status).toBe("product_selected");
+    expect(next.selectedProductsBySurface?.floor).toBeUndefined();
+    expect(next.selectedProductsBySurface?.walls).toEqual(validWallpaperProduct);
+    expect(next.selectedProduct).toEqual(validWallpaperProduct);
+  });
+
+  it("removes walls without removing floor", () => {
+    const next = removeSelectedProductTransition(productSelectedSession, "walls");
+
+    expect(next.status).toBe("product_selected");
+    expect(next.selectedProductsBySurface?.floor).toEqual(validProduct);
+    expect(next.selectedProductsBySurface?.walls).toBeUndefined();
+    expect(next.selectedProduct).toEqual(validProduct);
+  });
+
+  it("removing the last product returns to room_selected", () => {
+    const next = removeSelectedProductTransition(
+      makeSession({
+        status: "product_selected",
+        mobileConnected: true,
+        selectedRoom: validRoom,
+        selectedProduct: validProduct,
+        selectedProductsBySurface: { floor: validProduct },
+      }),
+      "floor",
+    );
+
+    expect(next.status).toBe("room_selected");
+    expect(next.selectedProduct).toBeNull();
+    expect(next.selectedProductsBySurface).toEqual({});
   });
 });
 

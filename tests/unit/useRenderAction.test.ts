@@ -223,6 +223,54 @@ describe("useRenderAction", () => {
   });
 
   describe("pre-flight guards", () => {
+    it("blocks two-product renders before calling the render API and hides the technical error code", async () => {
+      const floorProduct = {
+        id: "p-floor",
+        barcode: null,
+        name: "Oak",
+        productType: "floor_material" as const,
+        category: "PARQUET" as const,
+        targetSurface: "floor" as const,
+        imageUrl: "https://cdn/p-floor.jpg",
+      };
+      const wallProduct = {
+        id: "p-wall",
+        barcode: null,
+        name: "Wallpaper",
+        productType: "wall_material" as const,
+        category: "WALLPAPER" as const,
+        targetSurface: "walls" as const,
+        imageUrl: "https://cdn/p-wall.jpg",
+      };
+      const params = makeParams({
+        session: makeSession({
+          selectedProduct: floorProduct,
+          selectedProductsBySurface: {
+            floor: floorProduct,
+            walls: wallProduct,
+          },
+        }),
+      });
+
+      const { result } = renderHook(() => useRenderAction(params));
+      await act(async () => { await result.current.handleCreateRender(); });
+
+      expect(createRenderForSession).not.toHaveBeenCalled();
+      expect(pollForRenderResult).not.toHaveBeenCalled();
+      expect(params.setError).toHaveBeenCalledTimes(1);
+      expect(vi.mocked(params.setError).mock.calls[0][0]).not.toContain("MULTI_PRODUCT_RENDER_NOT_IMPLEMENTED");
+      expect(eventsOfType("render_request_blocked_multi_product")[0]).toMatchObject({
+        source: "mobile",
+        eventType: "render_request_blocked_multi_product",
+        level: "info",
+        metadata: {
+          selectedProductCount: 2,
+          selectedProductCodes: ["p-floor", "p-wall"],
+          selectedTargetSurfaces: ["floor", "walls"],
+        },
+      });
+    });
+
     it("returns silently when no session and no override is provided", async () => {
       const params = makeParams({ session: null });
 

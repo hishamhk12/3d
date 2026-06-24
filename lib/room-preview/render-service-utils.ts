@@ -9,6 +9,7 @@ import type {
 } from "@/lib/room-preview/types";
 import type { RoomPreviewRenderProviderResult } from "@/lib/room-preview/render-providers/types";
 import { isRenderableProduct } from "@/lib/room-preview/validators";
+import { getPrimarySelectedProduct, normalizeSelectedProducts } from "@/lib/room-preview/selected-products";
 
 // ─── Constants ────────────────────────────────────────────────────────────────
 
@@ -60,16 +61,18 @@ export function buildRenderJobInput(session: RoomPreviewSession): RenderJobInput
     throw new Error("A selected room is required before creating a render job.");
   }
 
-  if (!session.selectedProduct?.id || !session.selectedProduct.imageUrl || !session.selectedProduct.name) {
+  const selectedProduct = getPrimarySelectedProduct(normalizeSelectedProducts(session));
+
+  if (!selectedProduct?.id || !selectedProduct.imageUrl || !selectedProduct.name) {
     throw new Error("A selected product is required before creating a render job.");
   }
 
-  if (!isRenderableProduct(session.selectedProduct)) {
+  if (!isRenderableProduct(selectedProduct)) {
     throw new Error("Only floor_material or wall_material products are supported.");
   }
 
   return {
-    product: session.selectedProduct,
+    product: selectedProduct,
     room: session.selectedRoom,
     sessionId: session.id,
   };

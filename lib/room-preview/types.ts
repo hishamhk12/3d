@@ -53,6 +53,7 @@ export type RoomPreviewApiErrorCode =
   | "ROOM_UPLOAD_ABORTED"
   | "DIRECT_UPLOAD_NOT_SUPPORTED"
   | "DIRECT_UPLOAD_FAILED"
+  | "MULTI_PRODUCT_RENDER_NOT_IMPLEMENTED"
   | "RENDER_LIMIT_REACHED"
   | "RENDER_DEVICE_COOLDOWN"
   | "SCREEN_BUDGET_EXHAUSTED";
@@ -77,6 +78,11 @@ export type SelectedProduct = {
    */
   category?: ProductCategory;
   targetSurface?: TargetSurface;
+};
+
+export type SelectedProductsBySurface = {
+  floor?: SelectedProduct;
+  walls?: SelectedProduct;
 };
 
 export type RenderResult = {
@@ -105,6 +111,7 @@ export type RoomPreviewSession = {
   customerRoleSelected?: boolean;
   selectedRoom: SelectedRoom | null;
   selectedProduct: SelectedProduct | null;
+  selectedProductsBySurface?: SelectedProductsBySurface;
   renderResult: RoomPreviewRenderResult | null;
 };
 
@@ -147,6 +154,12 @@ export type SaveRoomPreviewSessionResult = {
 export type SaveRoomPreviewSessionProductResponse = {
   success: true;
   product: SelectedProduct;
+  session: RoomPreviewSession;
+};
+
+export type RemoveRoomPreviewSessionProductResponse = {
+  success: true;
+  product: SelectedProduct | null;
   session: RoomPreviewSession;
 };
 

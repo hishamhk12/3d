@@ -14,6 +14,11 @@ import {
 } from "@/lib/room-preview/session-service";
 import { getSessionById } from "@/lib/room-preview/session-repository";
 import { trackSessionEvent } from "@/lib/room-preview/session-diagnostics";
+import {
+  getPrimarySelectedProduct,
+  getSelectedProductDiagnostics,
+  normalizeSelectedProducts,
+} from "@/lib/room-preview/selected-products";
 import type { RoomPreviewProduct, SelectedProduct } from "@/lib/room-preview/types";
 
 const log = getLogger("mobile-request-retry-api");
@@ -51,12 +56,13 @@ async function resolveRetryProduct(body: z.infer<typeof RequestRetryBodySchema>)
   }
 
   const session = await getSessionById(body.sessionId);
-  return session?.selectedProduct?.id &&
-    session.selectedProduct.name &&
-    session.selectedProduct.imageUrl &&
-    (session.selectedProduct.productType === "floor_material" ||
-      session.selectedProduct.productType === "wall_material")
-    ? session.selectedProduct
+  const selectedProduct = session ? getPrimarySelectedProduct(normalizeSelectedProducts(session)) : null;
+  return selectedProduct?.id &&
+    selectedProduct.name &&
+    selectedProduct.imageUrl &&
+    (selectedProduct.productType === "floor_material" ||
+      selectedProduct.productType === "wall_material")
+    ? selectedProduct
     : null;
 }
 
@@ -99,6 +105,7 @@ export async function POST(request: Request) {
 
   try {
     const { session } = await selectProductForSession(body.sessionId, product);
+    const selectedProductDiagnostics = getSelectedProductDiagnostics(session.selectedProductsBySurface);
 
     await trackSessionEvent({
       sessionId: body.sessionId,
@@ -110,7 +117,10 @@ export async function POST(request: Request) {
       metadata: {
         mode: body.mode,
         productId: product.id,
-        changedProduct: previousSession?.selectedProduct?.id !== product.id,
+        changedProduct:
+          (normalizeSelectedProducts(previousSession ?? { selectedProduct: null })[product.targetSurface ?? "floor"])?.id !==
+          product.id,
+        ...selectedProductDiagnostics,
       },
     });
 

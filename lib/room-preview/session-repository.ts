@@ -9,13 +9,20 @@ import {
   type RoomPreviewSession,
   type RoomPreviewSessionStatus,
   type SelectedProduct,
+  type SelectedProductsBySurface,
   type SelectedRoom,
 } from "@/lib/room-preview/types";
 import {
   isRoomPreviewRenderResult,
   isSelectedProduct,
+  isSelectedProductsBySurface,
   isSelectedRoom,
 } from "@/lib/room-preview/validators";
+import {
+  getPrimarySelectedProduct,
+  getSelectedProductCount,
+  normalizeSelectedProducts,
+} from "@/lib/room-preview/selected-products";
 import { prisma } from "@/lib/server/prisma";
 
 function buildExpiresAt() {
@@ -28,6 +35,7 @@ type SessionUpdateData = {
   mobileConnected?: boolean;
   selectedRoom?: SelectedRoom | null;
   selectedProduct?: SelectedProduct | null;
+  selectedProductsBySurface?: SelectedProductsBySurface;
   renderResult?: RoomPreviewRenderResult | null;
 };
 
@@ -41,6 +49,31 @@ function toSelectedRoom(value: unknown): SelectedRoom | null {
 
 function toSelectedProduct(value: unknown): SelectedProduct | null {
   return isSelectedProduct(value) ? value : null;
+}
+
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === "object" && value !== null;
+}
+
+function readSelectedProductStorage(value: unknown): {
+  selectedProduct: SelectedProduct | null;
+  selectedProductsBySurface?: SelectedProductsBySurface;
+} {
+  const storedProduct = toSelectedProduct(value);
+  const storedProductsBySurface =
+    isRecord(value) && isSelectedProductsBySurface(value.selectedProductsBySurface)
+      ? value.selectedProductsBySurface
+      : undefined;
+  const selectedProductsBySurface =
+    storedProductsBySurface ??
+    (storedProduct ? normalizeSelectedProducts({ selectedProduct: storedProduct }) : undefined);
+
+  return {
+    selectedProduct: getPrimarySelectedProduct(selectedProductsBySurface) ?? storedProduct,
+    ...(selectedProductsBySurface && getSelectedProductCount(selectedProductsBySurface) > 0
+      ? { selectedProductsBySurface }
+      : {}),
+  };
 }
 
 function toRenderResult(value: unknown): RoomPreviewRenderResult | null {
@@ -65,12 +98,15 @@ function mapSession(session: {
   createdAt: Date | string;
   updatedAt: Date | string;
 }): RoomPreviewSession {
+  const productState = readSelectedProductStorage(session.selectedProduct);
+
   return {
     id: session.id,
     status: toStatus(session.status),
     mobileConnected: session.mobileConnected,
     selectedRoom: toSelectedRoom(session.selectedRoom),
-    selectedProduct: toSelectedProduct(session.selectedProduct),
+    selectedProduct: productState.selectedProduct,
+    selectedProductsBySurface: productState.selectedProductsBySurface,
     renderResult: toRenderResult(session.renderResult),
     expiresAt: session.expiresAt ? toIsoString(session.expiresAt) : null,
     createdAt: toIsoString(session.createdAt),
@@ -79,13 +115,36 @@ function mapSession(session: {
 }
 
 function toJsonValue(
-  value: SelectedRoom | SelectedProduct | RoomPreviewRenderResult | null | undefined,
+  value: SelectedRoom | RoomPreviewRenderResult | null | undefined,
 ) {
   if (value === undefined) {
     return undefined;
   }
 
   return value === null ? Prisma.JsonNull : value;
+}
+
+function toSelectedProductJsonValue(
+  selectedProduct: SelectedProduct | null | undefined,
+  selectedProductsBySurface: SelectedProductsBySurface | undefined,
+) {
+  if (selectedProduct === undefined && selectedProductsBySurface === undefined) {
+    return undefined;
+  }
+
+  const normalizedProducts =
+    selectedProductsBySurface ??
+    normalizeSelectedProducts({ selectedProduct: selectedProduct ?? null });
+  const primaryProduct = selectedProduct ?? getPrimarySelectedProduct(normalizedProducts);
+
+  if (!primaryProduct) {
+    return Prisma.JsonNull;
+  }
+
+  return {
+    ...primaryProduct,
+    selectedProductsBySurface: normalizedProducts,
+  };
 }
 
 export async function createSession(
@@ -97,7 +156,11 @@ export async function createSession(
       status: initialState?.status ?? "created",
       mobileConnected: initialState?.mobileConnected ?? false,
       selectedRoom: toJsonValue(initialState?.selectedRoom) ?? Prisma.JsonNull,
-      selectedProduct: toJsonValue(initialState?.selectedProduct) ?? Prisma.JsonNull,
+      selectedProduct:
+        toSelectedProductJsonValue(
+          initialState?.selectedProduct,
+          initialState?.selectedProductsBySurface,
+        ) ?? Prisma.JsonNull,
       renderResult: toJsonValue(initialState?.renderResult) ?? Prisma.JsonNull,
       expiresAt: buildExpiresAt(),
       ...(screenId ? { screenId } : {}),
@@ -161,7 +224,7 @@ export async function updateSession(id: string, data: SessionUpdateData) {
       status: data.status,
       mobileConnected: data.mobileConnected,
       selectedRoom: toJsonValue(data.selectedRoom),
-      selectedProduct: toJsonValue(data.selectedProduct),
+      selectedProduct: toSelectedProductJsonValue(data.selectedProduct, data.selectedProductsBySurface),
       renderResult: toJsonValue(data.renderResult),
     },
   });
@@ -175,6 +238,7 @@ export async function saveSessionState(session: {
   mobileConnected: boolean;
   selectedRoom: SelectedRoom | null;
   selectedProduct: SelectedProduct | null;
+  selectedProductsBySurface?: SelectedProductsBySurface;
   renderResult: RoomPreviewRenderResult | null;
 }) {
   return updateSession(session.id, {
@@ -182,6 +246,7 @@ export async function saveSessionState(session: {
     mobileConnected: session.mobileConnected,
     selectedRoom: session.selectedRoom,
     selectedProduct: session.selectedProduct,
+    selectedProductsBySurface: session.selectedProductsBySurface,
     renderResult: session.renderResult,
   });
 }

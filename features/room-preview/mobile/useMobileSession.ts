@@ -53,6 +53,10 @@ import { useProductSelection } from "@/features/room-preview/mobile/useProductSe
 import { useMobileSessionEvents } from "@/features/room-preview/mobile/useMobileSessionEvents";
 import { useBrowserBackGuard } from "@/features/room-preview/mobile/useBrowserBackGuard";
 import { useSessionExpiryTimer } from "@/features/room-preview/mobile/useSessionExpiryTimer";
+import {
+  getSelectedProductCount,
+  normalizeSelectedProducts,
+} from "@/lib/room-preview/selected-products";
 
 // Re-export the view-state and save-status types so external code can keep
 // importing them from useMobileSession (preserves the original public API).
@@ -73,6 +77,7 @@ export interface UseMobileSessionReturn {
   isSavingProduct: boolean;
   showResult: boolean;
   setShowResult: (v: boolean) => void;
+  replaceSession: (nextSession: RoomPreviewSession) => void;
   roomSaveStatusLabel: string | null;
   error: string | null;
   successMessage: string | null;
@@ -504,9 +509,7 @@ export function useMobileSession({
 
   const isConnected    = session ? isSessionConnected(session) : false;
   const hasSavedRoom   = Boolean(session?.selectedRoom?.imageUrl);
-  const hasSavedProduct = Boolean(
-    session?.selectedProduct?.id && session?.selectedProduct?.imageUrl,
-  );
+  const hasSavedProduct = session ? getSelectedProductCount(normalizeSelectedProducts(session)) > 0 : false;
   const effectiveLocalProductId = localProductId ?? session?.selectedProduct?.id ?? null;
 
   const sectionAlignClass         = dir === "rtl" ? "text-right" : "text-left";
@@ -525,6 +528,7 @@ export function useMobileSession({
     isSavingProduct,
     showResult,
     setShowResult,
+    replaceSession: setSession,
     roomSaveStatusLabel,
     error,
     successMessage,

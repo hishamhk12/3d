@@ -16,6 +16,7 @@ import type {
   SaveRoomPreviewSessionProductResponse,
   SaveRoomPreviewSessionRoomResponse,
   SelectedProduct,
+  SelectedProductsBySurface,
   SelectedRoom,
 } from "@/lib/room-preview/types";
 
@@ -37,6 +38,7 @@ function isRoomPreviewSessionStatus(value: unknown): value is RoomPreviewSession
     value === "ready_to_render" ||
     value === "rendering" ||
     value === "result_ready" ||
+    value === "completed" ||
     value === "failed" ||
     value === "expired"
   );
@@ -134,6 +136,33 @@ export function isSelectedProduct(value: unknown): value is SelectedProduct {
   );
 }
 
+function isSelectedProductForSurface(value: unknown, surface: TargetSurface): value is SelectedProduct {
+  return (
+    isSelectedProduct(value) &&
+    typeof value.id === "string" &&
+    typeof value.name === "string" &&
+    typeof value.imageUrl === "string" &&
+    isProductType(value.productType) &&
+    value.targetSurface === surface
+  );
+}
+
+export function isSelectedProductsBySurface(value: unknown): value is SelectedProductsBySurface {
+  if (!isRecord(value)) {
+    return false;
+  }
+
+  const allowedKeys = new Set(["floor", "walls"]);
+  if (Object.keys(value).some((key) => !allowedKeys.has(key))) {
+    return false;
+  }
+
+  return (
+    (!("floor" in value) || value.floor === undefined || isSelectedProductForSurface(value.floor, "floor")) &&
+    (!("walls" in value) || value.walls === undefined || isSelectedProductForSurface(value.walls, "walls"))
+  );
+}
+
 /**
  * Default classification applied to a persisted product that predates the
  * wallpaper rollout (or any product missing category/targetSurface). Keeps old
@@ -214,6 +243,9 @@ export function isRoomPreviewSession(value: unknown): value is RoomPreviewSessio
   return (
     (value.selectedRoom === null || isSelectedRoom(value.selectedRoom)) &&
     (value.selectedProduct === null || isSelectedProduct(value.selectedProduct)) &&
+    (!("selectedProductsBySurface" in value) ||
+      value.selectedProductsBySurface === undefined ||
+      isSelectedProductsBySurface(value.selectedProductsBySurface)) &&
     (value.renderResult === null || isRoomPreviewRenderResult(value.renderResult))
   );
 }

@@ -7,7 +7,11 @@ import { parseProductCodeFromQrValue } from "@/lib/room-preview/product-qr";
 import { useI18n } from "@/lib/i18n/provider";
 import { MobileActionButton } from "@/components/room-preview/MobileActionButton";
 import { useParticleBurst } from "@/components/ui/particle-button";
-import type { RoomPreviewProduct } from "@/lib/room-preview/types";
+import type {
+  RoomPreviewProduct,
+  SelectedProductsBySurface,
+  TargetSurface,
+} from "@/lib/room-preview/types";
 
 type ProductLookupResponse =
   | {
@@ -25,7 +29,11 @@ type ProductQrStepProps = {
   isBusy: boolean;
   canUseProductListFallback: boolean;
   onUseProductListFallback: () => void;
-  onProductResolved?: (productCode: string) => void;
+  mode?: "initial" | "add" | "change";
+  expectedSurface?: TargetSurface | null;
+  selectedProductsBySurface?: SelectedProductsBySurface;
+  onCancel?: () => void;
+  onSaveProductCode?: (productCode: string) => Promise<void>;
   onGenerateWithProductCode: (productCode: string) => Promise<void>;
 };
 
@@ -43,19 +51,28 @@ async function fetchProductByCode(productCode: string) {
   return data.product;
 }
 
+function surfaceLabels(isAr: boolean) {
+  return {
+    floor: isAr ? "الأرضية" : "flooring",
+    walls: isAr ? "ورق الجدران" : "wallpaper",
+  } satisfies Record<TargetSurface, string>;
+}
 
 export default function ProductQrStep({
   initialProductCode,
   isBusy,
   canUseProductListFallback,
   onUseProductListFallback,
-  onProductResolved,
+  mode = "initial",
+  expectedSurface = null,
+  selectedProductsBySurface,
+  onCancel,
+  onSaveProductCode,
   onGenerateWithProductCode,
 }: ProductQrStepProps) {
   const { locale } = useI18n();
   const isAr = locale === "ar";
-  // Particle Button animation reused on the real gray "إنشاء" button below —
-  // attaches the six-particle burst + brief press without changing its markup.
+  const surfaceLabel = surfaceLabels(isAr);
   const { burst: renderBurst, particles: renderParticles } = useParticleBurst();
   const videoRef = useRef<HTMLVideoElement | null>(null);
   const scannerRef = useRef<{ stop: () => void; destroy: () => void } | null>(null);
@@ -78,7 +95,7 @@ export default function ProductQrStep({
       const productCode = parseProductCodeFromQrValue(value);
 
       if (!productCode) {
-        setError("This QR code is not a product QR.");
+        setError(isAr ? "هذا الرمز ليس QR منتج." : "This QR code is not a product QR.");
         return;
       }
 
@@ -91,19 +108,28 @@ export default function ProductQrStep({
 
       try {
         const nextProduct = await fetchProductByCode(productCode);
-        console.info("[room-preview] qr_product_resolved", { productCode, productId: nextProduct.id, t: Date.now() });
+        console.info("[room-preview] qr_product_resolved", {
+          productCode,
+          productId: nextProduct.id,
+          t: Date.now(),
+        });
         setProduct(nextProduct);
-        onProductResolved?.(productCode);
         stopScanner();
       } catch (lookupError) {
         handledScanRef.current = null;
         setProduct(null);
-        setError(lookupError instanceof Error ? lookupError.message : "Product was not found.");
+        setError(
+          lookupError instanceof Error
+            ? lookupError.message
+            : isAr
+              ? "لم يتم العثور على المنتج."
+              : "Product was not found.",
+        );
       } finally {
         setIsLookingUp(false);
       }
     },
-    [onProductResolved, stopScanner],
+    [isAr, stopScanner],
   );
 
   useEffect(() => {
@@ -123,7 +149,7 @@ export default function ProductQrStep({
       const { default: QrScanner } = await import("qr-scanner");
       const hasCamera = await QrScanner.hasCamera();
       if (!hasCamera) {
-        throw new Error("No camera was found on this device.");
+        throw new Error(isAr ? "لم يتم العثور على كاميرا في هذا الجهاز." : "No camera was found on this device.");
       }
 
       const scanner = new QrScanner(
@@ -150,7 +176,9 @@ export default function ProductQrStep({
       setError(
         scanError instanceof Error
           ? scanError.message
-          : "Camera scanning could not be started.",
+          : isAr
+            ? "تعذر تشغيل الكاميرا."
+            : "Camera scanning could not be started.",
       );
     }
   };
@@ -161,6 +189,64 @@ export default function ProductQrStep({
     setError(null);
   };
 
+  const modeTitle =
+    mode === "add"
+      ? isAr
+        ? "امسح رمز QR للمنتج الإضافي"
+        : "Scan the additional product QR"
+      : mode === "change" && expectedSurface
+        ? isAr
+          ? `تغيير ${surfaceLabel[expectedSurface]}`
+          : `Change ${surfaceLabel[expectedSurface]}`
+        : isAr
+          ? "امسح QR المنتج"
+          : "Scan the product QR";
+  const modeDescription =
+    mode === "add"
+      ? isAr
+        ? "امسح المنتج الإضافي، وسيتم تحديد السطح تلقائياً من بيانات المنتج."
+        : "Scan the additional product. Its surface will be detected from product data."
+      : mode === "change" && expectedSurface
+        ? isAr
+          ? `امسح منتجاً مناسباً لـ ${surfaceLabel[expectedSurface]} فقط.`
+          : `Scan a product for ${surfaceLabel[expectedSurface]} only.`
+        : isAr
+          ? "افتح الكاميرا ووجهها إلى QR المطبوع على المنتج."
+          : "Open the camera and point it at the printed QR on the physical product.";
+
+  const expectedMismatch =
+    product && mode === "change" && expectedSurface && product.targetSurface !== expectedSurface;
+  const duplicateProduct =
+    product && selectedProductsBySurface?.[product.targetSurface]?.id === product.id;
+  const existingProductOnSurface = product ? selectedProductsBySurface?.[product.targetSurface] : null;
+  const requiresReplaceConfirmation =
+    mode === "add" && Boolean(existingProductOnSurface && !duplicateProduct);
+  const actionLabel =
+    mode === "initial"
+      ? isAr
+        ? "إنشاء"
+        : "Generate"
+      : mode === "add" && requiresReplaceConfirmation
+        ? isAr
+          ? "استبدال"
+          : "Replace"
+        : mode === "add"
+          ? isAr
+            ? "إضافة المنتج"
+            : "Add product"
+          : isAr
+            ? "استبدال"
+            : "Replace";
+
+  const handlePrimaryAction = async () => {
+    if (!product || expectedMismatch || duplicateProduct) return;
+    if (mode === "initial") {
+      await onGenerateWithProductCode(product.id);
+      return;
+    }
+    await onSaveProductCode?.(product.id);
+  };
+
   return (
     <section
       className="flex min-h-[calc(100svh-2.25rem)] w-full flex-col items-center justify-center py-6 text-center"
@@ -168,12 +254,10 @@ export default function ProductQrStep({
     >
       <div className="mx-auto flex w-full max-w-[345px] flex-col items-center">
         <h2 className="font-display text-center text-2xl font-semibold text-[var(--text-primary)]">
-          {isAr ? "امسح QR المنتج" : "Scan the product QR"}
+          {modeTitle}
         </h2>
         <p className="mx-auto mt-3 max-w-xs text-center text-sm leading-7 text-[var(--text-secondary)]">
-          {isAr
-            ? "افتح الكاميرا ووجهها إلى QR المطبوع على المنتج."
-            : "Open the camera and point it at the printed QR on the physical product."}
+          {modeDescription}
         </p>
 
         {!product ? (
@@ -247,6 +331,17 @@ export default function ProductQrStep({
                 {isAr ? "إيقاف الكاميرا" : "Stop camera"}
               </button>
             ) : null}
+
+            {onCancel ? (
+              <button
+                type="button"
+                onClick={onCancel}
+                disabled={isBusy}
+                className="mt-3 h-12 w-full rounded-[24px] border border-[var(--border)] bg-transparent text-sm font-semibold text-[var(--text-secondary)] transition-colors hover:bg-[var(--bg-surface)] disabled:opacity-50"
+              >
+                {isAr ? "إلغاء" : "Cancel"}
+              </button>
+            ) : null}
           </>
         ) : (
           <>
@@ -265,25 +360,47 @@ export default function ProductQrStep({
                 <div className="flex items-center justify-center gap-2 text-[var(--brand-cyan)]">
                   <QrCode className="size-5" />
                   <span className="text-sm font-semibold">
-                    {isAr ? "تم اختيار المنتج" : "Product QR found"}
+                    {isAr ? "تم العثور على المنتج" : "Product QR found"}
                   </span>
                 </div>
                 <p className="break-all font-mono text-2xl font-black text-[var(--text-primary)]">
                   {product.id}
                 </p>
+                <p className="text-xs font-semibold text-[var(--text-secondary)]">
+                  {surfaceLabel[product.targetSurface]}
+                </p>
               </div>
             </div>
+
+            {expectedMismatch ? (
+              <p className="mt-4 w-full rounded-[18px] border border-amber-400/30 bg-amber-50 px-4 py-3 text-center text-sm leading-6 text-amber-800">
+                {isAr
+                  ? "هذا المنتج مخصص لسطح مختلف. يرجى مسح منتج مناسب."
+                  : "This product is for a different surface. Please scan a matching product."}
+              </p>
+            ) : duplicateProduct ? (
+              <p className="mt-4 w-full rounded-[18px] border border-[var(--border)] bg-[var(--bg-surface)] px-4 py-3 text-center text-sm leading-6 text-[var(--text-secondary)]">
+                {isAr ? "هذا المنتج مختار مسبقاً." : "This product is already selected."}
+              </p>
+            ) : requiresReplaceConfirmation ? (
+              <p className="mt-4 w-full rounded-[18px] border border-amber-400/30 bg-amber-50 px-4 py-3 text-center text-sm leading-6 text-amber-800">
+                {isAr
+                  ? "يوجد منتج مختار مسبقاً لهذا السطح. هل تريد استبداله؟"
+                  : "A product is already selected for this surface. Replace it?"}
+              </p>
+            ) : null}
 
             <MobileActionButton
               variant="light"
               onClick={(e) => {
                 renderBurst(e);
-                void onGenerateWithProductCode(product.id);
+                void handlePrimaryAction();
               }}
               loading={isBusy}
+              disabled={Boolean(expectedMismatch || duplicateProduct)}
               className="mt-5"
             >
-              {isAr ? "إنشاء" : "Generate"}
+              {actionLabel}
             </MobileActionButton>
             {renderParticles}
             <button
@@ -294,6 +411,16 @@ export default function ProductQrStep({
             >
               {isAr ? "مسح منتج آخر" : "Scan another product"}
             </button>
+            {onCancel ? (
+              <button
+                type="button"
+                onClick={onCancel}
+                disabled={isBusy}
+                className="mt-3 h-12 w-full rounded-[24px] border border-[var(--border)] bg-transparent text-sm font-semibold text-[var(--text-secondary)] transition-colors hover:bg-[var(--bg-surface)] disabled:opacity-50"
+              >
+                {isAr ? "إلغاء" : "Cancel"}
+              </button>
+            ) : null}
           </>
         )}
 

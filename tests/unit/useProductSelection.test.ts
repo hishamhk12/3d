@@ -175,7 +175,7 @@ describe("useProductSelection", () => {
       );
     });
 
-    it("emits mobile_tap_detected and product_selected with correct metadata", async () => {
+    it("emits mobile_tap_detected and product_added with correct metadata", async () => {
       const params = makeParams();
       vi.mocked(saveRoomPreviewSessionProduct).mockResolvedValue(makeProductSavedResponse("p-1", "product_selected"));
 
@@ -191,12 +191,56 @@ describe("useProductSelection", () => {
         level: "info",
         metadata: { target: "product", productId: "p-1" },
       });
-      expect(eventsOfType("product_selected")[0]).toMatchObject({
+      expect(eventsOfType("product_added")[0]).toMatchObject({
         source: "mobile",
-        eventType: "product_selected",
+        eventType: "product_added",
         level: "info",
         statusAfter: "product_selected",
-        metadata: { productId: "p-1" },
+        metadata: {
+          productCode: "p-1",
+          productId: "p-1",
+          targetSurface: "floor",
+          selectedProductCount: 1,
+          selectedProductCodes: ["p-1"],
+          selectedTargetSurfaces: ["floor"],
+        },
+      });
+    });
+
+    it("emits product_replaced when the target surface already has a product", async () => {
+      const existingProduct = {
+        id: "old-floor",
+        barcode: null,
+        name: "Old floor",
+        productType: "floor_material" as const,
+        imageUrl: "https://cdn/old-floor.jpg",
+        targetSurface: "floor" as const,
+      };
+      const params = makeParams({
+        session: makeSession({
+          selectedProduct: existingProduct,
+          selectedProductsBySurface: { floor: existingProduct },
+        }),
+      });
+      vi.mocked(saveRoomPreviewSessionProduct).mockResolvedValue(makeProductSavedResponse("p-2", "product_selected"));
+
+      const { result } = renderHook(() => useProductSelection(params));
+      await act(async () => {
+        result.current.handleProductSelect("p-2");
+        await flushMicrotasks();
+      });
+
+      expect(eventsOfType("product_replaced")[0]).toMatchObject({
+        source: "mobile",
+        eventType: "product_replaced",
+        statusAfter: "product_selected",
+        metadata: {
+          productCode: "p-2",
+          targetSurface: "floor",
+          selectedProductCount: 1,
+          selectedProductCodes: ["p-2"],
+          selectedTargetSurfaces: ["floor"],
+        },
       });
     });
 
@@ -326,8 +370,8 @@ describe("useProductSelection", () => {
 
       // No new setSession or productSaveStatus call from the aborted resolution.
       expect(vi.mocked(params.setSession).mock.calls.length).toBe(setSessionCallsAfterSecond);
-      // p-1's product_selected event must NOT fire.
-      expect(eventsOfType("product_selected").filter(
+      // p-1's product_added event must NOT fire.
+      expect(eventsOfType("product_added").filter(
         (e) => (e.metadata as { productId: string }).productId === "p-1",
       )).toHaveLength(0);
     });
@@ -439,7 +483,7 @@ describe("useProductSelection", () => {
       expect(vi.mocked(saveRoomPreviewSessionProduct).mock.calls[0]).toHaveLength(2);
     });
 
-    it("emits product_qr_confirmed and product_selected with source: \"printed_product_qr\"", async () => {
+    it("emits product_qr_confirmed and product_added with source: \"printed_product_qr\"", async () => {
       const params = makeParams();
       vi.mocked(saveRoomPreviewSessionProduct).mockResolvedValue(makeProductSavedResponse("p-1", "product_selected"));
 
@@ -454,14 +498,18 @@ describe("useProductSelection", () => {
         level: "info",
         metadata: { productCode: "CODE123" },
       });
-      expect(eventsOfType("product_selected")[0]).toMatchObject({
+      expect(eventsOfType("product_added")[0]).toMatchObject({
         source: "mobile",
-        eventType: "product_selected",
+        eventType: "product_added",
         level: "info",
         statusAfter: "product_selected",
         metadata: {
           productCode: "CODE123",
           productId: "p-1",
+          targetSurface: "floor",
+          selectedProductCount: 1,
+          selectedProductCodes: ["p-1"],
+          selectedTargetSurfaces: ["floor"],
           source: "printed_product_qr",
         },
       });

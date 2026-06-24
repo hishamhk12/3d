@@ -22,6 +22,12 @@ import {
   type SaveStatus,
 } from "@/features/room-preview/mobile/mobile-session-utils";
 import { getErrorMessage } from "@/features/room-preview/mobile/mobile-session-error-utils";
+import {
+  getSelectedProductCount,
+  getSelectedProductCodes,
+  getSelectedTargetSurfaces,
+  normalizeSelectedProducts,
+} from "@/lib/room-preview/selected-products";
 
 /**
  * Owns the product-selection abort guard, the `localProductId` optimistic
@@ -130,12 +136,25 @@ export function useProductSelection(
           productId: response.session.selectedProduct?.id ?? productId,
           ms: Date.now() - t0,
         });
+        const selectedProductsBeforeSave = normalizeSelectedProducts(session);
+        const selectedProducts = normalizeSelectedProducts(response.session);
+        const targetSurface = response.product.targetSurface ?? "floor";
+        const eventType = selectedProductsBeforeSave[targetSurface]
+          ? "product_replaced"
+          : "product_added";
         trackClientSessionEvent(sessionId, {
           source: "mobile",
-          eventType: "product_selected",
+          eventType,
           level: "info",
           statusAfter: response.session.status,
-          metadata: { productId: response.session.selectedProduct?.id ?? productId },
+          metadata: {
+            productCode: response.product.id,
+            productId: response.session.selectedProduct?.id ?? productId,
+            targetSurface,
+            selectedProductCount: getSelectedProductCount(selectedProducts),
+            selectedProductCodes: getSelectedProductCodes(selectedProducts),
+            selectedTargetSurfaces: getSelectedTargetSurfaces(selectedProducts),
+          },
         });
         debugLog("success", `Product saved  id: ${response.session.selectedProduct?.id ?? "?"}`);
         console.info("[room-preview] Product saved", {
@@ -219,14 +238,24 @@ export function useProductSelection(
       const response = await saveRoomPreviewSessionProduct(sessionId, { productCode });
       setSession(response.session);
       setProductSaveStatus("success");
+      const selectedProductsBeforeSave = normalizeSelectedProducts(session);
+      const selectedProducts = normalizeSelectedProducts(response.session);
+      const targetSurface = response.product.targetSurface ?? "floor";
+      const eventType = selectedProductsBeforeSave[targetSurface]
+        ? "product_replaced"
+        : "product_added";
       trackClientSessionEvent(sessionId, {
         source: "mobile",
-        eventType: "product_selected",
+        eventType,
         level: "info",
         statusAfter: response.session.status,
         metadata: {
           productCode,
           productId: response.session.selectedProduct?.id ?? productCode,
+          targetSurface,
+          selectedProductCount: getSelectedProductCount(selectedProducts),
+          selectedProductCodes: getSelectedProductCodes(selectedProducts),
+          selectedTargetSurfaces: getSelectedTargetSurfaces(selectedProducts),
           source: "printed_product_qr",
         },
       });

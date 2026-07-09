@@ -421,7 +421,7 @@ export function GateForm({
           {renderCountryAndPhone(initialPhone)}
 
           <SubmitButton
-            label={<>{t.submitBtn} {isRtl ? "←" : "→"}</>}
+            label={t.submitBtn}
             pendingLabel={isRtl ? "جاري بدء التجربة..." : "Starting..."}
           />
           <p className="text-center text-xs text-[var(--text-muted)] pt-0.5">{t.privacyNote}</p>
@@ -473,7 +473,7 @@ export function GateForm({
           {renderCountryAndPhone(initialPhone)}
 
           <SubmitButton
-            label={<>{t.lookupBtn} {isRtl ? "←" : "→"}</>}
+            label={t.lookupBtn}
             pendingLabel={isRtl ? "جاري..." : "Loading..."}
           />
           <p className="text-center text-xs text-[var(--text-muted)] pt-1">{t.privacyNote}</p>
@@ -593,7 +593,7 @@ export function GateForm({
           })()}
 
           <SubmitButton
-            label={<>{t.confirmAndStart} {isRtl ? "←" : "→"}</>}
+            label={t.confirmAndStart}
             pendingLabel={isRtl ? "جاري بدء التجربة..." : "Starting..."}
           />
         </form>
@@ -652,7 +652,7 @@ export function GateForm({
           </div>
 
           <SubmitButton
-            label={<>{t.submitBtn} {isRtl ? "←" : "→"}</>}
+            label={t.submitBtn}
             pendingLabel={isRtl ? "جاري بدء التجربة..." : "Starting..."}
           />
           <p className="text-center text-xs text-[var(--text-muted)] pt-1">{t.privacyNote}</p>

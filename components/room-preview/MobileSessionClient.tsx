@@ -131,7 +131,8 @@ export default function MobileSessionClient({
   // Local loading state while the abandon API call is in flight.
   const [isAbandoning, setIsAbandoning] = useState(false);
   const [productScanMode, setProductScanMode] = useState<
-    { type: "add" } | { type: "change"; surface: TargetSurface } | null
+    // "add" carries the missing surface (if any) as a hint for the scan step.
+    { type: "add"; surface: TargetSurface | null } | { type: "change"; surface: TargetSurface } | null
   >(null);
   const [isRemovingSurface, setIsRemovingSurface] = useState<TargetSurface | null>(null);
   const [consumedInitialProductCode, setConsumedInitialProductCode] = useState(false);
@@ -329,7 +330,9 @@ export default function MobileSessionClient({
   const selectedProductsBySurface = normalizeSelectedProducts(session);
   const effectiveProductScanMode =
     productScanMode ??
-    (initialProductCode && hasSavedProduct && !consumedInitialProductCode ? { type: "add" as const } : null);
+    (initialProductCode && hasSavedProduct && !consumedInitialProductCode
+      ? { type: "add" as const, surface: null }
+      : null);
   const shouldShowProductQrStep =
     hasSavedRoom &&
     !shouldUseProductList &&
@@ -485,7 +488,7 @@ export default function MobileSessionClient({
                 ? "add"
                 : "initial"
           }
-          expectedSurface={effectiveProductScanMode?.type === "change" ? effectiveProductScanMode.surface : null}
+          expectedSurface={effectiveProductScanMode ? effectiveProductScanMode.surface : null}
           selectedProductsBySurface={selectedProductsBySurface}
           onCancel={
             hasSavedProduct
@@ -506,10 +509,10 @@ export default function MobileSessionClient({
           locale={locale}
           isBusy={isSavingProduct || isRenderingSession || isRemovingSurface !== null}
           removingSurface={isRemovingSurface}
-          onAddAnother={() => {
+          onAddAnother={(missingSurface) => {
             setProductActionError(null);
             setConsumedInitialProductCode(true);
-            setProductScanMode({ type: "add" });
+            setProductScanMode({ type: "add", surface: missingSurface });
           }}
           onChangeSurface={(surface) => {
             setProductActionError(null);

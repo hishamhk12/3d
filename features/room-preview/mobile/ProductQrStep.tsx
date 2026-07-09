@@ -221,9 +221,13 @@ export default function ProductQrStep({
 
   const modeTitle =
     mode === "add"
-      ? isAr
-        ? "امسح رمز QR للمنتج الإضافي"
-        : "Scan the additional product QR"
+      ? expectedSurface
+        ? isAr
+          ? `امسح QR منتج ${surfaceLabel[expectedSurface]}`
+          : `Scan the ${surfaceLabel[expectedSurface]} product QR`
+        : isAr
+          ? "امسح رمز QR للمنتج الإضافي"
+          : "Scan the additional product QR"
       : mode === "change" && expectedSurface
         ? isAr
           ? `تغيير ${surfaceLabel[expectedSurface]}`
@@ -233,9 +237,13 @@ export default function ProductQrStep({
           : "Scan the product QR";
   const modeDescription =
     mode === "add"
-      ? isAr
-        ? "امسح المنتج الإضافي، وسيتم تحديد السطح تلقائياً من بيانات المنتج."
-        : "Scan the additional product. Its surface will be detected from product data."
+      ? expectedSurface
+        ? isAr
+          ? `امسح منتجاً لإضافة ${surfaceLabel[expectedSurface]} إلى التصميم. سيتم تحديد السطح تلقائياً من بيانات المنتج.`
+          : `Scan a product to add ${surfaceLabel[expectedSurface]} to your preview. Its surface is detected from product data.`
+        : isAr
+          ? "امسح المنتج الإضافي، وسيتم تحديد السطح تلقائياً من بيانات المنتج."
+          : "Scan the additional product. Its surface will be detected from product data."
       : mode === "change" && expectedSurface
         ? isAr
           ? `امسح منتجاً مناسباً لـ ${surfaceLabel[expectedSurface]} فقط.`
@@ -253,9 +261,13 @@ export default function ProductQrStep({
     mode === "add" && Boolean(existingProductOnSurface && !duplicateProduct);
   const actionLabel =
     mode === "initial"
-      ? isAr
-        ? "إنشاء"
-        : "Generate"
+      ? onSaveProductCode
+        ? isAr
+          ? "متابعة"
+          : "Continue"
+        : isAr
+          ? "إنشاء"
+          : "Generate"
       : mode === "add" && requiresReplaceConfirmation
         ? isAr
           ? "استبدال"
@@ -271,6 +283,13 @@ export default function ProductQrStep({
   const handlePrimaryAction = async () => {
     if (!product || expectedMismatch || duplicateProduct) return;
     if (mode === "initial") {
+      // Save-only when the parent provides it: the user lands on the
+      // selected-products page where they can add a second product before
+      // generating. Generating directly is kept as a fallback contract.
+      if (onSaveProductCode) {
+        await onSaveProductCode(product.id);
+        return;
+      }
       await onGenerateWithProductCode(product.id);
       return;
     }

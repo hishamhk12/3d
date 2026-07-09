@@ -21,7 +21,8 @@ type SelectedProductsStepProps = {
   locale: Locale;
   isBusy: boolean;
   removingSurface?: TargetSurface | null;
-  onAddAnother: () => void;
+  /** Called with the missing surface (walls/floor) so the scan step can hint it. */
+  onAddAnother: (missingSurface: TargetSurface | null) => void;
   onChangeSurface: (surface: TargetSurface) => void;
   onRemoveSurface: (surface: TargetSurface) => void;
   onCreateRender: () => void;
@@ -39,6 +40,8 @@ function labels(locale: Locale) {
     remove: ar ? "إزالة" : "Remove",
     removing: ar ? "جارٍ الإزالة..." : "Removing...",
     addAnother: ar ? "إضافة منتج آخر" : "Add another product",
+    addWallpaper: ar ? "إضافة ورق جدران" : "Add wallpaper",
+    addFlooring: ar ? "إضافة منتج أرضية" : "Add flooring",
     surfacesFull: ar ? "تم اختيار الأرضية وورق الجدران" : "Flooring and wallpaper selected",
     createOne: ar ? "إنشاء التصميم" : "Generate preview",
     createTwo: ar ? "إنشاء التصميم" : "Generate preview",
@@ -131,6 +134,13 @@ export default function SelectedProductsStep({
   const selectedSurfaces = getSelectedTargetSurfaces(selectedProducts);
   const canAddAnother = selectedCount > 0 && selectedCount < 2;
   const canCreateRender = selectedCount > 0 && selectedCount <= 2 && !isBusy;
+  // With exactly one product selected, offer the other surface explicitly.
+  const missingSurface: TargetSurface | null =
+    selectedCount === 1 ? (selectedProducts.floor ? "walls" : "floor") : null;
+  const addLabel =
+    missingSurface === "walls" ? l.addWallpaper
+    : missingSurface === "floor" ? l.addFlooring
+    : l.addAnother;
 
   return (
     <section className="flex w-full flex-col items-center py-6 text-center" data-mobile-step="selected_products">
@@ -162,11 +172,11 @@ export default function SelectedProductsStep({
           {canAddAnother ? (
             <MobileActionButton
               variant="light"
-              onClick={onAddAnother}
+              onClick={() => onAddAnother(missingSurface)}
               disabled={isBusy}
               icon={<Plus className="size-5" />}
             >
-              {l.addAnother}
+              {addLabel}
             </MobileActionButton>
           ) : selectedSurfaces.length === 2 ? (
             <MobileActionButton variant="light" disabled>

@@ -100,14 +100,28 @@ afterEach(() => {
 describe("SelectedProductsStep", () => {
   it("renders one selected product card and allows one-product render", () => {
     const onCreateRender = vi.fn();
-    renderSelectedProducts(makeSession({ floor: floorProduct }), { onCreateRender });
+    const onAddAnother = vi.fn();
+    renderSelectedProducts(makeSession({ floor: floorProduct }), { onCreateRender, onAddAnother });
 
     expect(screen.getByText("Flooring")).toBeTruthy();
     expect(screen.getByText("PARQ.001")).toBeTruthy();
-    expect((screen.getByRole("button", { name: /Add another product/i }) as HTMLButtonElement).disabled).toBe(false);
+
+    // Floor selected → the add button offers the missing surface (wallpaper).
+    const addButton = screen.getByRole("button", { name: /Add wallpaper/i }) as HTMLButtonElement;
+    expect(addButton.disabled).toBe(false);
+    fireEvent.click(addButton);
+    expect(onAddAnother).toHaveBeenCalledWith("walls");
 
     fireEvent.click(screen.getByRole("button", { name: /Generate preview/i }));
     expect(onCreateRender).toHaveBeenCalledTimes(1);
+  });
+
+  it("offers adding flooring when only wallpaper is selected", () => {
+    const onAddAnother = vi.fn();
+    renderSelectedProducts(makeSession({ walls: wallpaperProduct }), { onAddAnother });
+
+    fireEvent.click(screen.getByRole("button", { name: /Add flooring/i }));
+    expect(onAddAnother).toHaveBeenCalledWith("floor");
   });
 
   it("renders floor and wallpaper cards, disables add another, and allows two-product render", () => {

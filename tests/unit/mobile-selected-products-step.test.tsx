@@ -106,21 +106,22 @@ describe("SelectedProductsStep", () => {
     expect(screen.getByText("Flooring")).toBeTruthy();
     expect(screen.getByText("PARQ.001")).toBeTruthy();
 
-    // Floor selected → the add button offers the missing surface (wallpaper).
-    const addButton = screen.getByRole("button", { name: /Add wallpaper/i }) as HTMLButtonElement;
+    // Generic label — the second product is never pre-labelled as wallpaper.
+    const addButton = screen.getByRole("button", { name: /Choose another product/i }) as HTMLButtonElement;
     expect(addButton.disabled).toBe(false);
     fireEvent.click(addButton);
+    // The missing surface is still passed as a hint for the scan step.
     expect(onAddAnother).toHaveBeenCalledWith("walls");
 
     fireEvent.click(screen.getByRole("button", { name: /Generate preview/i }));
     expect(onCreateRender).toHaveBeenCalledTimes(1);
   });
 
-  it("offers adding flooring when only wallpaper is selected", () => {
+  it("offers choosing another product when only wallpaper is selected", () => {
     const onAddAnother = vi.fn();
     renderSelectedProducts(makeSession({ walls: wallpaperProduct }), { onAddAnother });
 
-    fireEvent.click(screen.getByRole("button", { name: /Add flooring/i }));
+    fireEvent.click(screen.getByRole("button", { name: /Choose another product/i }));
     expect(onAddAnother).toHaveBeenCalledWith("floor");
   });
 
@@ -135,7 +136,7 @@ describe("SelectedProductsStep", () => {
     expect(screen.getByText("PARQ.001")).toBeTruthy();
     expect(screen.getByText("WPT01.1104-1")).toBeTruthy();
 
-    expect((screen.getByRole("button", { name: /Flooring and wallpaper selected/i }) as HTMLButtonElement).disabled).toBe(true);
+    expect((screen.getByRole("button", { name: /Maximum products selected/i }) as HTMLButtonElement).disabled).toBe(true);
     const renderButton = screen.getByRole("button", { name: /Generate preview/i });
     expect((renderButton as HTMLButtonElement).disabled).toBe(false);
     fireEvent.click(renderButton);
@@ -190,7 +191,7 @@ describe("ProductQrStep", () => {
       />,
     );
 
-    expect(await screen.findByText("هذا المنتج مخصص لسطح مختلف. يرجى مسح منتج مناسب.")).toBeTruthy();
+    expect(await screen.findByText("هذا المنتج مخصص لسطح مختلف. يرجى اختيار منتج مناسب.")).toBeTruthy();
     fireEvent.click(screen.getByRole("button", { name: "استبدال" }));
     expect(onSaveProductCode).not.toHaveBeenCalled();
   });

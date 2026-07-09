@@ -219,35 +219,29 @@ export default function ProductQrStep({
     setError(null);
   };
 
+  // Generic wording only — the second product is never pre-labelled as
+  // wallpaper/wall: any supported product type may be added later.
   const modeTitle =
     mode === "add"
-      ? expectedSurface
-        ? isAr
-          ? `امسح QR منتج ${surfaceLabel[expectedSurface]}`
-          : `Scan the ${surfaceLabel[expectedSurface]} product QR`
-        : isAr
-          ? "امسح رمز QR للمنتج الإضافي"
-          : "Scan the additional product QR"
+      ? isAr
+        ? "اختيار منتج آخر"
+        : "Choose another product"
       : mode === "change" && expectedSurface
         ? isAr
           ? `تغيير ${surfaceLabel[expectedSurface]}`
           : `Change ${surfaceLabel[expectedSurface]}`
         : isAr
-          ? "امسح QR المنتج"
-          : "Scan the product QR";
+          ? "اختيار المنتج"
+          : "Select the product";
   const modeDescription =
     mode === "add"
-      ? expectedSurface
-        ? isAr
-          ? `امسح منتجاً لإضافة ${surfaceLabel[expectedSurface]} إلى التصميم. سيتم تحديد السطح تلقائياً من بيانات المنتج.`
-          : `Scan a product to add ${surfaceLabel[expectedSurface]} to your preview. Its surface is detected from product data.`
-        : isAr
-          ? "امسح المنتج الإضافي، وسيتم تحديد السطح تلقائياً من بيانات المنتج."
-          : "Scan the additional product. Its surface will be detected from product data."
+      ? isAr
+        ? "وجّه الكاميرا إلى QR المنتج الآخر، وسيتم تحديد النوع تلقائياً من بيانات المنتج."
+        : "Point the camera at the other product's QR. Its type is detected from product data."
       : mode === "change" && expectedSurface
         ? isAr
-          ? `امسح منتجاً مناسباً لـ ${surfaceLabel[expectedSurface]} فقط.`
-          : `Scan a product for ${surfaceLabel[expectedSurface]} only.`
+          ? `اختر منتجاً مناسباً لـ ${surfaceLabel[expectedSurface]} فقط.`
+          : `Choose a product for ${surfaceLabel[expectedSurface]} only.`
         : isAr
           ? "افتح الكاميرا ووجهها إلى QR المطبوع على المنتج."
           : "Open the camera and point it at the printed QR on the physical product.";
@@ -296,22 +290,30 @@ export default function ProductQrStep({
     await onSaveProductCode?.(product.id);
   };
 
+  // Fixed shell: header (flex-none) → scrollable content (flex-1) → pinned
+  // action footer (flex-none). Swapping between the camera, the found-product
+  // card, and error notices only changes the inner scroll area — the title and
+  // the action buttons never move, so the page does not jump on iPhone.
   return (
     <section
-      className="flex min-h-[calc(100svh-2.25rem)] w-full flex-col items-center justify-center py-6 text-center"
+      className="flex h-full min-h-0 w-full flex-col text-center"
       data-mobile-step="scan_product_qr"
     >
-      <div className="mx-auto flex w-full max-w-[345px] flex-col items-center">
-        <h2 className="font-display text-center text-2xl font-semibold text-[var(--text-primary)]">
-          {modeTitle}
-        </h2>
-        <p className="mx-auto mt-3 max-w-xs text-center text-sm leading-7 text-[var(--text-secondary)]">
-          {modeDescription}
-        </p>
+      <div className="mx-auto flex h-full min-h-0 w-full max-w-[345px] flex-col">
+        {/* Header — fixed at the top (padding clears the absolute back button) */}
+        <div className="flex-none pb-3 pt-14">
+          <h2 className="font-display text-center text-2xl font-semibold text-[var(--text-primary)]">
+            {modeTitle}
+          </h2>
+          <p className="mx-auto mt-2 max-w-xs text-center text-sm leading-6 text-[var(--text-secondary)]">
+            {modeDescription}
+          </p>
+        </div>
 
-        {!product ? (
-          <>
-            <div className="group mt-6 flex w-full flex-col items-center justify-center gap-4 rounded-[40px] border border-[var(--border)] bg-[var(--bg-surface)] p-3 shadow-[var(--shadow-lg)] transition-all duration-300">
+        {/* Content — the only scrollable region */}
+        <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain py-1">
+          {!product ? (
+            <div className="group flex w-full flex-col items-center justify-center gap-4 rounded-[40px] border border-[var(--border)] bg-[var(--bg-surface)] p-3 shadow-[var(--shadow-lg)] transition-all duration-300">
               <div className="relative flex min-h-[180px] w-full overflow-hidden rounded-[32px] border border-[var(--brand-cyan)]/25 bg-[var(--brand-cyan)]/[0.05]">
                 <video
                   ref={videoRef}
@@ -347,147 +349,144 @@ export default function ProductQrStep({
                 ) : null}
               </div>
             </div>
-
-            <MobileActionButton
-              variant="light"
-              onClick={() => void startScanner()}
-              disabled={isBusy || isLookingUp || scannerStatus !== "idle"}
-              className="mt-5"
-              icon={
-                scannerStatus === "starting" || isLookingUp ? (
-                  <LoaderCircle className="size-5 animate-spin" />
-                ) : (
-                  <Camera className="size-5" />
-                )
-              }
-            >
-              {scannerStatus === "scanning"
-                ? isAr
-                  ? "جاري المسح..."
-                  : "Scanning..."
-                : isAr
-                  ? "فتح الكاميرا"
-                  : "Open camera"}
-            </MobileActionButton>
-
-            {scannerStatus === "scanning" ? (
-              <button
-                type="button"
-                onClick={stopScanner}
-                className="mt-3 flex h-12 w-full items-center justify-center gap-2 rounded-[24px] border border-[var(--border)] bg-[var(--bg-surface)] text-sm font-semibold text-[var(--text-secondary)] transition-colors hover:bg-[var(--bg-surface-2)]"
-              >
-                <RotateCcw className="size-4" />
-                {isAr ? "إيقاف الكاميرا" : "Stop camera"}
-              </button>
-            ) : null}
-
-            {onCancel ? (
-              <button
-                type="button"
-                onClick={onCancel}
-                disabled={isBusy}
-                className="mt-3 h-12 w-full rounded-[24px] border border-[var(--border)] bg-transparent text-sm font-semibold text-[var(--text-secondary)] transition-colors hover:bg-[var(--bg-surface)] disabled:opacity-50"
-              >
-                {isAr ? "إلغاء" : "Cancel"}
-              </button>
-            ) : null}
-          </>
-        ) : (
-          <>
-            <div className="mt-6 flex w-full flex-col items-center justify-center gap-4 rounded-[40px] border border-[var(--border)] bg-[var(--bg-surface)] p-3 shadow-[var(--shadow-lg)] transition-all duration-300">
-              <div className="flex min-h-[180px] w-full flex-col items-center justify-center gap-3 rounded-[32px] border border-[var(--brand-cyan)]/25 bg-[var(--brand-cyan)]/[0.05] px-6 py-6">
-                <div className="relative aspect-square w-full max-w-[160px] overflow-hidden rounded-[24px] border border-[var(--border)] bg-white">
-                  <Image
-                    src={product.imageUrl}
-                    alt={product.name}
-                    fill
-                    unoptimized
-                    className="object-contain p-3"
-                    sizes="160px"
-                  />
+          ) : (
+            <>
+              <div className="flex w-full flex-col items-center justify-center gap-4 rounded-[40px] border border-[var(--border)] bg-[var(--bg-surface)] p-3 shadow-[var(--shadow-lg)] transition-all duration-300">
+                <div className="flex min-h-[180px] w-full flex-col items-center justify-center gap-3 rounded-[32px] border border-[var(--brand-cyan)]/25 bg-[var(--brand-cyan)]/[0.05] px-6 py-6">
+                  <div className="relative aspect-square w-full max-w-[160px] overflow-hidden rounded-[24px] border border-[var(--border)] bg-white">
+                    <Image
+                      src={product.imageUrl}
+                      alt={product.name}
+                      fill
+                      unoptimized
+                      className="object-contain p-3"
+                      sizes="160px"
+                    />
+                  </div>
+                  <div className="flex items-center justify-center gap-2 text-[var(--brand-cyan)]">
+                    <QrCode className="size-5" />
+                    <span className="text-sm font-semibold">
+                      {isAr ? "تم العثور على المنتج" : "Product found"}
+                    </span>
+                  </div>
+                  <p className="break-all font-mono text-2xl font-black text-[var(--text-primary)]">
+                    {product.id}
+                  </p>
+                  <p className="text-xs font-semibold text-[var(--text-secondary)]">
+                    {surfaceLabel[product.targetSurface]}
+                  </p>
                 </div>
-                <div className="flex items-center justify-center gap-2 text-[var(--brand-cyan)]">
-                  <QrCode className="size-5" />
-                  <span className="text-sm font-semibold">
-                    {isAr ? "تم العثور على المنتج" : "Product QR found"}
-                  </span>
-                </div>
-                <p className="break-all font-mono text-2xl font-black text-[var(--text-primary)]">
-                  {product.id}
-                </p>
-                <p className="text-xs font-semibold text-[var(--text-secondary)]">
-                  {surfaceLabel[product.targetSurface]}
-                </p>
               </div>
-            </div>
 
-            {expectedMismatch ? (
-              <p className="mt-4 w-full rounded-[18px] border border-amber-400/30 bg-amber-50 px-4 py-3 text-center text-sm leading-6 text-amber-800">
-                {isAr
-                  ? "هذا المنتج مخصص لسطح مختلف. يرجى مسح منتج مناسب."
-                  : "This product is for a different surface. Please scan a matching product."}
-              </p>
-            ) : duplicateProduct ? (
-              <p className="mt-4 w-full rounded-[18px] border border-[var(--border)] bg-[var(--bg-surface)] px-4 py-3 text-center text-sm leading-6 text-[var(--text-secondary)]">
-                {isAr ? "هذا المنتج مختار مسبقاً." : "This product is already selected."}
-              </p>
-            ) : requiresReplaceConfirmation ? (
-              <p className="mt-4 w-full rounded-[18px] border border-amber-400/30 bg-amber-50 px-4 py-3 text-center text-sm leading-6 text-amber-800">
-                {isAr
-                  ? "يوجد منتج مختار مسبقاً لهذا السطح. هل تريد استبداله؟"
-                  : "A product is already selected for this surface. Replace it?"}
-              </p>
-            ) : null}
+              {expectedMismatch ? (
+                <p className="mt-4 w-full rounded-[18px] border border-amber-400/30 bg-amber-50 px-4 py-3 text-center text-sm leading-6 text-amber-800">
+                  {isAr
+                    ? "هذا المنتج مخصص لسطح مختلف. يرجى اختيار منتج مناسب."
+                    : "This product is for a different surface. Please choose a matching product."}
+                </p>
+              ) : duplicateProduct ? (
+                <p className="mt-4 w-full rounded-[18px] border border-[var(--border)] bg-[var(--bg-surface)] px-4 py-3 text-center text-sm leading-6 text-[var(--text-secondary)]">
+                  {isAr ? "هذا المنتج مختار مسبقاً." : "This product is already selected."}
+                </p>
+              ) : requiresReplaceConfirmation ? (
+                <p className="mt-4 w-full rounded-[18px] border border-amber-400/30 bg-amber-50 px-4 py-3 text-center text-sm leading-6 text-amber-800">
+                  {isAr
+                    ? "يوجد منتج مختار مسبقاً لهذا السطح. هل تريد استبداله؟"
+                    : "A product is already selected for this surface. Replace it?"}
+                </p>
+              ) : null}
+            </>
+          )}
 
-            <MobileActionButton
-              variant="light"
-              onClick={(e) => {
-                renderBurst(e);
-                void handlePrimaryAction();
-              }}
-              loading={isBusy}
-              disabled={Boolean(expectedMismatch || duplicateProduct)}
-              className="mt-5"
-            >
-              {actionLabel}
-            </MobileActionButton>
-            {renderParticles}
+          {error ? (
+            <p className="mt-4 w-full rounded-[18px] border border-red-400/25 bg-red-50 px-4 py-3 text-center text-sm leading-6 text-red-700 dark:bg-red-500/08 dark:text-red-300">
+              {error}
+            </p>
+          ) : null}
+
+          {canUseProductListFallback ? (
             <button
               type="button"
-              onClick={resetProduct}
-              disabled={isBusy}
-              className="mt-3 h-12 w-full rounded-[24px] border border-[var(--border)] bg-[var(--bg-surface)] text-sm font-semibold text-[var(--text-secondary)] transition-colors hover:bg-[var(--bg-surface-2)] disabled:opacity-50"
+              onClick={onUseProductListFallback}
+              className="mt-4 text-xs font-semibold text-[var(--text-muted)] underline underline-offset-4"
             >
-              {isAr ? "مسح منتج آخر" : "Scan another product"}
+              {isAr ? "استخدام قائمة المنتجات القديمة" : "Use old product list fallback"}
             </button>
-            {onCancel ? (
+          ) : null}
+        </div>
+
+        {/* Footer — action buttons stay pinned to the bottom */}
+        <div className="flex flex-none flex-col gap-3 pb-1 pt-3">
+          {!product ? (
+            <>
+              <MobileActionButton
+                variant="light"
+                onClick={() => void startScanner()}
+                disabled={isBusy || isLookingUp || scannerStatus !== "idle"}
+                icon={
+                  scannerStatus === "starting" || isLookingUp ? (
+                    <LoaderCircle className="size-5 animate-spin" />
+                  ) : (
+                    <Camera className="size-5" />
+                  )
+                }
+              >
+                {scannerStatus === "scanning"
+                  ? isAr
+                    ? "جاري المسح..."
+                    : "Scanning..."
+                  : isAr
+                    ? "فتح الكاميرا"
+                    : "Open camera"}
+              </MobileActionButton>
+
+              {scannerStatus === "scanning" ? (
+                <button
+                  type="button"
+                  onClick={stopScanner}
+                  className="flex h-12 w-full items-center justify-center gap-2 rounded-[24px] border border-[var(--border)] bg-[var(--bg-surface)] text-sm font-semibold text-[var(--text-secondary)] transition-colors hover:bg-[var(--bg-surface-2)]"
+                >
+                  <RotateCcw className="size-4" />
+                  {isAr ? "إيقاف الكاميرا" : "Stop camera"}
+                </button>
+              ) : null}
+            </>
+          ) : (
+            <>
+              <MobileActionButton
+                variant="light"
+                onClick={(e) => {
+                  renderBurst(e);
+                  void handlePrimaryAction();
+                }}
+                loading={isBusy}
+                disabled={Boolean(expectedMismatch || duplicateProduct)}
+              >
+                {actionLabel}
+              </MobileActionButton>
+              {renderParticles}
               <button
                 type="button"
-                onClick={onCancel}
+                onClick={resetProduct}
                 disabled={isBusy}
-                className="mt-3 h-12 w-full rounded-[24px] border border-[var(--border)] bg-transparent text-sm font-semibold text-[var(--text-secondary)] transition-colors hover:bg-[var(--bg-surface)] disabled:opacity-50"
+                className="h-12 w-full rounded-[24px] border border-[var(--border)] bg-[var(--bg-surface)] text-sm font-semibold text-[var(--text-secondary)] transition-colors hover:bg-[var(--bg-surface-2)] disabled:opacity-50"
               >
-                {isAr ? "إلغاء" : "Cancel"}
+                {isAr ? "اختيار منتج آخر" : "Choose another product"}
               </button>
-            ) : null}
-          </>
-        )}
+            </>
+          )}
 
-        {error ? (
-          <p className="mt-4 w-full rounded-[18px] border border-red-400/25 bg-red-50 px-4 py-3 text-center text-sm leading-6 text-red-700 dark:bg-red-500/08 dark:text-red-300">
-            {error}
-          </p>
-        ) : null}
-
-        {canUseProductListFallback ? (
-          <button
-            type="button"
-            onClick={onUseProductListFallback}
-            className="mt-4 text-xs font-semibold text-[var(--text-muted)] underline underline-offset-4"
-          >
-            {isAr ? "استخدام قائمة المنتجات القديمة" : "Use old product list fallback"}
-          </button>
-        ) : null}
+          {onCancel ? (
+            <button
+              type="button"
+              onClick={onCancel}
+              disabled={isBusy}
+              className="h-12 w-full rounded-[24px] border border-[var(--border)] bg-transparent text-sm font-semibold text-[var(--text-secondary)] transition-colors hover:bg-[var(--bg-surface)] disabled:opacity-50"
+            >
+              {isAr ? "إلغاء" : "Cancel"}
+            </button>
+          ) : null}
+        </div>
       </div>
     </section>
   );

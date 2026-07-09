@@ -59,8 +59,10 @@ export default async function MobileSessionPage({ params, searchParams }: Mobile
   });
 
   return (
-    <main className="relative min-h-screen overflow-hidden bg-[var(--bg-page)] text-[var(--text-primary)]">
-      <div className="mx-auto flex min-h-screen max-w-2xl flex-col items-center justify-center px-4 py-10">
+    // 100svh (not 100vh): stable on iOS Safari — the collapsing address bar
+    // never changes the layout height, so the page content cannot jump.
+    <main className="relative min-h-[100svh] overflow-hidden bg-[var(--bg-page)] text-[var(--text-primary)]">
+      <div className="mx-auto flex min-h-[100svh] max-w-2xl flex-col items-center justify-center px-4 py-10">
         <MobileSessionClient
           sessionId={sessionId}
           products={products}

@@ -96,7 +96,9 @@ export function Carousel3D({ images }: Carousel3DProps) {
         height: "100dvh",
         minHeight: "100dvh",
         overflow: "hidden",
-        background: "#0a1020",
+        // Transparent: the server-rendered <main> behind already paints the
+        // private.jpg background, so no interim color ever shows.
+        background: "transparent",
         display: "flex",
         flexDirection: "column",
         alignItems: "center",

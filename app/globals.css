@@ -1105,6 +1105,9 @@ body.translated-rtl { top: 0 !important; }
   }
 }
 
+/* Neutral warm-dark placeholder — must never be blue: this color is what
+   flashes while each page's real background image (private.jpg / croissant.jpg,
+   set in server-rendered markup) is still downloading. */
 html:has(.screen-kiosk-page),
 body:has(.screen-kiosk-page) {
   width: 100vw;
@@ -1112,7 +1115,7 @@ body:has(.screen-kiosk-page) {
   height: 100dvh;
   margin: 0;
   overflow: hidden;
-  background: #071729;
+  background: #14110d;
 }
 
 .screen-kiosk-page {
@@ -1122,9 +1125,7 @@ body:has(.screen-kiosk-page) {
   height: 100dvh;
   min-height: 100dvh;
   overflow: hidden;
-  background:
-    radial-gradient(circle at 50% 12%, rgba(0,175,215,0.18), transparent 34%),
-    linear-gradient(180deg, #071729 0%, #0c1a2b 50%, #06111f 100%);
+  background: #14110d;
 }
 
 .screen-kiosk-page * {

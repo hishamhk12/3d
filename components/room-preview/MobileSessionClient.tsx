@@ -414,15 +414,20 @@ export default function MobileSessionClient({
   // white surface (no card, no eyebrow, no outer background).
   // Every other step keeps the existing glass card + eyebrow unchanged.
   const isRoomUploadStep = isConnected && !hasSavedRoom;
-  const isWhiteMobileStep = isRoomUploadStep || shouldShowProductQrStep || shouldShowSelectedProductsStep;
+  // Product steps use a fixed-height shell (header/content/footer columns with
+  // internal scrolling) so the page never jumps on iPhone when content changes.
+  const isProductShellStep = shouldShowProductQrStep || shouldShowSelectedProductsStep;
+  const isWhiteMobileStep = isRoomUploadStep || isProductShellStep;
   const isRoomUploadError = isRoomUploadStep && roomSaveStatus === "error";
 
   return (
     <div
       className={
-        isWhiteMobileStep
-          ? "relative mx-[calc(50%-50vw)] my-[-2.5rem] flex min-h-[100svh] w-screen flex-col bg-white px-6 text-[var(--text-primary)]"
-          : "relative tour-panel w-full rounded-[32px] p-8 text-center"
+        isProductShellStep
+          ? "relative mx-[calc(50%-50vw)] my-[-2.5rem] flex h-[100svh] w-screen flex-col overflow-hidden bg-white px-6 text-[var(--text-primary)]"
+          : isWhiteMobileStep
+            ? "relative mx-[calc(50%-50vw)] my-[-2.5rem] flex min-h-[100svh] w-screen flex-col bg-white px-6 text-[var(--text-primary)]"
+            : "relative tour-panel w-full rounded-[32px] p-8 text-center"
       }
       style={
         isWhiteMobileStep
@@ -476,6 +481,7 @@ export default function MobileSessionClient({
       ) : null}
 
       {shouldShowProductQrStep ? (
+        <div className="min-h-0 flex-1">
         <ProductQrStep
           initialProductCode={initialQrProductCode}
           isBusy={isSavingProduct || isRenderingSession}
@@ -501,14 +507,17 @@ export default function MobileSessionClient({
           onSaveProductCode={handleQrSaveOnly}
           onGenerateWithProductCode={handleQrGenerate}
         />
+        </div>
       ) : null}
 
       {shouldShowSelectedProductsStep ? (
+        <div className="min-h-0 flex-1">
         <SelectedProductsStep
           session={session}
           locale={locale}
           isBusy={isSavingProduct || isRenderingSession || isRemovingSurface !== null}
           removingSurface={isRemovingSurface}
+          errorText={productActionError}
           onAddAnother={(missingSurface) => {
             setProductActionError(null);
             setConsumedInitialProductCode(true);
@@ -522,6 +531,7 @@ export default function MobileSessionClient({
           onRemoveSurface={(surface) => void handleRemoveProduct(surface)}
           onCreateRender={() => void handleCreateRender()}
         />
+        </div>
       ) : null}
 
       {/* Restart-done banner: replaces the error block once the customer has
@@ -620,7 +630,8 @@ export default function MobileSessionClient({
         </div>
       ) : null}
 
-      {productActionError ? (
+      {/* Inside the selected-products step this error renders inline (errorText prop). */}
+      {productActionError && !shouldShowSelectedProductsStep ? (
         <p className="mt-4 rounded-[18px] border border-red-400/25 bg-red-50 px-4 py-3 text-center text-sm leading-6 text-red-700">
           {productActionError}
         </p>

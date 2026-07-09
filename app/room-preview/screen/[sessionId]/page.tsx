@@ -91,7 +91,13 @@ export default async function ScreenSessionPage({ params }: ScreenSessionPagePro
   }
 
   return (
-    <main className="screen-kiosk-page dark relative overflow-hidden bg-[var(--bg-page)] text-[var(--text-primary)]">
+    // Static server-rendered background: the session stage's croissant image
+    // paints from the first byte of HTML (no hydration wait), with the neutral
+    // dark .screen-kiosk-page color as the only interim fallback — never blue.
+    <main
+      className="screen-kiosk-page dark relative overflow-hidden text-[var(--text-primary)]"
+      style={{ background: '#14110d url("/croissant.jpg") center / cover no-repeat' }}
+    >
       <ScreenSessionClient sessionId={sessionId} qrDataUrl={qrDataUrl} />
     </main>
   );

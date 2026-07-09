@@ -27,6 +27,9 @@ export default function BrandedGlassStage({ backgroundImage, children }: Branded
         style={{
           position: "absolute",
           inset: 0,
+          // Neutral warm-dark placeholder under the image — shows only while
+          // the background image downloads; must never be blue.
+          backgroundColor: "#14110d",
           backgroundImage,
           backgroundSize: "cover",
           backgroundPosition: "center",

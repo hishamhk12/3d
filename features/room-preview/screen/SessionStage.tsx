@@ -6,9 +6,10 @@ import { Wifi } from "lucide-react";
 import BrandedGlassStage from "@/components/room-preview/BrandedGlassStage";
 import RoomPreviewBackButton from "@/components/room-preview/RoomPreviewBackButton";
 import { EventTilt3DCard } from "@/features/room-preview/screen/EventTilt3DCard";
+import { getScreenDisplayProducts } from "@/features/room-preview/screen/screen-display-products";
 import { ROOM_PREVIEW_ROUTES } from "@/lib/room-preview/constants";
 import { useI18n } from "@/lib/i18n/provider";
-import type { RoomPreviewSession } from "@/lib/room-preview/types";
+import type { RoomPreviewSession, SelectedProduct } from "@/lib/room-preview/types";
 
 // ─── Figma design tokens (node 10:936 — visionOS components) ─────────────────
 // Values read directly from the original Figma components and preserved exactly:
@@ -171,11 +172,14 @@ function MediaTile({
   className,
   sizes,
   priority,
+  placeholderText = null,
 }: {
   imageUrl: string | null;
   className: string;
   sizes: string;
   priority?: boolean;
+  /** Shown when a selected product has no usable image (never hide the card). */
+  placeholderText?: string | null;
 }) {
   return (
     <div
@@ -184,18 +188,31 @@ function MediaTile({
     >
       {imageUrl ? (
         <Image src={imageUrl} alt="" fill sizes={sizes} className="object-cover" priority={priority} />
+      ) : placeholderText ? (
+        <div className="absolute inset-0 flex items-center justify-center px-4 text-center">
+          <p className="text-sm font-semibold text-white/60" dir="rtl">{placeholderText}</p>
+        </div>
       ) : null}
     </div>
   );
 }
 
+const PRODUCT_IMAGE_UNAVAILABLE = "الصورة غير متوفرة";
+
 function GalleryCard({
   roomImageUrl,
-  productImageUrl,
+  products,
 }: {
   roomImageUrl: string | null;
-  productImageUrl: string | null;
+  products: SelectedProduct[];
 }) {
+  // Fixed order (floor → walls) comes from getScreenDisplayProducts. With no
+  // selection yet, a single empty frosted tile keeps the original composition.
+  // Two 226px tiles + 10px gap = 462px ≤ the 476px row, so nothing overflows
+  // and the room image / QR keep their exact size and position.
+  const productTiles: Array<SelectedProduct | null> =
+    products.length > 0 ? products : [null];
+
   return (
     <div
       className="flex shrink-0 flex-col items-start overflow-hidden rounded-[40px] border-2 border-white/30 p-[17px]"
@@ -208,11 +225,25 @@ function GalleryCard({
           <MediaTile imageUrl={roomImageUrl} className="h-[476px] w-[466px]" sizes="466px" priority />
         </EventTilt3DCard>
 
-        {/* small area → selected product image (empty frosted glass until selected).
-            3D-card motion replays when the product image first appears or changes. */}
-        <EventTilt3DCard trigger={productImageUrl} className="shrink-0">
-          <MediaTile imageUrl={productImageUrl} className="size-[226px]" sizes="226px" />
-        </EventTilt3DCard>
+        {/* small area → ALL selected products stacked vertically (floor first,
+            walls second). Each tile's 3D-card motion replays independently
+            when its product image first appears or changes. */}
+        <div className="flex flex-col gap-[10px]">
+          {productTiles.map((product, index) => (
+            <EventTilt3DCard
+              key={product ? `${product.targetSurface ?? "surface"}-${product.id ?? index}` : "empty"}
+              trigger={product?.imageUrl ?? null}
+              className="shrink-0"
+            >
+              <MediaTile
+                imageUrl={product?.imageUrl ?? null}
+                placeholderText={product && !product.imageUrl ? PRODUCT_IMAGE_UNAVAILABLE : null}
+                className="size-[226px]"
+                sizes="226px"
+              />
+            </EventTilt3DCard>
+          ))}
+        </div>
       </div>
     </div>
   );
@@ -358,7 +389,7 @@ export default function SessionStage({ session, qrDataUrl, statusLabel, devEntry
         <div className="flex w-full items-center justify-center gap-[48px]">
           <GalleryCard
             roomImageUrl={session.selectedRoom?.imageUrl ?? null}
-            productImageUrl={session.selectedProduct?.imageUrl ?? null}
+            products={getScreenDisplayProducts(session)}
           />
 
           <div className="flex flex-col items-center gap-[24px]">

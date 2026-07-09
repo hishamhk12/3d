@@ -147,6 +147,14 @@ function mergeIncomingSession(
     selectedProduct:
       incoming.selectedProduct ??
       (STATUS_RANK[incoming.status] >= STATUS_RANK.product_selected ? current.selectedProduct : null),
+    // Same preservation rule as selectedProduct: an incoming payload without
+    // the by-surface map must not silently drop the second selected product
+    // from the TV display.
+    selectedProductsBySurface:
+      incoming.selectedProductsBySurface ??
+      (STATUS_RANK[incoming.status] >= STATUS_RANK.product_selected
+        ? current.selectedProductsBySurface
+        : undefined),
   };
 }
 

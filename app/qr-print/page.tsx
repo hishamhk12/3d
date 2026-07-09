@@ -1,7 +1,7 @@
 import type { Metadata } from "next";
 import Image from "next/image";
-import QRCode from "qrcode";
-import { listQrProducts } from "@/lib/room-preview/qr-products";
+import { ImageOff } from "lucide-react";
+import { getQrPrintLabels } from "@/lib/room-preview/qr-print-labels";
 import type { ProductCategory } from "@/lib/room-preview/types";
 
 export const metadata: Metadata = {
@@ -11,57 +11,13 @@ export const metadata: Metadata = {
 // Render on demand so QR payloads can use the deployed request environment.
 export const dynamic = "force-dynamic";
 
-type QrLabel = {
-  productCode: string;
-  category: ProductCategory;
-  categoryLabel: string;
-  scanUrl: string;
-  qrDataUrl: string;
-  productImageUrl: string;
-};
-
 const CATEGORY_LABEL: Record<ProductCategory, string> = {
   PARQUET: "Parquet",
   WALLPAPER: "Wallpaper",
 };
 
-/** Absolute scan URL for the QR payload. Uses NEXT_PUBLIC_BASE_URL first, then
- *  VERCEL_URL in deployed environments. Falls back to relative /scan only for
- *  local development without a configured base URL. */
-function buildScanUrl(productCode: string): string {
-  const configuredBase =
-    process.env.NEXT_PUBLIC_BASE_URL?.trim() ||
-    (process.env.VERCEL_URL ? `https://${process.env.VERCEL_URL}` : "");
-  const base = configuredBase.replace(/\/+$/, "");
-  return `${base}/scan/${encodeURIComponent(productCode)}`;
-}
-
-async function getQrLabels(): Promise<QrLabel[]> {
-  const products = listQrProducts();
-
-  return Promise.all(
-    products.map(async (product) => {
-      const scanUrl = buildScanUrl(product.id);
-      const qrDataUrl = await QRCode.toDataURL(scanUrl, {
-        errorCorrectionLevel: "M",
-        margin: 1,
-        width: 900,
-      });
-
-      return {
-        productCode: product.id,
-        category: product.category,
-        categoryLabel: CATEGORY_LABEL[product.category],
-        scanUrl,
-        qrDataUrl,
-        productImageUrl: product.imageUrl,
-      } satisfies QrLabel;
-    }),
-  );
-}
-
 export default async function ProductQrPrintPage() {
-  const labels = await getQrLabels();
+  const labels = await getQrPrintLabels();
 
   return (
     <main className="min-h-screen bg-white px-6 py-8 text-slate-950 print:min-h-0 print:px-0 print:py-0">
@@ -72,6 +28,7 @@ export default async function ProductQrPrintPage() {
           </h1>
           <p className="text-sm text-slate-600">
             Press Ctrl + P to print. Each printed QR opens its permanent product scan page.
+            Product names and images are loaded from PDC.
           </p>
         </div>
 
@@ -79,8 +36,7 @@ export default async function ProductQrPrintPage() {
           <div className="rounded-lg border border-dashed border-slate-300 p-8 text-center print:hidden">
             <p className="font-semibold text-slate-900">No QR products found.</p>
             <p className="mt-2 text-sm text-slate-600">
-              Add product images under public/qr-products/parquet/ or
-              public/qr-products/wallpaper/, then refresh this page.
+              Add product SKUs to the QR manifest, then refresh this page.
             </p>
           </div>
         ) : (
@@ -107,7 +63,7 @@ export default async function ProductQrPrintPage() {
                         : "bg-emerald-100 text-emerald-900")
                     }
                   >
-                    {label.categoryLabel}
+                    {CATEGORY_LABEL[label.category]}
                   </span>
                 </div>
                 <h2 className="mt-2 break-words text-2xl font-black tracking-normal text-slate-950 print:text-[18pt]">
@@ -118,17 +74,30 @@ export default async function ProductQrPrintPage() {
                 </p>
 
                 <div className="mt-3 flex items-center justify-center gap-3 border-t border-slate-200 pt-3">
-                  <Image
-                    src={label.productImageUrl}
-                    alt=""
-                    width={96}
-                    height={96}
-                    unoptimized
-                    className="h-12 w-12 rounded border border-slate-200 object-cover print:h-9 print:w-9"
-                  />
-                  <p className="min-w-0 break-all text-left text-xs font-semibold text-slate-700 print:text-[8pt]">
-                    {label.categoryLabel}
-                  </p>
+                  {!label.unavailable && label.productImageUrl ? (
+                    <>
+                      <Image
+                        src={label.productImageUrl}
+                        alt=""
+                        width={96}
+                        height={96}
+                        unoptimized
+                        className="h-12 w-12 rounded border border-slate-200 object-cover print:h-9 print:w-9"
+                      />
+                      <p className="min-w-0 break-words text-left text-xs font-semibold text-slate-700 print:text-[8pt]">
+                        {label.productName ?? CATEGORY_LABEL[label.category]}
+                      </p>
+                    </>
+                  ) : (
+                    <>
+                      <span className="flex h-12 w-12 items-center justify-center rounded border border-dashed border-slate-300 bg-slate-50 print:h-9 print:w-9">
+                        <ImageOff className="size-5 text-slate-400" />
+                      </span>
+                      <p className="min-w-0 text-left text-xs font-semibold text-slate-400 print:text-[8pt]">
+                        Product data unavailable
+                      </p>
+                    </>
+                  )}
                 </div>
               </article>
             ))}

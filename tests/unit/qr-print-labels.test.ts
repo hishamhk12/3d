@@ -268,6 +268,57 @@ describe("getQrPrintLabels", () => {
     expect(succeeded.every((l) => !l.unavailable)).toBe(true);
   });
 
+  it("retries once and recovers a transient PDC_UNAVAILABLE (timeout-class) failure", async () => {
+    listMock.mockReturnValue([manifestEntry("WPT01.1108-1", "WALLPAPER")]);
+    resolveMock
+      .mockResolvedValueOnce({
+        ok: false,
+        code: "PDC_UNAVAILABLE",
+        status: 502,
+        error: "Product lookup failed. Please try again.",
+      })
+      .mockResolvedValueOnce({
+        ok: true,
+        product: { ...manifestEntry("WPT01.1108-1", "WALLPAPER"), name: "Ivory Wallpaper", source: "pdc" },
+      });
+
+    const labels = await getQrPrintLabels();
+
+    expect(resolveMock).toHaveBeenCalledTimes(2);
+    expect(labels[0].unavailable).toBe(false);
+    expect(labels[0].productName).toBe("Ivory Wallpaper");
+  });
+
+  it("does not retry a genuine PRODUCT_NOT_FOUND (retrying a real 404 wastes time)", async () => {
+    listMock.mockReturnValue([manifestEntry("WPT01-1101-1", "WALLPAPER")]);
+    resolveMock.mockResolvedValue({
+      ok: false,
+      code: "PRODUCT_NOT_FOUND",
+      status: 404,
+      error: "Product was not found.",
+    });
+
+    const labels = await getQrPrintLabels();
+
+    expect(resolveMock).toHaveBeenCalledTimes(1);
+    expect(labels[0].unavailable).toBe(true);
+  });
+
+  it("does not retry a PDC_AUTH_ERROR (a config problem, not a transient one)", async () => {
+    listMock.mockReturnValue([manifestEntry("PQC201.001", "PARQUET")]);
+    resolveMock.mockResolvedValue({
+      ok: false,
+      code: "PDC_AUTH_ERROR",
+      status: 500,
+      error: "Product lookup is temporarily unavailable.",
+    });
+
+    const labels = await getQrPrintLabels();
+
+    expect(resolveMock).toHaveBeenCalledTimes(1);
+    expect(labels[0].unavailable).toBe(true);
+  });
+
   it("never leaks the PDC API key into the label payload sent to the page", async () => {
     listMock.mockReturnValue([
       manifestEntry("PQC201.001", "PARQUET"),

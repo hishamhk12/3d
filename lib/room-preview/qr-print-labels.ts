@@ -1,7 +1,7 @@
 import "server-only";
 
 import QRCode from "qrcode";
-import { resolveProductByCode } from "@/lib/room-preview/product-resolver";
+import { resolveProductByCode, type ResolveProductResult } from "@/lib/room-preview/product-resolver";
 import { listQrProducts } from "@/lib/room-preview/qr-products";
 import { getLogger } from "@/lib/logger";
 import type { ProductCategory } from "@/lib/room-preview/types";
@@ -17,13 +17,30 @@ export type QrPrintLabel = {
   productName: string | null;
   /** Product image URL from PDC; null when the product could not be resolved. */
   productImageUrl: string | null;
-  /** True when PDC could not resolve the product (no local image fallback). */
+  /** True when PDC could not resolve the product (no local image fallback — see module docs). */
   unavailable: boolean;
 };
 
-/** Batched PDC lookups: enough parallelism to keep the page fast without
- *  hammering PDC after a Render.com cold start. */
-const PDC_LOOKUP_CONCURRENCY = 8;
+// ─── Concurrency & retry tuning ────────────────────────────────────────────────
+//
+// Audited against the live PDC API (2026-07): a batch of 8 concurrent SKU
+// lookups against PDC's small Render.com instance produced a ~50-60% timeout
+// rate; the SAME SKUs retried one at a time with a short pause between calls
+// succeeded 100% of the time. This is why local dev looked fine (the
+// dev-only local-manifest fallback below silently masked every timeout with
+// a stale local image) while production — which correctly has no fallback —
+// showed most WALLPAPER/CARPET_TILE cards as "unavailable" even though the
+// underlying SKUs genuinely exist in PDC.
+//
+// Fix: lower concurrency AND retry once (short backoff) specifically on the
+// "PDC_UNAVAILABLE" class of failure (timeouts / transient network errors).
+// Never retry PRODUCT_NOT_FOUND, PDC_AUTH_ERROR, INVALID_SKU, or
+// UNSUPPORTED_PRODUCT_CATEGORY — those are deterministic; retrying would only
+// slow the page down for SKUs that are genuinely missing or misconfigured.
+// Scoped entirely to this print-only path — resolveProductByCode itself, the
+// live /scan flow, and PDC client/API-key handling are untouched.
+const PDC_LOOKUP_CONCURRENCY = 4;
+const PDC_RETRY_DELAY_MS = 400;
 
 /** Fixed section/tab order — shared by the page's tabs nav and its grouped sections. */
 export const QR_PRINT_CATEGORY_ORDER: readonly ProductCategory[] = [
@@ -55,6 +72,31 @@ function unavailableLabel(productCode: string, category: ProductCategory, scanUr
   };
 }
 
+function sleep(ms: number) {
+  return new Promise<void>((resolve) => setTimeout(resolve, ms));
+}
+
+/**
+ * Resolve a SKU with one retry, ONLY for the transient/"PDC_UNAVAILABLE"
+ * failure class (see the concurrency/retry note above). A genuine
+ * PRODUCT_NOT_FOUND, PDC_AUTH_ERROR, or invalid-SKU result returns
+ * immediately — retrying those wastes time without changing the outcome.
+ */
+async function resolveWithRetry(productCode: string): Promise<ResolveProductResult> {
+  const first = await resolveProductByCode(productCode);
+  if (first.ok || first.code !== "PDC_UNAVAILABLE") {
+    return first;
+  }
+
+  await sleep(PDC_RETRY_DELAY_MS);
+  const retried = await resolveProductByCode(productCode);
+  log.info(
+    { productCode, firstAttempt: first.code, retryOk: retried.ok },
+    "Retried a transient PDC failure for a print label",
+  );
+  return retried;
+}
+
 /**
  * Build one printable label. GUARANTEED to never reject: every SKU in the
  * manifest must always produce a card — PDC success, PDC failure, or any
@@ -73,11 +115,13 @@ async function buildLabel(productCode: string, category: ProductCategory): Promi
     });
 
     // Product name/image come from PDC via the server-side resolver (the
-    // resolver's development-only manifest fallback keeps local work possible).
+    // resolver's development-only manifest fallback keeps local work possible
+    // — never in production, and never surfaced as if it were PDC data).
     // On failure the label renders as unavailable — never a stale local image.
-    const result = await resolveProductByCode(productCode);
+    const result = await resolveWithRetry(productCode);
 
     if (result.ok) {
+      log.info({ productCode, category, pdcOk: true }, "qr_print_label_resolved");
       return {
         productCode,
         category,
@@ -89,6 +133,10 @@ async function buildLabel(productCode: string, category: ProductCategory): Promi
       };
     }
 
+    log.warn(
+      { productCode, category, pdcOk: false, pdcErrorCode: result.code },
+      "qr_print_label_resolved",
+    );
     return unavailableLabel(productCode, category, scanUrl, qrDataUrl);
   } catch (error) {
     // resolveProductByCode is designed to never throw, and QR encoding of a
@@ -114,6 +162,10 @@ async function buildLabel(productCode: string, category: ProductCategory): Promi
  * remove the entry from the result. Promise.allSettled (rather than
  * Promise.all) is the outer guarantee that one entry's rejection can never
  * hide its batch-mates or abort the batches processed after it.
+ *
+ * Logs one aggregate summary (PDC ok / PDC unavailable / PDC not-found /
+ * cards with an image / cards unavailable) so a real production run can be
+ * checked in the Vercel logs without ever printing PDC credentials.
  */
 export async function getQrPrintLabels(category?: ProductCategory | null): Promise<QrPrintLabel[]> {
   const entries = category
@@ -138,6 +190,32 @@ export async function getQrPrintLabels(category?: ProductCategory | null): Promi
       labels.push(unavailableLabel(entry.id, entry.category, buildScanUrl(entry.id), ""));
     });
   }
+
+  const withImage = labels.filter((l) => !l.unavailable).length;
+  const unavailableCount = labels.length - withImage;
+  const byCategory = QR_PRINT_CATEGORY_ORDER.reduce<Record<string, { total: number; ok: number; unavailable: number }>>(
+    (acc, c) => {
+      const inCategory = labels.filter((l) => l.category === c);
+      acc[c] = {
+        total: inCategory.length,
+        ok: inCategory.filter((l) => !l.unavailable).length,
+        unavailable: inCategory.filter((l) => l.unavailable).length,
+      };
+      return acc;
+    },
+    {},
+  );
+  log.info(
+    {
+      event: "qr_print_labels_summary",
+      categoryFilter: category ?? "all",
+      totalSkus: labels.length,
+      labelsWithImage: withImage,
+      labelsUnavailable: unavailableCount,
+      byCategory,
+    },
+    "qr_print_labels_summary",
+  );
 
   return labels;
 }

@@ -14,7 +14,9 @@ export const dynamic = "force-dynamic";
 const CATEGORY_LABEL: Record<ProductCategory, string> = {
   PARQUET: "Parquet",
   WALLPAPER: "Wallpaper",
-  CARPET_TILE: "Carpet Tiles",
+  // Arabic per spec: never "سجادة" (rug) or "carpet roll" — these are modular
+  // 50x50cm tiles, not a rug or a roll.
+  CARPET_TILE: "بلاطات موكيت",
 };
 
 export default async function ProductQrPrintPage() {
@@ -57,8 +59,10 @@ export default async function ProductQrPrintPage() {
                 />
                 <div className="mt-3 flex items-center justify-center">
                   <span
+                    dir={label.category === "CARPET_TILE" ? "rtl" : "ltr"}
                     className={
-                      "rounded-full px-3 py-1 text-xs font-bold uppercase tracking-wide print:text-[8pt] " +
+                      "rounded-full px-3 py-1 text-xs font-bold tracking-wide print:text-[8pt] " +
+                      (label.category === "CARPET_TILE" ? "" : "uppercase ") +
                       (label.category === "WALLPAPER"
                         ? "bg-amber-100 text-amber-900"
                         : label.category === "CARPET_TILE"

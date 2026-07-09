@@ -16,16 +16,21 @@ import { listQrProducts } from "@/lib/room-preview/qr-products";
 const resolveMock = vi.mocked(resolveProductByCode);
 const listMock = vi.mocked(listQrProducts);
 
-function manifestEntry(id: string, category: "PARQUET" | "WALLPAPER"): RoomPreviewProduct {
+function manifestEntry(
+  id: string,
+  category: "PARQUET" | "WALLPAPER" | "CARPET_TILE",
+): RoomPreviewProduct {
+  const productType = category === "WALLPAPER" ? "wall_material" : "floor_material";
+  const targetSurface = category === "WALLPAPER" ? "walls" : "floor";
   return {
     id,
     barcode: id,
     name: id,
-    productType: category === "PARQUET" ? "floor_material" : "wall_material",
+    productType,
     category,
-    targetSurface: category === "PARQUET" ? "floor" : "walls",
+    targetSurface,
     // Local manifest image — must never appear in the printed label output.
-    imageUrl: `/qr-products/${category.toLowerCase()}/${id}.jpg`,
+    imageUrl: `/qr-products/${category.toLowerCase().replace("_", "-")}/${id}.jpg`,
   };
 }
 
@@ -92,6 +97,50 @@ describe("getQrPrintLabels", () => {
     expect(labels[0].productImageUrl).toBeNull();
     // QR still prints and still opens our scan page.
     expect(labels[0].scanUrl).toBe("https://3d-ivory-rho.vercel.app/scan/WPT01.1104-1");
+  });
+
+  it("builds a CARPET_TILE (CRP) label with category preserved and PDC as the data source", async () => {
+    listMock.mockReturnValue([manifestEntry("CRPT050.001", "CARPET_TILE")]);
+    resolveMock.mockResolvedValue({
+      ok: true,
+      product: {
+        ...manifestEntry("CRPT050.001", "CARPET_TILE"),
+        name: "بلاطات موكيت رمادية (PDC)",
+        imageUrl: "https://pdc-cdn.example.com/products/CRPT050.001/main.jpg",
+        source: "pdc",
+      },
+    });
+
+    const labels = await getQrPrintLabels();
+
+    expect(resolveMock).toHaveBeenCalledWith("CRPT050.001");
+    expect(labels[0].category).toBe("CARPET_TILE");
+    expect(labels[0].unavailable).toBe(false);
+    expect(labels[0].productName).toBe("بلاطات موكيت رمادية (PDC)");
+    expect(labels[0].productImageUrl).toBe(
+      "https://pdc-cdn.example.com/products/CRPT050.001/main.jpg",
+    );
+    // The QR still opens our own scan page, never a PDC URL directly.
+    expect(labels[0].scanUrl).toBe("https://3d-ivory-rho.vercel.app/scan/CRPT050.001");
+  });
+
+  it("marks a CRP product unavailable (no local fallback image) when PDC does not have it yet", async () => {
+    listMock.mockReturnValue([manifestEntry("CRPT060.303", "CARPET_TILE")]);
+    resolveMock.mockResolvedValue({
+      ok: false,
+      code: "PRODUCT_NOT_FOUND",
+      status: 404,
+      error: "Product was not found.",
+    });
+
+    const labels = await getQrPrintLabels();
+
+    expect(labels[0].category).toBe("CARPET_TILE");
+    expect(labels[0].unavailable).toBe(true);
+    expect(labels[0].productName).toBeNull();
+    expect(labels[0].productImageUrl).toBeNull();
+    // QR still prints and still opens our own /scan/{sku} page.
+    expect(labels[0].scanUrl).toBe("https://3d-ivory-rho.vercel.app/scan/CRPT060.303");
   });
 
   it("never leaks the PDC API key into the label payload sent to the page", async () => {

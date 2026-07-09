@@ -65,5 +65,42 @@ export const QR_PRODUCT_MANIFEST = [
   {"code":"WPT01.23212-2","category":"WALLPAPER","targetSurface":"walls","productType":"wall_material","imageUrl":"/qr-products/wallpaper/WPT01.23212-2.jpg"},
   {"code":"WPT01.23213-1","category":"WALLPAPER","targetSurface":"walls","productType":"wall_material","imageUrl":"/qr-products/wallpaper/WPT01.23213-1.jpg"},
   {"code":"WPT01.23213-2","category":"WALLPAPER","targetSurface":"walls","productType":"wall_material","imageUrl":"/qr-products/wallpaper/WPT01.23213-2.jpg"},
+
+  // Carpet tile (CRP) SKUs — manually added, NOT scanned from a local image
+  // folder by the generator script (no bundled carpet-tile images exist).
+  // /qr-print and the render flow both resolve name + image from PDC via
+  // resolveProductByCode(); this imageUrl is only ever read as the
+  // development-only PDC-outage fallback in product-resolver.ts and is never
+  // shown in production.
+  {"code":"CRPT050.001","category":"CARPET_TILE","targetSurface":"floor","productType":"floor_material","imageUrl":"/qr-products/carpet-tile/CRPT050.001.jpg"},
+  {"code":"CRPT050.006","category":"CARPET_TILE","targetSurface":"floor","productType":"floor_material","imageUrl":"/qr-products/carpet-tile/CRPT050.006.jpg"},
+  {"code":"CRPT050.007","category":"CARPET_TILE","targetSurface":"floor","productType":"floor_material","imageUrl":"/qr-products/carpet-tile/CRPT050.007.jpg"},
+  {"code":"CRPT050.009","category":"CARPET_TILE","targetSurface":"floor","productType":"floor_material","imageUrl":"/qr-products/carpet-tile/CRPT050.009.jpg"},
+  {"code":"CRPT050.051","category":"CARPET_TILE","targetSurface":"floor","productType":"floor_material","imageUrl":"/qr-products/carpet-tile/CRPT050.051.jpg"},
+  {"code":"CRPT050.056","category":"CARPET_TILE","targetSurface":"floor","productType":"floor_material","imageUrl":"/qr-products/carpet-tile/CRPT050.056.jpg"},
+  {"code":"CRPT050.057","category":"CARPET_TILE","targetSurface":"floor","productType":"floor_material","imageUrl":"/qr-products/carpet-tile/CRPT050.057.jpg"},
+  {"code":"CRPT050.058","category":"CARPET_TILE","targetSurface":"floor","productType":"floor_material","imageUrl":"/qr-products/carpet-tile/CRPT050.058.jpg"},
+  {"code":"CRPT060.001","category":"CARPET_TILE","targetSurface":"floor","productType":"floor_material","imageUrl":"/qr-products/carpet-tile/CRPT060.001.jpg"},
+  {"code":"CRPT060.002","category":"CARPET_TILE","targetSurface":"floor","productType":"floor_material","imageUrl":"/qr-products/carpet-tile/CRPT060.002.jpg"},
+  {"code":"CRPT060.004","category":"CARPET_TILE","targetSurface":"floor","productType":"floor_material","imageUrl":"/qr-products/carpet-tile/CRPT060.004.jpg"},
+  {"code":"CRPT060.006","category":"CARPET_TILE","targetSurface":"floor","productType":"floor_material","imageUrl":"/qr-products/carpet-tile/CRPT060.006.jpg"},
+  {"code":"CRPT060.007","category":"CARPET_TILE","targetSurface":"floor","productType":"floor_material","imageUrl":"/qr-products/carpet-tile/CRPT060.007.jpg"},
+  {"code":"CRPT060.008","category":"CARPET_TILE","targetSurface":"floor","productType":"floor_material","imageUrl":"/qr-products/carpet-tile/CRPT060.008.jpg"},
+  {"code":"CRPT060.010","category":"CARPET_TILE","targetSurface":"floor","productType":"floor_material","imageUrl":"/qr-products/carpet-tile/CRPT060.010.jpg"},
+  {"code":"CRPT060.011","category":"CARPET_TILE","targetSurface":"floor","productType":"floor_material","imageUrl":"/qr-products/carpet-tile/CRPT060.011.jpg"},
+  {"code":"CRPT060.015","category":"CARPET_TILE","targetSurface":"floor","productType":"floor_material","imageUrl":"/qr-products/carpet-tile/CRPT060.015.jpg"},
+  {"code":"CRPT060.018","category":"CARPET_TILE","targetSurface":"floor","productType":"floor_material","imageUrl":"/qr-products/carpet-tile/CRPT060.018.jpg"},
+  {"code":"CRPT060.025","category":"CARPET_TILE","targetSurface":"floor","productType":"floor_material","imageUrl":"/qr-products/carpet-tile/CRPT060.025.jpg"},
+  {"code":"CRPT060.026","category":"CARPET_TILE","targetSurface":"floor","productType":"floor_material","imageUrl":"/qr-products/carpet-tile/CRPT060.026.jpg"},
+  {"code":"CRPT060.027","category":"CARPET_TILE","targetSurface":"floor","productType":"floor_material","imageUrl":"/qr-products/carpet-tile/CRPT060.027.jpg"},
+  {"code":"CRPT060.061","category":"CARPET_TILE","targetSurface":"floor","productType":"floor_material","imageUrl":"/qr-products/carpet-tile/CRPT060.061.jpg"},
+  {"code":"CRPT060.062","category":"CARPET_TILE","targetSurface":"floor","productType":"floor_material","imageUrl":"/qr-products/carpet-tile/CRPT060.062.jpg"},
+  {"code":"CRPT060.063","category":"CARPET_TILE","targetSurface":"floor","productType":"floor_material","imageUrl":"/qr-products/carpet-tile/CRPT060.063.jpg"},
+  {"code":"CRPT060.100","category":"CARPET_TILE","targetSurface":"floor","productType":"floor_material","imageUrl":"/qr-products/carpet-tile/CRPT060.100.jpg"},
+  {"code":"CRPT060.105","category":"CARPET_TILE","targetSurface":"floor","productType":"floor_material","imageUrl":"/qr-products/carpet-tile/CRPT060.105.jpg"},
+  {"code":"CRPT060.202","category":"CARPET_TILE","targetSurface":"floor","productType":"floor_material","imageUrl":"/qr-products/carpet-tile/CRPT060.202.jpg"},
+  {"code":"CRPT060.203","category":"CARPET_TILE","targetSurface":"floor","productType":"floor_material","imageUrl":"/qr-products/carpet-tile/CRPT060.203.jpg"},
+  {"code":"CRPT060.204","category":"CARPET_TILE","targetSurface":"floor","productType":"floor_material","imageUrl":"/qr-products/carpet-tile/CRPT060.204.jpg"},
+  {"code":"CRPT060.303","category":"CARPET_TILE","targetSurface":"floor","productType":"floor_material","imageUrl":"/qr-products/carpet-tile/CRPT060.303.jpg"},
 ] as const satisfies readonly QrProductManifestEntry[];
 

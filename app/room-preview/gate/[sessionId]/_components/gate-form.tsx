@@ -4,8 +4,8 @@ import { useState } from "react";
 import Image from "next/image";
 import { useRouter } from "next/navigation";
 import { useFormStatus } from "react-dom";
-import { ChevronLeft, ChevronRight } from "lucide-react";
 import { selectCustomerRole, submitGateForm } from "../actions";
+import { VerticalImageStack } from "@/components/ui/vertical-image-stack";
 import RoomPreviewBackButton from "@/components/room-preview/RoomPreviewBackButton";
 import { MobileActionButton } from "@/components/room-preview/MobileActionButton";
 import { trackClientSessionEvent } from "@/lib/room-preview/session-diagnostics-client";
@@ -507,20 +507,18 @@ export function GateForm({
             <p className="mt-2 text-sm text-[var(--text-secondary)]">{t.greetingSubtitle}</p>
           </div>
 
-          {/* Previous render results — carousel style matching ProductStep */}
+          {/* Previous render results — 21st.dev VerticalImageStack (replaces the
+              old arrow carousel; same data, same order, no other UI changes) */}
           {(() => {
             const exps = previousExperiences.filter((e) => e.resultImageUrl);
             if (exps.length === 0) return null;
-            const cur = exps[expIndex]!;
-            const canPrev = expIndex > 0;
-            const canNext = expIndex < exps.length - 1;
-
-            const arrowClass = (active: boolean) =>
-              `absolute z-20 flex h-10 w-10 items-center justify-center rounded-full border transition-all duration-200 ${
-                active
-                  ? "border-[rgba(0,175,215,0.35)] bg-[rgba(0,175,215,0.12)] text-[var(--brand-cyan)] shadow-[0_0_14px_rgba(0,175,215,0.25)] hover:bg-[rgba(0,175,215,0.22)] hover:shadow-[0_0_20px_rgba(0,175,215,0.40)] active:scale-90"
-                  : "border-[var(--border)] bg-[var(--bg-surface)] text-[var(--text-muted)] opacity-25 cursor-not-allowed"
-              }`;
+            const items = exps.map((e, i) => ({
+              id: e.id || String(i),
+              src: e.resultImageUrl!,
+              alt: locale === "ar" ? "آخر معاينة" : "Previous preview",
+              title: e.productName,
+            }));
+            const cur = exps[Math.min(expIndex, exps.length - 1)];
 
             return (
               <div className="mb-6">
@@ -528,65 +526,13 @@ export function GateForm({
                   {locale === "ar" ? "آخر معايناتك" : "Your previous previews"}
                 </p>
 
-                {/* Hero image + arrows */}
-                <div className="relative flex h-[320px] items-center justify-center">
-                  {/* Glow */}
-                  <div className="pointer-events-none absolute inset-0 -z-10 mx-auto max-w-[180px] rounded-[100%] bg-[var(--brand-cyan)]/10 opacity-70 blur-[50px]" />
+                <VerticalImageStack items={items} initialIndex={0} onIndexChange={setExpIndex} />
 
-                  {/* Left arrow */}
-                  <button
-                    type="button"
-                    onClick={() => setExpIndex((i) => Math.max(0, i - 1))}
-                    disabled={!canPrev}
-                    className={`${arrowClass(canPrev)} left-0`}
-                  >
-                    <ChevronLeft className="size-5" />
-                  </button>
-
-                  {/* Image */}
-                  <div className="mx-10 h-full w-full overflow-hidden rounded-2xl">
-                    <img
-                      key={cur.id}
-                      src={cur.resultImageUrl!}
-                      alt={cur.productName ?? ""}
-                      className="h-full w-full object-cover"
-                    />
-                  </div>
-
-                  {/* Right arrow */}
-                  <button
-                    type="button"
-                    onClick={() => setExpIndex((i) => Math.min(exps.length - 1, i + 1))}
-                    disabled={!canNext}
-                    className={`${arrowClass(canNext)} right-0`}
-                  >
-                    <ChevronRight className="size-5" />
-                  </button>
-                </div>
-
-                {/* Product name */}
-                {cur.productName && (
+                {/* Current item's product name — same placement as the old carousel */}
+                {cur?.productName && (
                   <p className="mt-3 text-sm font-medium text-center text-[var(--text-secondary)] truncate px-4">
                     {cur.productName}
                   </p>
-                )}
-
-                {/* Dot indicators */}
-                {exps.length > 1 && (
-                  <div className="mt-3 flex justify-center gap-1.5">
-                    {exps.map((_, i) => (
-                      <button
-                        key={i}
-                        type="button"
-                        onClick={() => setExpIndex(i)}
-                        className={`h-1.5 rounded-full transition-all duration-200 ${
-                          i === expIndex
-                            ? "w-4 bg-[var(--brand-cyan)]"
-                            : "w-1.5 bg-[var(--border-strong)]"
-                        }`}
-                      />
-                    ))}
-                  </div>
                 )}
               </div>
             );

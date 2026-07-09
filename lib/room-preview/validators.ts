@@ -69,7 +69,7 @@ export function isProductType(value: unknown): value is ProductType {
 }
 
 export function isProductCategory(value: unknown): value is ProductCategory {
-  return value === "PARQUET" || value === "WALLPAPER";
+  return value === "PARQUET" || value === "WALLPAPER" || value === "CARPET_TILE";
 }
 
 export function isTargetSurface(value: unknown): value is TargetSurface {

@@ -7,7 +7,7 @@ import {
   SENTINEL_MATERIAL_UNCLEAR,
 } from "@/lib/room-preview/prompt-template-v2";
 import {
-  parquetWallpaperStrategy,
+  resolveCompositeRenderStrategy,
   resolveRenderStrategy,
 } from "@/lib/room-preview/render-strategies";
 import { COMPOSITE_REFERENCE_ORDER } from "@/lib/room-preview/selected-products";
@@ -284,10 +284,15 @@ export const geminiRoomPreviewRenderProvider = {
 
     // Resolve the render strategy from PRODUCT DATA (category), never from the
     // image. PARQUET → floor prompt (+ floorQuad); WALLPAPER → wall prompt
-    // (prompt-only, no floorQuad). Old sessions without a category default to
-    // PARQUET / floor via the normalizer.
+    // (prompt-only, no floorQuad); CARPET_TILE → carpet-tiles floor prompt
+    // (+ floorQuad). Old sessions without a category default to PARQUET / floor
+    // via the normalizer. In composite mode the FLOOR product's category picks
+    // the composite prompt (parquet+wallpaper vs carpet-tiles+wallpaper) — the
+    // two floor materials use different floor-application language.
     const { category, targetSurface } = normalizeSelectedProductClassification(product);
-    const strategy = isCompositeRender ? parquetWallpaperStrategy : resolveRenderStrategy(category);
+    const strategy = isCompositeRender
+      ? resolveCompositeRenderStrategy(normalizeSelectedProductClassification(floorProduct!).category)
+      : resolveRenderStrategy(category);
     const usesFloorQuad = strategy.geometryMode === "floorQuad";
     const productCodes = productCodesForReferences(productReferences);
     const categories = categoriesForReferences(productReferences);

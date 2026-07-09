@@ -13,15 +13,26 @@ export type SkuClassification = {
 };
 
 /**
- * Phase-1 category rule: the first character of the SKU decides the product
- * family. Only the first character is case-normalized for the check — the SKU
- * itself must stay untouched because PDC treats SKUs as case-sensitive.
+ * Category rule: a fixed SKU prefix decides the product family. Only the
+ * comparison is case-normalized (via a local `normalized` copy) — the `sku`
+ * value passed in, and the value forwarded to PDC by the caller, must stay
+ * untouched because PDC treats SKUs as case-sensitive.
+ *
+ * "CRP" is checked before the single-character parquet/wallpaper switch so a
+ * CRP-prefixed SKU is never mistaken for a "C"-prefixed unsupported family.
  *
  * Returns null for SKUs outside the supported families; those products must
  * never be saved to a session (UNSUPPORTED_PRODUCT_CATEGORY).
  */
 export function classifySkuCategory(sku: string): SkuClassification | null {
-  switch (sku.trim().charAt(0).toUpperCase()) {
+  const normalized = sku.trim().toUpperCase();
+
+  // Carpet tiles — 50x50cm modular floor tiles, distinct from parquet planks.
+  if (normalized.startsWith("CRP")) {
+    return { category: "CARPET_TILE", productType: "floor_material", targetSurface: "floor" };
+  }
+
+  switch (normalized.charAt(0)) {
     case "P":
       return { category: "PARQUET", productType: "floor_material", targetSurface: "floor" };
     case "W":

@@ -13,7 +13,7 @@ export type RoomPreviewProductType = ProductType;
  * Resolved from the product's source (e.g. the qr-products subfolder), never
  * inferred from the image or guessed by the model.
  */
-export type ProductCategory = "PARQUET" | "WALLPAPER";
+export type ProductCategory = "PARQUET" | "WALLPAPER" | "CARPET_TILE";
 
 /** Which surface a category's render strategy targets. */
 export type TargetSurface = "floor" | "walls";

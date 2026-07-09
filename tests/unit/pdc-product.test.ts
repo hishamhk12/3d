@@ -28,6 +28,12 @@ function pdcResponse(overrides: Partial<PdcProductResponse> = {}): PdcProductRes
   };
 }
 
+const CARPET_TILE_CLASSIFICATION = {
+  category: "CARPET_TILE",
+  productType: "floor_material",
+  targetSurface: "floor",
+} as const;
+
 describe("classifySkuCategory", () => {
   it.each(["P001", "PAR006.10", "P-123"])("classifies %s as floor/parquet", (sku) => {
     expect(classifySkuCategory(sku)).toEqual(FLOOR_CLASSIFICATION);
@@ -55,6 +61,32 @@ describe("classifySkuCategory", () => {
     expect(classifySkuCategory("001P")).toBeNull();
     expect(classifySkuCategory("")).toBeNull();
     expect(classifySkuCategory("   ")).toBeNull();
+  });
+
+  it.each(["CRP001", "CRP-50x50.10", "CRP50X50-GRY"])(
+    "classifies %s as floor/carpet-tile (not parquet, not wallpaper)",
+    (sku) => {
+      expect(classifySkuCategory(sku)).toEqual(CARPET_TILE_CLASSIFICATION);
+    },
+  );
+
+  it("classifies CRP case-insensitively without mutating the returned SKU elsewhere", () => {
+    expect(classifySkuCategory("crp001")).toEqual(CARPET_TILE_CLASSIFICATION);
+    expect(classifySkuCategory("  Crp-10  ")).toEqual(CARPET_TILE_CLASSIFICATION);
+  });
+
+  it("does not classify a bare C-prefixed (non-CRP) SKU as carpet tile", () => {
+    expect(classifySkuCategory("C001")).toBeNull();
+    expect(classifySkuCategory("CER001")).toBeNull();
+  });
+
+  it("adding CARPET_TILE support does not change PARQUET or WALLPAPER classification", () => {
+    expect(classifySkuCategory("P001")).toEqual(FLOOR_CLASSIFICATION);
+    expect(classifySkuCategory("W001")).toEqual({
+      category: "WALLPAPER",
+      productType: "wall_material",
+      targetSurface: "walls",
+    });
   });
 });
 
@@ -117,6 +149,27 @@ describe("mapPdcResponseToProduct", () => {
     expect(() =>
       mapPdcResponseToProduct(pdcResponse({ images: [] }), FLOOR_CLASSIFICATION),
     ).toThrow(PdcProductImageMissingError);
+  });
+
+  it("maps a CRP response using PDC's name/image, same as parquet/wallpaper", () => {
+    const product = mapPdcResponseToProduct(
+      pdcResponse({
+        sku: "CRP001",
+        product_name_ar: "بلاطات موكيت رمادية",
+        product_name_en: "Gray carpet tiles",
+      }),
+      CARPET_TILE_CLASSIFICATION,
+    );
+
+    expect(product).toMatchObject({
+      id: "CRP001",
+      name: "بلاطات موكيت رمادية",
+      productType: "floor_material",
+      category: "CARPET_TILE",
+      targetSurface: "floor",
+      imageUrl: "https://cdn/main.jpg",
+      source: "pdc",
+    });
   });
 
   it("nullifies missing optional URLs", () => {

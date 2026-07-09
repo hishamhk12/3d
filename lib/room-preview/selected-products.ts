@@ -123,7 +123,7 @@ function isRenderableSurfaceProduct(product: SelectedProduct | null | undefined,
     normalized.targetSurface === surface &&
     ((surface === "floor" &&
       normalized.productType === "floor_material" &&
-      normalized.category === "PARQUET") ||
+      (normalized.category === "PARQUET" || normalized.category === "CARPET_TILE")) ||
       (surface === "walls" &&
         normalized.productType === "wall_material" &&
         normalized.category === "WALLPAPER"))

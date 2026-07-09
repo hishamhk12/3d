@@ -14,6 +14,7 @@ export const dynamic = "force-dynamic";
 const CATEGORY_LABEL: Record<ProductCategory, string> = {
   PARQUET: "Parquet",
   WALLPAPER: "Wallpaper",
+  CARPET_TILE: "Carpet Tiles",
 };
 
 export default async function ProductQrPrintPage() {
@@ -60,7 +61,9 @@ export default async function ProductQrPrintPage() {
                       "rounded-full px-3 py-1 text-xs font-bold uppercase tracking-wide print:text-[8pt] " +
                       (label.category === "WALLPAPER"
                         ? "bg-amber-100 text-amber-900"
-                        : "bg-emerald-100 text-emerald-900")
+                        : label.category === "CARPET_TILE"
+                          ? "bg-sky-100 text-sky-900"
+                          : "bg-emerald-100 text-emerald-900")
                     }
                   >
                     {CATEGORY_LABEL[label.category]}

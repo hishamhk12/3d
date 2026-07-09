@@ -4,7 +4,9 @@ import type { ProductCategory } from "@/lib/room-preview/types";
 import type { RenderStrategy } from "@/lib/room-preview/render-strategies/types";
 import { parquetStrategy } from "@/lib/room-preview/render-strategies/parquet";
 import { wallpaperStrategy } from "@/lib/room-preview/render-strategies/wallpaper";
+import { carpetTilesStrategy } from "@/lib/room-preview/render-strategies/carpet-tiles";
 import { parquetWallpaperStrategy } from "@/lib/room-preview/render-strategies/parquet-wallpaper";
+import { carpetTilesWallpaperStrategy } from "@/lib/room-preview/render-strategies/carpet-tiles-wallpaper";
 
 export type {
   RenderStrategy,
@@ -23,6 +25,7 @@ export class UnsupportedRenderCategoryError extends Error {
 const STRATEGIES: Record<ProductCategory, RenderStrategy> = {
   PARQUET: parquetStrategy,
   WALLPAPER: wallpaperStrategy,
+  CARPET_TILE: carpetTilesStrategy,
 };
 
 /**
@@ -38,4 +41,31 @@ export function resolveRenderStrategy(category: ProductCategory): RenderStrategy
   return strategy;
 }
 
-export { parquetStrategy, wallpaperStrategy, parquetWallpaperStrategy };
+/** Floor categories that support a floor+wallpaper composite render, mapped to their composite strategy. */
+const COMPOSITE_STRATEGIES: Partial<Record<ProductCategory, RenderStrategy>> = {
+  PARQUET: parquetWallpaperStrategy,
+  CARPET_TILE: carpetTilesWallpaperStrategy,
+};
+
+/**
+ * Resolve the composite (floor + wallpaper) render strategy from the FLOOR
+ * product's category. Each supported floor category has its own composite
+ * prompt (parquet vs carpet tiles use different floor-application language) —
+ * throws on a floor category with no composite strategy, so an unsupported
+ * combination never silently falls back to the wrong prompt.
+ */
+export function resolveCompositeRenderStrategy(floorCategory: ProductCategory): RenderStrategy {
+  const strategy = COMPOSITE_STRATEGIES[floorCategory];
+  if (!strategy) {
+    throw new UnsupportedRenderCategoryError(String(floorCategory));
+  }
+  return strategy;
+}
+
+export {
+  parquetStrategy,
+  wallpaperStrategy,
+  carpetTilesStrategy,
+  parquetWallpaperStrategy,
+  carpetTilesWallpaperStrategy,
+};

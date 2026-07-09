@@ -6,8 +6,13 @@ import {
   SENTINEL_FLOOR_NOT_VISIBLE,
   SENTINEL_MATERIAL_UNCLEAR,
 } from "@/lib/room-preview/prompt-template-v2";
-import { resolveRenderStrategy } from "@/lib/room-preview/render-strategies";
+import {
+  parquetWallpaperStrategy,
+  resolveRenderStrategy,
+} from "@/lib/room-preview/render-strategies";
+import { COMPOSITE_REFERENCE_ORDER } from "@/lib/room-preview/selected-products";
 import { normalizeSelectedProductClassification } from "@/lib/room-preview/validators";
+import type { SelectedProduct, TargetSurface } from "@/lib/room-preview/types";
 import type {
   RoomPreviewRenderProvider,
   RoomPreviewRenderProviderRequest,
@@ -174,6 +179,23 @@ async function saveDebugArtifacts(params: {
   return urls;
 }
 
+type ProductReference = {
+  image: PreparedImage;
+  product: SelectedProduct;
+  surface: TargetSurface;
+};
+
+function productCodesForReferences(references: readonly ProductReference[]) {
+  return references.map((ref) => ref.product.id).filter((id): id is string => Boolean(id));
+}
+
+function categoriesForReferences(references: readonly ProductReference[]) {
+  return references.map((ref) => ref.product.category ?? (ref.surface === "floor" ? "PARQUET" : "WALLPAPER"));
+}
+
+function surfacesForReferences(references: readonly ProductReference[]) {
+  return references.map((ref) => ref.surface);
+}
 
 
 
@@ -198,20 +220,48 @@ export const geminiRoomPreviewRenderProvider = {
   async render(
     request: RoomPreviewRenderProviderRequest,
   ): Promise<RoomPreviewRenderProviderResult> {
-    const { product, room, sessionId } = request.renderJobInput;
+    const {
+      product,
+      renderMode = "single",
+      room,
+      selectedProductsBySurface,
+      sessionId,
+    } = request.renderJobInput;
+    const isCompositeRender = renderMode === "composite";
+    const floorProduct = selectedProductsBySurface?.floor ?? null;
+    const wallpaperProduct = selectedProductsBySurface?.walls ?? null;
 
     if (!room.imageUrl)    throw new Error("A room image is required for Gemini rendering.");
     if (!product.imageUrl) throw new Error("A product image is required for Gemini rendering.");
+    if (isCompositeRender && (!floorProduct?.imageUrl || !wallpaperProduct?.imageUrl)) {
+      throw new Error("Floor and wallpaper product images are required for composite Gemini rendering.");
+    }
 
     const ai = getGeminiClient();
     const tProviderStart = Date.now();
 
     // Load, EXIF-rotate, resize (if needed), and re-encode both images as JPEG
     // in parallel. Dimensions are returned directly — no second decode needed.
-    const [roomImage, productImage] = await Promise.all([
+    const loadedImages = await Promise.all([
       loadAndPrepareImage(room.imageUrl, { imageRole: "room", sessionId }),
-      loadAndPrepareImage(product.imageUrl, { imageRole: "product", sessionId }),
+      ...(isCompositeRender
+        ? [
+            loadAndPrepareImage(floorProduct!.imageUrl!, { imageRole: "product", sessionId }),
+            loadAndPrepareImage(wallpaperProduct!.imageUrl!, { imageRole: "product", sessionId }),
+          ]
+        : [
+            loadAndPrepareImage(product.imageUrl, { imageRole: "product", sessionId }),
+          ]),
     ]);
+    const roomImage = loadedImages[0];
+    const productImage = loadedImages[1];
+    const wallpaperImage = isCompositeRender ? loadedImages[2] : null;
+    let productReferences: ProductReference[] = isCompositeRender
+      ? [
+          { surface: "floor", product: floorProduct!, image: productImage },
+          { surface: "walls", product: wallpaperProduct!, image: wallpaperImage! },
+        ]
+      : [{ surface: product.targetSurface ?? "floor", product, image: productImage }];
     const tImagesLoaded = Date.now();
     log.info(
       {
@@ -222,8 +272,10 @@ export const geminiRoomPreviewRenderProvider = {
         durationMs: tImagesLoaded - tProviderStart,
         roomFinalBytes: roomImage.finalBytes,
         productFinalBytes: productImage.finalBytes,
+        ...(wallpaperImage ? { wallpaperFinalBytes: wallpaperImage.finalBytes } : {}),
         roomDimensions: `${roomImage.width}x${roomImage.height}`,
         productDimensions: `${productImage.width}x${productImage.height}`,
+        ...(wallpaperImage ? { wallpaperDimensions: `${wallpaperImage.width}x${wallpaperImage.height}` } : {}),
       },
       "render_timing",
     );
@@ -235,11 +287,21 @@ export const geminiRoomPreviewRenderProvider = {
     // (prompt-only, no floorQuad). Old sessions without a category default to
     // PARQUET / floor via the normalizer.
     const { category, targetSurface } = normalizeSelectedProductClassification(product);
-    const strategy = resolveRenderStrategy(category);
+    const strategy = isCompositeRender ? parquetWallpaperStrategy : resolveRenderStrategy(category);
     const usesFloorQuad = strategy.geometryMode === "floorQuad";
+    const productCodes = productCodesForReferences(productReferences);
+    const categories = categoriesForReferences(productReferences);
+    const targetSurfaces = surfacesForReferences(productReferences);
+    const effectiveReferenceOrder = isCompositeRender ? COMPOSITE_REFERENCE_ORDER : undefined;
 
     const prompt = strategy.buildPrompt({
       productName: product.name ?? null,
+      productNamesBySurface: isCompositeRender
+        ? {
+            floor: floorProduct?.name ?? null,
+            walls: wallpaperProduct?.name ?? null,
+          }
+        : undefined,
       floorPolygon: usesFloorQuad ? (room.floorQuad ?? null) : null,
       dimensions: inputDimensions,
       variant: PROMPT_VARIANT,
@@ -256,8 +318,14 @@ export const geminiRoomPreviewRenderProvider = {
         category,
         targetSurface,
         renderStrategy: strategy.id,
+        renderMode,
         promptVersion: strategy.promptVersion,
         geometryMode: strategy.geometryMode,
+        selectedProductCount: productReferences.length,
+        productCodes,
+        categories,
+        targetSurfaces,
+        ...(effectiveReferenceOrder ? { referenceOrder: effectiveReferenceOrder } : {}),
       },
       "render_strategy_resolved",
     );
@@ -271,9 +339,15 @@ export const geminiRoomPreviewRenderProvider = {
         category,
         targetSurface,
         renderStrategy: strategy.id,
+        renderMode,
         promptVersion: strategy.promptVersion,
         geometryMode: strategy.geometryMode,
         renderJobId: request.jobId,
+        selectedProductCount: productReferences.length,
+        productCodes,
+        categories,
+        targetSurfaces,
+        ...(effectiveReferenceOrder ? { referenceOrder: effectiveReferenceOrder } : {}),
       },
     }).catch((evtErr) => {
       log.warn({ evtErr, sessionId }, "render_strategy_resolved event failed (non-fatal)");
@@ -376,6 +450,7 @@ export const geminiRoomPreviewRenderProvider = {
     // Phase 4: may be replaced with smaller-dimension versions on timeout retry.
     let currentRoomImage    = roomImage;
     let currentProductImage = productImage;
+    let currentWallpaperImage = wallpaperImage;
 
     const attemptTimings: Array<{
       attempt: number;
@@ -405,6 +480,9 @@ export const geminiRoomPreviewRenderProvider = {
         const imageParts = [
           { inlineData: { mimeType: currentRoomImage.mimeType,    data: currentRoomImage.base64    } },
           { inlineData: { mimeType: currentProductImage.mimeType, data: currentProductImage.base64 } },
+          ...(isCompositeRender && currentWallpaperImage
+            ? [{ inlineData: { mimeType: currentWallpaperImage.mimeType, data: currentWallpaperImage.base64 } }]
+            : []),
         ];
 
         const contentRequest: Record<string, unknown> = {
@@ -430,8 +508,14 @@ export const geminiRoomPreviewRenderProvider = {
               qualityMode: RENDER_QUALITY,
               promptVersion: strategy.promptVersion,
               productCode: product.id,
+              productCodes,
               category,
+              categories,
               targetSurface,
+              targetSurfaces,
+              selectedProductCount: productReferences.length,
+              renderMode,
+              ...(effectiveReferenceOrder ? { referenceOrder: effectiveReferenceOrder } : {}),
               renderStrategy: strategy.id,
               geometryMode: strategy.geometryMode,
               promptLength: activePrompt.length,
@@ -440,8 +524,10 @@ export const geminiRoomPreviewRenderProvider = {
               timeoutMs: attemptTimeoutMs,
               roomBytes: currentRoomImage.finalBytes,
               productBytes: currentProductImage.finalBytes,
+              ...(currentWallpaperImage ? { wallpaperBytes: currentWallpaperImage.finalBytes } : {}),
               roomDimensions: `${currentRoomImage.width}x${currentRoomImage.height}`,
               productDimensions: `${currentProductImage.width}x${currentProductImage.height}`,
+              ...(currentWallpaperImage ? { wallpaperDimensions: `${currentWallpaperImage.width}x${currentWallpaperImage.height}` } : {}),
               // Raw env values read per-request — compare to resolved constants to detect
               // warm-Lambda caching or env vars set without redeployment.
               raw_ROOM_PREVIEW_RENDER_QUALITY:   perRenderRawQuality,
@@ -576,8 +662,14 @@ export const geminiRoomPreviewRenderProvider = {
               qualityMode: RENDER_QUALITY,
               promptVersion: strategy.promptVersion,
               productCode: product.id,
+              productCodes,
               category,
+              categories,
               targetSurface,
+              targetSurfaces,
+              selectedProductCount: productReferences.length,
+              renderMode,
+              ...(effectiveReferenceOrder ? { referenceOrder: effectiveReferenceOrder } : {}),
               renderStrategy: strategy.id,
               geometryMode: strategy.geometryMode,
               outputDimensions: `${width}x${height}`,
@@ -609,8 +701,14 @@ export const geminiRoomPreviewRenderProvider = {
             savedRaw:              true,
             qualityMode:           RENDER_QUALITY,
             productCode:           product.id,
+            productCodes,
             category,
+            categories,
             targetSurface,
+            targetSurfaces,
+            selectedProductCount:   productReferences.length,
+            renderMode,
+            ...(effectiveReferenceOrder ? { referenceOrder: effectiveReferenceOrder } : {}),
             productType:           product.productType ?? null,
             renderStrategy:        strategy.id,
             geometryMode:          strategy.geometryMode,
@@ -717,8 +815,14 @@ export const geminiRoomPreviewRenderProvider = {
               debugArtifactsEnabled: DEBUG_ARTIFACTS_ENABLED,
               qualityMode: RENDER_QUALITY,
               productCode: product.id,
+              productCodes,
               category,
+              categories,
               targetSurface,
+              targetSurfaces,
+              selectedProductCount: productReferences.length,
+              renderMode,
+              ...(effectiveReferenceOrder ? { referenceOrder: effectiveReferenceOrder } : {}),
               productType: product.productType ?? null,
               renderStrategy: strategy.id,
               geometryMode: strategy.geometryMode,
@@ -879,23 +983,55 @@ export const geminiRoomPreviewRenderProvider = {
             }).catch(() => {});
 
             // Reload both images at smaller dimensions to reduce payload size.
-            [currentRoomImage, currentProductImage] = await Promise.all([
+            const reloadedImages = await Promise.all([
               loadAndPrepareImage(room.imageUrl, {
                 imageRole: "room",
                 sessionId,
                 maxDimensionOverride: TIMEOUT_RETRY_ROOM_MAX_PX,
               }),
-              loadAndPrepareImage(product.imageUrl, {
-                imageRole: "product",
-                sessionId,
-                maxDimensionOverride: TIMEOUT_RETRY_PRODUCT_MAX_PX,
-              }),
+              ...(isCompositeRender
+                ? [
+                    loadAndPrepareImage(floorProduct!.imageUrl!, {
+                      imageRole: "product",
+                      sessionId,
+                      maxDimensionOverride: TIMEOUT_RETRY_PRODUCT_MAX_PX,
+                    }),
+                    loadAndPrepareImage(wallpaperProduct!.imageUrl!, {
+                      imageRole: "product",
+                      sessionId,
+                      maxDimensionOverride: TIMEOUT_RETRY_PRODUCT_MAX_PX,
+                    }),
+                  ]
+                : [
+                    loadAndPrepareImage(product.imageUrl, {
+                      imageRole: "product",
+                      sessionId,
+                      maxDimensionOverride: TIMEOUT_RETRY_PRODUCT_MAX_PX,
+                    }),
+                  ]),
             ]);
+            currentRoomImage = reloadedImages[0];
+            currentProductImage = reloadedImages[1];
+            currentWallpaperImage = isCompositeRender ? reloadedImages[2] : null;
+            productReferences = isCompositeRender
+              ? [
+                  { surface: "floor", product: floorProduct!, image: currentProductImage },
+                  { surface: "walls", product: wallpaperProduct!, image: currentWallpaperImage! },
+                ]
+              : [{ surface: product.targetSurface ?? "floor", product, image: currentProductImage }];
 
             // Switch to the short fallback prompt — omits polygon coords and
             // quality constraints that may have caused the model to over-think.
             currentPromptVariant = "fallback";
-            activePrompt = strategy.buildFallbackPrompt(product.name ?? null);
+            activePrompt = strategy.buildFallbackPrompt(product.name ?? null, {
+              productName: product.name ?? null,
+              productNamesBySurface: isCompositeRender
+                ? {
+                    floor: floorProduct?.name ?? null,
+                    walls: wallpaperProduct?.name ?? null,
+                  }
+                : undefined,
+            });
 
             log.info(
               {
@@ -907,6 +1043,13 @@ export const geminiRoomPreviewRenderProvider = {
                 roomMaxPx: TIMEOUT_RETRY_ROOM_MAX_PX,
                 productMaxPx: TIMEOUT_RETRY_PRODUCT_MAX_PX,
                 timeoutMs: GEMINI_RETRY_ATTEMPT_TIMEOUT_MS,
+                selectedProductCount: productReferences.length,
+                productCodes,
+                categories,
+                targetSurfaces,
+                renderMode,
+                promptVersion: strategy.promptVersion,
+                ...(effectiveReferenceOrder ? { referenceOrder: effectiveReferenceOrder } : {}),
               },
               "Gemini retry started with fallback prompt and reduced image dimensions",
             );
@@ -925,6 +1068,13 @@ export const geminiRoomPreviewRenderProvider = {
                 roomMaxPx: TIMEOUT_RETRY_ROOM_MAX_PX,
                 productMaxPx: TIMEOUT_RETRY_PRODUCT_MAX_PX,
                 timeoutMs: GEMINI_RETRY_ATTEMPT_TIMEOUT_MS,
+                selectedProductCount: productReferences.length,
+                productCodes,
+                categories,
+                targetSurfaces,
+                renderMode,
+                promptVersion: strategy.promptVersion,
+                ...(effectiveReferenceOrder ? { referenceOrder: effectiveReferenceOrder } : {}),
               },
             }).catch(() => {});
 

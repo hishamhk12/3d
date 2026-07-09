@@ -47,10 +47,7 @@ function useSessionTimeRemaining(expiresAt: string | null): number | null {
   });
 
   useEffect(() => {
-    if (!expiresAt) {
-      setRemaining(null);
-      return;
-    }
+    if (!expiresAt) return;
     const tick = () => {
       setRemaining(Math.max(0, Math.round((new Date(expiresAt).getTime() - Date.now()) / 1000)));
     };
@@ -59,7 +56,8 @@ function useSessionTimeRemaining(expiresAt: string | null): number | null {
     return () => window.clearInterval(id);
   }, [expiresAt]);
 
-  return remaining;
+  // Derive null directly when there is no expiry instead of resetting state.
+  return expiresAt ? remaining : null;
 }
 
 /** Scales the fixed design canvas to fit its container without ever upscaling. */

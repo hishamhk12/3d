@@ -13,6 +13,9 @@ const eslintConfig = defineConfig([
     "build/**",
     "next-env.d.ts",
     "lib/generated/prisma/**",
+    // Generated / non-source directories:
+    ".vercel/**",
+    "coverage/**",
   ]),
 ]);
 

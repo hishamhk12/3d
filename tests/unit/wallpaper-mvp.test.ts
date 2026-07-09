@@ -1,3 +1,4 @@
+import { createHash } from "node:crypto";
 import { describe, it, expect } from "vitest";
 
 import {
@@ -7,6 +8,7 @@ import {
 import {
   resolveRenderStrategy,
   parquetStrategy,
+  parquetWallpaperStrategy,
   wallpaperStrategy,
   UnsupportedRenderCategoryError,
 } from "@/lib/room-preview/render-strategies";
@@ -20,6 +22,8 @@ import type { ProductCategory, SelectedProduct } from "@/lib/room-preview/types"
 // Real product codes present on disk after the Phase 1 move.
 const PARQUET_CODE = "PQH111.152";
 const WALLPAPER_CODE = "WPT01.1104-1";
+const PARQUET_PROMPT_SHA256 = "5e428b5d49852ecac19392d79b221b91308462a870642d1ecb5c67afbe58fb08";
+const WALLPAPER_PROMPT_SHA256 = "3e1b3936b45c1d7870afdce293cbc9964a7129956a994b6f8f38ee34eb4903e0";
 
 function toSelectedProduct(p: NonNullable<ReturnType<typeof getQrProductByCode>>): SelectedProduct {
   // Mirrors buildSessionProduct() in the product route.
@@ -117,6 +121,14 @@ describe("wallpaper MVP — render strategy router", () => {
     expect(strategy.promptVersion).toBe("wallpaper-v1");
   });
 
+  it("keeps the composite strategy separate from single-product routing", () => {
+    expect(parquetWallpaperStrategy.mode).toBe("composite");
+    expect(parquetWallpaperStrategy.promptVersion).toBe("parquet-wallpaper-v1");
+    expect(parquetWallpaperStrategy.referenceOrder).toEqual(["floor", "walls"]);
+    expect(resolveRenderStrategy("PARQUET")).toBe(parquetStrategy);
+    expect(resolveRenderStrategy("WALLPAPER")).toBe(wallpaperStrategy);
+  });
+
   it("(12b) router throws on an unsupported category — no random fallback", () => {
     expect(() => resolveRenderStrategy("CERAMIC" as unknown as ProductCategory)).toThrow(
       UnsupportedRenderCategoryError,
@@ -157,6 +169,34 @@ describe("wallpaper MVP — prompts", () => {
     expect(viaStrategy).toBe(viaExisting);
     // Sanity: the parquet prompt is still floor/parquet-oriented.
     expect(viaStrategy).toMatch(/parquet/i);
+  });
+
+  it("keeps the legacy parquet prompt text unchanged", () => {
+    const prompt = parquetStrategy.buildPrompt(input);
+    expect(createHash("sha256").update(prompt).digest("hex")).toBe(PARQUET_PROMPT_SHA256);
+    expect(parquetStrategy.promptVersion).toBe("parquet-v1");
+  });
+
+  it("keeps the legacy wallpaper prompt text unchanged", () => {
+    const prompt = wallpaperStrategy.buildPrompt(input);
+    expect(createHash("sha256").update(prompt).digest("hex")).toBe(WALLPAPER_PROMPT_SHA256);
+    expect(wallpaperStrategy.promptVersion).toBe("wallpaper-v1");
+  });
+
+  it("builds the composite prompt with fixed floor then walls reference semantics", () => {
+    const prompt = parquetWallpaperStrategy.buildPrompt({
+      ...input,
+      productNamesBySurface: {
+        floor: "Oak Parquet",
+        walls: "Ivory Wallpaper",
+      },
+    });
+
+    expect(prompt).toMatch(/Reference image 1 = flooring\/parquet material/i);
+    expect(prompt).toMatch(/Reference image 2 = wallpaper material/i);
+    expect(prompt).toMatch(/only to the visible floor/i);
+    expect(prompt).toMatch(/only to clearly visible, paintable wall surfaces/i);
+    expect(prompt).toMatch(/Do not crop, zoom/i);
   });
 });
 

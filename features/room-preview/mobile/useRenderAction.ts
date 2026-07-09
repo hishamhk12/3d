@@ -28,10 +28,6 @@ import {
   getErrorMessage,
   hasRequestErrorCode,
 } from "@/features/room-preview/mobile/mobile-session-error-utils";
-import {
-  getSelectedProductCount,
-  normalizeSelectedProducts,
-} from "@/lib/room-preview/selected-products";
 
 /**
  * Owns the render-request in-flight guard and the `handleCreateRender`
@@ -148,26 +144,6 @@ export function useRenderAction(params: UseRenderActionParams): UseRenderActionR
 
     renderRequestInFlightRef.current = true;
     const renderSession = activeSession;
-    const selectedProductCount = getSelectedProductCount(normalizeSelectedProducts(renderSession));
-
-    if (selectedProductCount > 1) {
-      debugLog("warn", "Render blocked - multi-product render is not implemented");
-      setError("جاري تجهيز معاينة الأرضية وورق الجدران معاً.");
-      trackClientSessionEvent(renderSession.id, {
-        source: "mobile",
-        eventType: "render_request_blocked_multi_product",
-        level: "info",
-        metadata: {
-          selectedProductCount,
-          selectedProductCodes: Object.values(normalizeSelectedProducts(renderSession))
-            .map((product) => product?.id)
-            .filter(Boolean),
-          selectedTargetSurfaces: Object.keys(normalizeSelectedProducts(renderSession)),
-        },
-      });
-      renderRequestInFlightRef.current = false;
-      return;
-    }
 
     trackClientSessionEvent(renderSession.id, {
       source: "mobile",

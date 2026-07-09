@@ -55,8 +55,9 @@ export function LiquidMetalButton({
     Array<{ x: number; y: number; id: number }>
   >([]);
   const shaderRef = useRef<HTMLDivElement>(null);
-  // biome-ignore lint/suspicious/noExplicitAny: External library without types
-  const shaderMount = useRef<any>(null);
+  // `destroy` is not in the library's typings; kept optional so the existing
+  // defensive `?.destroy` checks type-check without changing runtime behavior.
+  const shaderMount = useRef<(ShaderMount & { destroy?: () => void }) | null>(null);
   const buttonRef = useRef<HTMLButtonElement>(null);
   const rippleId = useRef(0);
   const reducedMotionRef = useRef(false);

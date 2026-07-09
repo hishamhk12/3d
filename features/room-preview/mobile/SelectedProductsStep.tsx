@@ -41,10 +41,7 @@ function labels(locale: Locale) {
     addAnother: ar ? "إضافة منتج آخر" : "Add another product",
     surfacesFull: ar ? "تم اختيار الأرضية وورق الجدران" : "Flooring and wallpaper selected",
     createOne: ar ? "إنشاء التصميم" : "Generate preview",
-    createTwo: ar ? "إنشاء التصميم بمنتجين — قريباً" : "Two-product preview - coming soon",
-    comingSoon: ar
-      ? "جاري تجهيز معاينة الأرضية وورق الجدران معاً."
-      : "Flooring and wallpaper preview together is being prepared.",
+    createTwo: ar ? "إنشاء التصميم" : "Generate preview",
   };
 }
 
@@ -133,7 +130,7 @@ export default function SelectedProductsStep({
   const selectedCount = getSelectedProductCount(selectedProducts);
   const selectedSurfaces = getSelectedTargetSurfaces(selectedProducts);
   const canAddAnother = selectedCount > 0 && selectedCount < 2;
-  const canCreateRender = selectedCount === 1 && !isBusy;
+  const canCreateRender = selectedCount > 0 && selectedCount <= 2 && !isBusy;
 
   return (
     <section className="flex w-full flex-col items-center py-6 text-center" data-mobile-step="selected_products">
@@ -185,11 +182,6 @@ export default function SelectedProductsStep({
           >
             {selectedCount === 2 ? l.createTwo : l.createOne}
           </MobileActionButton>
-          {selectedCount === 2 ? (
-            <p className="px-2 text-xs leading-5 text-[var(--text-secondary)]">
-              {l.comingSoon}
-            </p>
-          ) : null}
         </div>
       </div>
     </section>

@@ -4,6 +4,7 @@ import type { ProductCategory } from "@/lib/room-preview/types";
 import type { RenderStrategy } from "@/lib/room-preview/render-strategies/types";
 import { parquetStrategy } from "@/lib/room-preview/render-strategies/parquet";
 import { wallpaperStrategy } from "@/lib/room-preview/render-strategies/wallpaper";
+import { parquetWallpaperStrategy } from "@/lib/room-preview/render-strategies/parquet-wallpaper";
 
 export type {
   RenderStrategy,
@@ -37,4 +38,4 @@ export function resolveRenderStrategy(category: ProductCategory): RenderStrategy
   return strategy;
 }
 
-export { parquetStrategy, wallpaperStrategy };
+export { parquetStrategy, wallpaperStrategy, parquetWallpaperStrategy };

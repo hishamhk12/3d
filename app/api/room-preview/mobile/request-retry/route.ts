@@ -15,6 +15,8 @@ import {
 import { getSessionById } from "@/lib/room-preview/session-repository";
 import { trackSessionEvent } from "@/lib/room-preview/session-diagnostics";
 import {
+  COMPOSITE_REFERENCE_ORDER,
+  getSelectedProductCount,
   getPrimarySelectedProduct,
   getSelectedProductDiagnostics,
   normalizeSelectedProducts,
@@ -105,7 +107,9 @@ export async function POST(request: Request) {
 
   try {
     const { session } = await selectProductForSession(body.sessionId, product);
-    const selectedProductDiagnostics = getSelectedProductDiagnostics(session.selectedProductsBySurface);
+    const selectedProductsBySurface = normalizeSelectedProducts(session);
+    const selectedProductCount = getSelectedProductCount(selectedProductsBySurface);
+    const selectedProductDiagnostics = getSelectedProductDiagnostics(selectedProductsBySurface);
 
     await trackSessionEvent({
       sessionId: body.sessionId,
@@ -120,6 +124,13 @@ export async function POST(request: Request) {
         changedProduct:
           (normalizeSelectedProducts(previousSession ?? { selectedProduct: null })[product.targetSurface ?? "floor"])?.id !==
           product.id,
+        renderMode: selectedProductCount === 2 ? "composite" : "single",
+        ...(selectedProductCount === 2
+          ? {
+              referenceOrder: COMPOSITE_REFERENCE_ORDER,
+              promptVersion: "parquet-wallpaper-v1",
+            }
+          : {}),
         ...selectedProductDiagnostics,
       },
     });

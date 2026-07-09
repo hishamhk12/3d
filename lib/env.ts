@@ -67,6 +67,16 @@ const REQUIRED: EnvSpec[] = [
     productionOnly: true,
   },
   {
+    key: "PDC_API_BASE_URL",
+    hint: 'Base URL of the PDC External Product API, e.g. "https://bayt-alebaa-pdc.onrender.com/api/v1/external/v1" (server-only)',
+    productionOnly: true,
+  },
+  {
+    key: "PDC_API_KEY",
+    hint: "X-Api-Key for the PDC External Product API — issued by the PDC administrator (server-only, never NEXT_PUBLIC_)",
+    productionOnly: true,
+  },
+  {
     key: "REDIS_URL",
     hint: "Redis connection URL — required for distributed rate limiting, render locks, and SSE pub/sub across serverless instances. Without it, rate limits and real-time events only work on a single process. Use Upstash or Redis Cloud.",
     productionOnly: true,

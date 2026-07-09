@@ -48,6 +48,8 @@ export interface UseScreenSessionReturn {
   hasSelectedProduct: boolean;
   hasSelectedRoom: boolean;
   hasRenderResult: boolean;
+  /** True once a rendering/ready_to_render status was witnessed in this page load. */
+  hasSeenRendering: boolean;
 
   // Heartbeat
   heartbeatConnected: boolean;
@@ -176,6 +178,10 @@ export function useScreenSession({ sessionId }: { sessionId: string }): UseScree
   const [idleCountdown,         setIdleCountdown]        = useState<number | null>(null);
   const [errorCountdown,        setErrorCountdown]       = useState<number | null>(null);
   const [completionCountdown,   setCompletionCountdown]  = useState<number | null>(null);
+  // Whether a rendering/ready_to_render status was witnessed in this page load.
+  // Used by the screen UI to decide whether to play the result fade-out
+  // transition (a fresh load with status already result_ready skips it).
+  const [hasSeenRendering,      setHasSeenRendering]     = useState(false);
   const sessionRef = useRef<RoomPreviewSession | null>(null);
   const fallbackStartedRef = useRef(false);
   const fallbackNoticeTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -240,6 +246,10 @@ export function useScreenSession({ sessionId }: { sessionId: string }): UseScree
 
     sessionRef.current = mergedSession;
     setSession(mergedSession);
+
+    if (mergedSession.status === "rendering" || mergedSession.status === "ready_to_render") {
+      setHasSeenRendering(true);
+    }
 
     if (
       mergedSession.selectedRoom?.imageUrl &&
@@ -718,6 +728,7 @@ export function useScreenSession({ sessionId }: { sessionId: string }): UseScree
     hasSelectedProduct,
     hasSelectedRoom,
     hasRenderResult,
+    hasSeenRendering,
     heartbeatConnected,
     heartbeatFailedCount,
     heartbeatLastSuccessAt,

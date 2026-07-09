@@ -227,7 +227,7 @@ describe("POST /api/room-preview/sessions/[sessionId]/render", () => {
       expect(body.code).toBe("SESSION_INVALID_STATE");
     });
 
-    it("returns MULTI_PRODUCT_RENDER_NOT_IMPLEMENTED when two products are selected", async () => {
+    it("accepts floor and wallpaper together and schedules the render pipeline", async () => {
       vi.mocked(getSessionById).mockResolvedValue({
         ...productSelectedSession,
         selectedProductsBySurface: {
@@ -247,8 +247,41 @@ describe("POST /api/room-preview/sessions/[sessionId]/render", () => {
       const res = await POST(makeRequest(SESSION_ID), makeContext(SESSION_ID));
       const body = await res.json();
 
+      expect(res.status).toBe(202);
+      expect(body.status).toBe("ready_to_render");
+      expect(executeRenderPipeline).toHaveBeenCalledWith(SESSION_ID);
+    });
+
+    it("returns UNSUPPORTED_PRODUCT_COMBINATION for invalid two-product combinations", async () => {
+      vi.mocked(getSessionById).mockResolvedValue({
+        ...productSelectedSession,
+        selectedProductsBySurface: {
+          floor: {
+            id: "bad-floor",
+            barcode: null,
+            name: "Bad floor",
+            productType: "wall_material",
+            category: "WALLPAPER",
+            targetSurface: "floor",
+            imageUrl: "https://example.com/bad-floor.jpg",
+          },
+          walls: {
+            id: "wallpaper-1",
+            barcode: null,
+            name: "Wallpaper",
+            productType: "wall_material",
+            category: "WALLPAPER",
+            targetSurface: "walls",
+            imageUrl: "https://example.com/wallpaper.jpg",
+          },
+        },
+      });
+
+      const res = await POST(makeRequest(SESSION_ID), makeContext(SESSION_ID));
+      const body = await res.json();
+
       expect(res.status).toBe(400);
-      expect(body.code).toBe("MULTI_PRODUCT_RENDER_NOT_IMPLEMENTED");
+      expect(body.code).toBe("UNSUPPORTED_PRODUCT_COMBINATION");
       expect(executeRenderPipeline).not.toHaveBeenCalled();
     });
   });

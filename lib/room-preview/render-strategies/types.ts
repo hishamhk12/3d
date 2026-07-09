@@ -1,4 +1,10 @@
-import type { FloorQuad, ProductCategory, TargetSurface } from "@/lib/room-preview/types";
+import type {
+  FloorQuad,
+  ProductCategory,
+  ProductReferenceOrder,
+  RenderMode,
+  TargetSurface,
+} from "@/lib/room-preview/types";
 
 /** Input passed to a strategy's prompt builder. Mirrors the data the Gemini
  *  provider already has at render time. */
@@ -7,6 +13,7 @@ export type RenderStrategyPromptInput = {
   /** Floor polygon — only consumed by floor-targeting strategies. */
   floorPolygon?: FloorQuad | null;
   dimensions?: { width: number; height: number } | null;
+  productNamesBySurface?: Partial<Record<TargetSurface, string | null>>;
   /** Prompt length variant (driven by render quality mode). */
   variant?: "fast" | "v4";
 };
@@ -22,12 +29,14 @@ export type RenderGeometryMode = "floorQuad" | "promptOnly";
 export interface RenderStrategy {
   /** Strategy id used in diagnostics (e.g. "parquet" | "wallpaper"). */
   id: string;
+  mode?: RenderMode;
   category: ProductCategory;
   targetSurface: TargetSurface;
   geometryMode: RenderGeometryMode;
   promptVersion: string;
+  referenceOrder?: ProductReferenceOrder;
   /** Build the main render prompt. */
   buildPrompt(input: RenderStrategyPromptInput): string;
   /** Build the short fallback prompt used on a timeout retry. */
-  buildFallbackPrompt(productName: string | null): string;
+  buildFallbackPrompt(productName: string | null, input?: RenderStrategyPromptInput): string;
 }

@@ -37,6 +37,16 @@ type ProductQrStepProps = {
   onGenerateWithProductCode: (productCode: string) => Promise<void>;
 };
 
+class ProductLookupError extends Error {
+  readonly code: string | null;
+
+  constructor(message: string, code: string | null) {
+    super(message);
+    this.name = "ProductLookupError";
+    this.code = code;
+  }
+}
+
 async function fetchProductByCode(productCode: string) {
   const response = await fetch(
     `/api/room-preview/mobile/products?code=${encodeURIComponent(productCode)}`,
@@ -45,10 +55,36 @@ async function fetchProductByCode(productCode: string) {
   const data = (await response.json()) as ProductLookupResponse;
 
   if (!response.ok || !data.ok) {
-    throw new Error(data.ok ? "Product not found." : data.error);
+    if (data.ok) throw new ProductLookupError("Product not found.", "PRODUCT_NOT_FOUND");
+    throw new ProductLookupError(data.error, data.code ?? null);
   }
 
   return data.product;
+}
+
+function lookupErrorMessage(error: unknown, isAr: boolean): string {
+  const code = error instanceof ProductLookupError ? error.code : null;
+
+  switch (code) {
+    case "UNSUPPORTED_PRODUCT_CATEGORY":
+      return isAr
+        ? "هذا المنتج غير مدعوم في معاينة الغرفة حالياً."
+        : "This product is not supported in room preview yet.";
+    case "PRODUCT_IMAGE_MISSING":
+      return isAr
+        ? "لا توجد صورة معتمدة لهذا المنتج بعد."
+        : "This product has no approved preview image yet.";
+    case "PDC_UNAVAILABLE":
+    case "PDC_AUTH_ERROR":
+      return isAr
+        ? "تعذر جلب بيانات المنتج حالياً. حاول مرة أخرى."
+        : "Product lookup is temporarily unavailable. Please try again.";
+    case "PRODUCT_NOT_FOUND":
+      return isAr ? "لم يتم العثور على المنتج." : "Product was not found.";
+    default:
+      if (error instanceof Error && error.message) return error.message;
+      return isAr ? "لم يتم العثور على المنتج." : "Product was not found.";
+  }
 }
 
 function surfaceLabels(isAr: boolean) {
@@ -118,13 +154,7 @@ export default function ProductQrStep({
       } catch (lookupError) {
         handledScanRef.current = null;
         setProduct(null);
-        setError(
-          lookupError instanceof Error
-            ? lookupError.message
-            : isAr
-              ? "لم يتم العثور على المنتج."
-              : "Product was not found.",
-        );
+        setError(lookupErrorMessage(lookupError, isAr));
       } finally {
         setIsLookingUp(false);
       }

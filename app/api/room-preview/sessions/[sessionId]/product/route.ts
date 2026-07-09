@@ -6,7 +6,7 @@ import {
   getRoomPreviewMockProductByBarcode,
   getRoomPreviewMockProductById,
 } from "@/data/room-preview/mock-products";
-import { getQrProductByCode } from "@/lib/room-preview/qr-products";
+import { resolveProductByCode } from "@/lib/room-preview/product-resolver";
 import {
   isRoomPreviewSessionExpiredError,
   isRoomPreviewSessionNotFoundError,
@@ -49,6 +49,12 @@ function buildSessionProduct(product: RoomPreviewProduct) {
     category: product.category,
     targetSurface: product.targetSurface,
     imageUrl: product.imageUrl,
+    nameAr: product.nameAr ?? null,
+    nameEn: product.nameEn ?? null,
+    images: product.images ?? [],
+    ecommerceUrl: product.ecommerceUrl ?? null,
+    pdcPageUrl: product.pdcPageUrl ?? null,
+    source: product.source ?? "local",
   } satisfies SelectedProduct;
 }
 
@@ -81,44 +87,39 @@ export async function POST(
 
   const { productId: rawProductId, barcode: rawBarcode, productCode: rawProductCode } = parsed.data;
 
-  let product = null;
-
-  if (rawProductCode) {
-    product = getQrProductByCode(rawProductCode);
-
-    if (!product) {
-      log.warn({ sessionId, productCode: rawProductCode }, "Unknown product QR code");
-      return NextResponse.json(
-        { code: "PRODUCT_NOT_FOUND", error: "Unknown product QR code." },
-        { status: 404 },
-      );
-    }
-  } else if (rawProductId) {
-    product = getRoomPreviewMockProductById(rawProductId) ?? getQrProductByCode(rawProductId);
-
-    if (!product) {
-      log.warn({ sessionId, productId: rawProductId }, "Unknown product id");
-      return NextResponse.json(
-        { code: "PRODUCT_NOT_FOUND", error: "Unknown product id." },
-        { status: 404 },
-      );
-    }
-  } else if (rawBarcode) {
-    product = getRoomPreviewMockProductByBarcode(rawBarcode) ?? getQrProductByCode(rawBarcode);
-
-    if (!product) {
-      log.warn({ sessionId, barcode: rawBarcode }, "Invalid barcode");
-      return NextResponse.json(
-        { code: "PRODUCT_NOT_FOUND", error: "Invalid barcode." },
-        { status: 404 },
-      );
-    }
-  } else {
+  const rawCode = rawProductCode ?? rawProductId ?? rawBarcode;
+  if (!rawCode) {
     log.warn({ sessionId }, "Missing product id and barcode");
     return NextResponse.json(
       { error: "A product id, barcode, or product code is required." },
       { status: 400 },
     );
+  }
+
+  // Dev-only: the product-list fallback UI posts mock product ids/barcodes
+  // that only exist in the bundled mock catalog, not in PDC.
+  let product: RoomPreviewProduct | null = null;
+  if (process.env.NODE_ENV === "development" && !rawProductCode) {
+    product =
+      (rawProductId ? getRoomPreviewMockProductById(rawProductId) : null) ??
+      (rawBarcode ? getRoomPreviewMockProductByBarcode(rawBarcode) : null);
+  }
+
+  if (!product) {
+    const resolved = await resolveProductByCode(rawCode);
+
+    if (!resolved.ok) {
+      log.warn(
+        { sessionId, productCode: rawCode, code: resolved.code },
+        "Product lookup failed",
+      );
+      return NextResponse.json(
+        { code: resolved.code, error: resolved.error },
+        { status: resolved.status },
+      );
+    }
+
+    product = resolved.product;
   }
 
   const t0 = Date.now();

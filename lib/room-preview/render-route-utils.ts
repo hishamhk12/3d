@@ -41,8 +41,12 @@ export function tooManyRequests(
  * Deterministic SHA-256 hash of room+product inputs used for dedup.
  * Two render requests with identical inputs produce the same hash.
  */
-export function buildRenderHash(roomImageUrl: string, productId: string): string {
+export function buildRenderHash(roomImageUrl: string, productIdOrIds: string | readonly string[]): string {
+  const productSegment = Array.isArray(productIdOrIds)
+    ? productIdOrIds.join("::")
+    : productIdOrIds;
+
   return createHash("sha256")
-    .update(`${roomImageUrl}::${productId}`)
+    .update(`${roomImageUrl}::${productSegment}`)
     .digest("hex");
 }

@@ -35,7 +35,7 @@ function isRenderJobInput(value: unknown): value is RenderJobInput {
     return false;
   }
 
-  return (
+  const hasBaseInput =
     typeof value.sessionId === "string" &&
     isRecord(value.room) &&
     typeof value.room.imageUrl === "string" &&
@@ -43,8 +43,26 @@ function isRenderJobInput(value: unknown): value is RenderJobInput {
     isRecord(value.product) &&
     typeof value.product.id === "string" &&
     typeof value.product.imageUrl === "string" &&
-    typeof value.product.name === "string"
-  );
+    typeof value.product.name === "string";
+
+  if (!hasBaseInput) {
+    return false;
+  }
+
+  if (value.renderMode !== undefined && value.renderMode !== "single" && value.renderMode !== "composite") {
+    return false;
+  }
+
+  if (value.referenceOrder !== undefined) {
+    if (
+      !Array.isArray(value.referenceOrder) ||
+      value.referenceOrder.some((surface) => surface !== "floor" && surface !== "walls")
+    ) {
+      return false;
+    }
+  }
+
+  return true;
 }
 
 function isRenderJobResult(value: unknown): value is RenderJobResult {

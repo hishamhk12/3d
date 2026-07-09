@@ -1,24 +1,24 @@
 import { NextResponse } from "next/server";
 import type { NextRequest } from "next/server";
 import { getRoomPreviewMockProducts } from "@/data/room-preview/mock-products";
-import { getQrProductByCode } from "@/lib/room-preview/qr-products";
+import { resolveProductByCode } from "@/lib/room-preview/product-resolver";
 
 export async function GET(request: NextRequest) {
   const productCode = request.nextUrl.searchParams.get("code")?.trim();
 
   if (productCode) {
-    const product = getQrProductByCode(productCode);
+    const result = await resolveProductByCode(productCode);
 
-    if (!product) {
+    if (!result.ok) {
       return NextResponse.json(
-        { ok: false, code: "PRODUCT_NOT_FOUND", error: "Product QR code was not found." },
-        { status: 404 },
+        { ok: false, code: result.code, error: result.error },
+        { status: result.status },
       );
     }
 
     return NextResponse.json({
       ok: true,
-      product,
+      product: result.product,
     });
   }
 

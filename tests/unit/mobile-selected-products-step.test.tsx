@@ -110,7 +110,7 @@ describe("SelectedProductsStep", () => {
     expect(onCreateRender).toHaveBeenCalledTimes(1);
   });
 
-  it("renders floor and wallpaper cards, disables add another, and blocks two-product render", () => {
+  it("renders floor and wallpaper cards, disables add another, and allows two-product render", () => {
     const onCreateRender = vi.fn();
     renderSelectedProducts(makeSession({ floor: floorProduct, walls: wallpaperProduct }), {
       onCreateRender,
@@ -122,11 +122,10 @@ describe("SelectedProductsStep", () => {
     expect(screen.getByText("WPT01.1104-1")).toBeTruthy();
 
     expect((screen.getByRole("button", { name: /Flooring and wallpaper selected/i }) as HTMLButtonElement).disabled).toBe(true);
-    const renderButton = screen.getByRole("button", { name: /Two-product preview/i });
-    expect((renderButton as HTMLButtonElement).disabled).toBe(true);
+    const renderButton = screen.getByRole("button", { name: /Generate preview/i });
+    expect((renderButton as HTMLButtonElement).disabled).toBe(false);
     fireEvent.click(renderButton);
-    expect(onCreateRender).not.toHaveBeenCalled();
-    expect(screen.queryByText("MULTI_PRODUCT_RENDER_NOT_IMPLEMENTED")).toBeNull();
+    expect(onCreateRender).toHaveBeenCalledTimes(1);
   });
 
   it("calls remove and change for a surface without removing the other card locally", () => {

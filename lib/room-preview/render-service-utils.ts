@@ -9,7 +9,13 @@ import type {
 } from "@/lib/room-preview/types";
 import type { RoomPreviewRenderProviderResult } from "@/lib/room-preview/render-providers/types";
 import { isRenderableProduct } from "@/lib/room-preview/validators";
-import { getPrimarySelectedProduct, normalizeSelectedProducts } from "@/lib/room-preview/selected-products";
+import {
+  COMPOSITE_REFERENCE_ORDER,
+  getPrimarySelectedProduct,
+  getSelectedProductCount,
+  isSupportedRenderProductCombination,
+  normalizeSelectedProducts,
+} from "@/lib/room-preview/selected-products";
 
 // ─── Constants ────────────────────────────────────────────────────────────────
 
@@ -61,7 +67,13 @@ export function buildRenderJobInput(session: RoomPreviewSession): RenderJobInput
     throw new Error("A selected room is required before creating a render job.");
   }
 
-  const selectedProduct = getPrimarySelectedProduct(normalizeSelectedProducts(session));
+  const selectedProductsBySurface = normalizeSelectedProducts(session);
+
+  if (!isSupportedRenderProductCombination(selectedProductsBySurface)) {
+    throw new Error("Unsupported product combination for rendering.");
+  }
+
+  const selectedProduct = getPrimarySelectedProduct(selectedProductsBySurface);
 
   if (!selectedProduct?.id || !selectedProduct.imageUrl || !selectedProduct.name) {
     throw new Error("A selected product is required before creating a render job.");
@@ -71,9 +83,18 @@ export function buildRenderJobInput(session: RoomPreviewSession): RenderJobInput
     throw new Error("Only floor_material or wall_material products are supported.");
   }
 
+  const selectedProductCount = getSelectedProductCount(selectedProductsBySurface);
+
   return {
     product: selectedProduct,
     room: session.selectedRoom,
+    ...(selectedProductCount === 2
+      ? {
+          selectedProductsBySurface,
+          renderMode: "composite" as const,
+          referenceOrder: COMPOSITE_REFERENCE_ORDER,
+        }
+      : {}),
     sessionId: session.id,
   };
 }
@@ -85,8 +106,18 @@ export function buildRenderJobInput(session: RoomPreviewSession): RenderJobInput
  */
 export function buildRenderJobInputHash(input: RenderJobInput): string | undefined {
   if (!input.room.imageUrl || !input.product.id) return undefined;
+  const productHashSegment =
+    input.renderMode === "composite" && input.referenceOrder?.length
+      ? input.referenceOrder
+          .map((surface) => input.selectedProductsBySurface?.[surface]?.id)
+          .filter(Boolean)
+          .join("::")
+      : input.product.id;
+
+  if (!productHashSegment) return undefined;
+
   return createHash("sha256")
-    .update(`${input.room.imageUrl}::${input.product.id}`)
+    .update(`${input.room.imageUrl}::${productHashSegment}`)
     .digest("hex");
 }
 

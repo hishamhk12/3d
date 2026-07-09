@@ -110,6 +110,78 @@ function makeRenderRequest() {
   };
 }
 
+function makeWallpaperRenderRequest() {
+  const request = makeRenderRequest();
+  return {
+    ...request,
+    renderJobInput: {
+      ...request.renderJobInput,
+      product: {
+        id: "wall-1",
+        barcode: null,
+        name: "Ivory Wallpaper",
+        productType: "wall_material" as const,
+        category: "WALLPAPER" as const,
+        targetSurface: "walls" as const,
+        imageUrl: "https://example.com/wallpaper.jpg",
+      },
+    },
+  };
+}
+
+function makeCompositeRenderRequest() {
+  const floorProduct = {
+    id: "floor-1",
+    barcode: null,
+    name: "Oak Flooring",
+    productType: "floor_material" as const,
+    category: "PARQUET" as const,
+    targetSurface: "floor" as const,
+    imageUrl: "https://example.com/floor.jpg",
+  };
+  const wallProduct = {
+    id: "wall-1",
+    barcode: null,
+    name: "Ivory Wallpaper",
+    productType: "wall_material" as const,
+    category: "WALLPAPER" as const,
+    targetSurface: "walls" as const,
+    imageUrl: "https://example.com/wallpaper.jpg",
+  };
+
+  return {
+    ...makeRenderRequest(),
+    renderJobInput: {
+      sessionId: SESSION_ID,
+      room: {
+        source: "camera" as const,
+        imageUrl: "https://example.com/room.jpg",
+        floorQuad: null,
+      },
+      // Simulates scanning/selecting wallpaper last; reference order must still
+      // be floor then walls.
+      product: wallProduct,
+      selectedProductsBySurface: {
+        walls: wallProduct,
+        floor: floorProduct,
+      },
+      renderMode: "composite" as const,
+      referenceOrder: ["floor", "walls"] as const,
+    },
+  };
+}
+
+function geminiPartsAt(callIndex: number) {
+  const params = mockGenerateContent.mock.calls[callIndex][0] as {
+    contents: Array<{ parts: Array<{ text?: string; inlineData?: { data: string } }> }>;
+  };
+  return params.contents[0]?.parts ?? [];
+}
+
+function firstGeminiParts() {
+  return geminiPartsAt(0);
+}
+
 function setupSharpMock() {
   si.metadata.mockResolvedValue({ width: 1280, height: 720 });
   si.toBuffer.mockResolvedValue({
@@ -174,6 +246,58 @@ describe("geminiRoomPreviewRenderProvider (serial path)", () => {
       await geminiRoomPreviewRenderProvider.render(makeRenderRequest());
 
       expect(mockGenerateContent).toHaveBeenCalledOnce();
+    });
+
+    it("single parquet render sends room plus one product image before the prompt", async () => {
+      mockGenerateContent.mockResolvedValue(makeFakeGeminiResponse());
+
+      await geminiRoomPreviewRenderProvider.render(makeRenderRequest());
+
+      const parts = firstGeminiParts();
+      expect(parts).toHaveLength(3);
+      expect(parts[0].inlineData).toBeTruthy();
+      expect(parts[1].inlineData).toBeTruthy();
+      expect(parts[2].text).toMatch(/parquet/i);
+      expect(vi.mocked(global.fetch as ReturnType<typeof vi.fn>).mock.calls.map(([url]) => url)).toEqual([
+        "https://example.com/room.jpg",
+        "https://example.com/product.jpg",
+      ]);
+    });
+
+    it("single wallpaper render sends room plus one product image before the prompt", async () => {
+      mockGenerateContent.mockResolvedValue(makeFakeGeminiResponse());
+
+      await geminiRoomPreviewRenderProvider.render(makeWallpaperRenderRequest());
+
+      const parts = firstGeminiParts();
+      expect(parts).toHaveLength(3);
+      expect(parts[0].inlineData).toBeTruthy();
+      expect(parts[1].inlineData).toBeTruthy();
+      expect(parts[2].text).toMatch(/wallpaper/i);
+      expect(vi.mocked(global.fetch as ReturnType<typeof vi.fn>).mock.calls.map(([url]) => url)).toEqual([
+        "https://example.com/room.jpg",
+        "https://example.com/wallpaper.jpg",
+      ]);
+    });
+
+    it("composite render uses one Gemini call with room, floor, wallpaper, then prompt", async () => {
+      mockGenerateContent.mockResolvedValue(makeFakeGeminiResponse());
+
+      await geminiRoomPreviewRenderProvider.render(makeCompositeRenderRequest());
+
+      expect(mockGenerateContent).toHaveBeenCalledOnce();
+      const parts = firstGeminiParts();
+      expect(parts).toHaveLength(4);
+      expect(parts[0].inlineData).toBeTruthy();
+      expect(parts[1].inlineData).toBeTruthy();
+      expect(parts[2].inlineData).toBeTruthy();
+      expect(parts[3].text).toMatch(/Reference image 1 = flooring\/parquet material/i);
+      expect(parts[3].text).toMatch(/Reference image 2 = wallpaper material/i);
+      expect(vi.mocked(global.fetch as ReturnType<typeof vi.fn>).mock.calls.map(([url]) => url)).toEqual([
+        "https://example.com/room.jpg",
+        "https://example.com/floor.jpg",
+        "https://example.com/wallpaper.jpg",
+      ]);
     });
   });
 
@@ -292,6 +416,27 @@ describe("geminiRoomPreviewRenderProvider (serial path)", () => {
       // Initial load: 2 images (room + product)
       // Retry reload: 2 more images (room at 1024px, product at 640px)
       expect(loadCallDimensions).toHaveLength(4);
+    });
+
+    it("composite timeout retry preserves floor then wallpaper references", async () => {
+      mockGenerateContent
+        .mockRejectedValueOnce(new GeminiTimeoutError("gemini-3.1-flash-image-preview", 5000))
+        .mockResolvedValue(makeFakeGeminiResponse());
+
+      await geminiRoomPreviewRenderProvider.render(makeCompositeRenderRequest());
+
+      expect(mockGenerateContent).toHaveBeenCalledTimes(2);
+      expect(geminiPartsAt(1)).toHaveLength(4);
+      expect(geminiPartsAt(1)[3].text).toMatch(/Reference image 1 is the flooring\/parquet material/i);
+      expect(geminiPartsAt(1)[3].text).toMatch(/Reference image 2 is the wallpaper material/i);
+      expect(vi.mocked(global.fetch as ReturnType<typeof vi.fn>).mock.calls.map(([url]) => url)).toEqual([
+        "https://example.com/room.jpg",
+        "https://example.com/floor.jpg",
+        "https://example.com/wallpaper.jpg",
+        "https://example.com/room.jpg",
+        "https://example.com/floor.jpg",
+        "https://example.com/wallpaper.jpg",
+      ]);
     });
   });
 

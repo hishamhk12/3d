@@ -110,3 +110,43 @@ export function getSelectedProductDiagnostics(
     selectedTargetSurfaces: getSelectedTargetSurfaces(current),
   };
 }
+
+export const COMPOSITE_REFERENCE_ORDER = ["floor", "walls"] as const satisfies readonly TargetSurface[];
+
+function isRenderableSurfaceProduct(product: SelectedProduct | null | undefined, surface: TargetSurface) {
+  if (!hasSelectedProductFields(product)) {
+    return false;
+  }
+
+  const normalized = normalizeProductForSurface(product, surface);
+  return (
+    normalized.targetSurface === surface &&
+    ((surface === "floor" &&
+      normalized.productType === "floor_material" &&
+      normalized.category === "PARQUET") ||
+      (surface === "walls" &&
+        normalized.productType === "wall_material" &&
+        normalized.category === "WALLPAPER"))
+  );
+}
+
+export function isSupportedRenderProductCombination(
+  products: SelectedProductsBySurface | null | undefined,
+) {
+  const selectedCount = getSelectedProductCount(products);
+  if (selectedCount <= 1) {
+    return true;
+  }
+
+  return (
+    selectedCount === 2 &&
+    isRenderableSurfaceProduct(products?.floor, "floor") &&
+    isRenderableSurfaceProduct(products?.walls, "walls")
+  );
+}
+
+export function getSelectedProductCategories(products: SelectedProductsBySurface | null | undefined) {
+  return SURFACES.map((surface) => products?.[surface]?.category).filter(
+    (category): category is NonNullable<SelectedProduct["category"]> => Boolean(category),
+  );
+}

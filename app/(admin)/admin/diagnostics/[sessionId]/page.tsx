@@ -888,57 +888,57 @@ type FullIssue = {
   adminMessage: string | null;
 };
 
+function severityBadge(sev: string) {
+  if (sev === "critical") return "bg-red-100 text-red-800 border border-red-200";
+  if (sev === "high")     return "bg-orange-100 text-orange-800 border border-orange-200";
+  if (sev === "medium")   return "bg-amber-100 text-amber-800 border border-amber-200";
+  return "bg-slate-100 text-slate-600";
+}
+
+function IssueTable({ rows, emptyText }: { rows: FullIssue[]; emptyText: string }) {
+  if (rows.length === 0) {
+    return <p className="px-3 py-4 text-center text-sm text-slate-400">{emptyText}</p>;
+  }
+  return (
+    <div className="overflow-hidden rounded-lg border border-slate-200">
+      <table className="w-full text-xs">
+        <thead className="border-b border-slate-200 bg-slate-50">
+          <tr>
+            {["Type", "Sev.", "First seen", "Last seen", "#", "Action"].map((h) => (
+              <th key={h} className="px-3 py-2 text-left text-[10px] uppercase tracking-wide text-slate-500">{h}</th>
+            ))}
+          </tr>
+        </thead>
+        <tbody className="divide-y divide-slate-100 bg-white">
+          {rows.map((issue) => (
+            <tr key={issue.id}>
+              <td className="px-3 py-2.5">
+                <span className="font-mono text-slate-800">{issue.issueType}</span>
+                {issue.adminMessage && (
+                  <p className="mt-0.5 text-[10px] text-slate-500">{issue.adminMessage}</p>
+                )}
+              </td>
+              <td className="px-3 py-2.5">
+                <span className={`rounded-full px-2 py-0.5 text-[10px] font-medium ${severityBadge(issue.severity)}`}>
+                  {issue.severity}
+                </span>
+              </td>
+              <td className="whitespace-nowrap px-3 py-2.5 text-slate-500">{dateTime(issue.firstSeenAt)}</td>
+              <td className="whitespace-nowrap px-3 py-2.5 text-slate-500">{dateTime(issue.lastSeenAt)}</td>
+              <td className="px-3 py-2.5 text-center font-mono tabular-nums text-slate-700">{issue.count}</td>
+              <td className="max-w-xs px-3 py-2.5 text-slate-600">{issue.recommendedAction ?? "—"}</td>
+            </tr>
+          ))}
+        </tbody>
+      </table>
+    </div>
+  );
+}
+
 function IssuesSection({ issues }: { issues: FullIssue[] }) {
   const open     = issues.filter((i) => i.status === "open");
   const resolved = issues.filter((i) => i.status === "resolved");
   const ignored  = issues.filter((i) => i.status === "ignored");
-
-  function severityBadge(sev: string) {
-    if (sev === "critical") return "bg-red-100 text-red-800 border border-red-200";
-    if (sev === "high")     return "bg-orange-100 text-orange-800 border border-orange-200";
-    if (sev === "medium")   return "bg-amber-100 text-amber-800 border border-amber-200";
-    return "bg-slate-100 text-slate-600";
-  }
-
-  function IssueTable({ rows, emptyText }: { rows: FullIssue[]; emptyText: string }) {
-    if (rows.length === 0) {
-      return <p className="px-3 py-4 text-center text-sm text-slate-400">{emptyText}</p>;
-    }
-    return (
-      <div className="overflow-hidden rounded-lg border border-slate-200">
-        <table className="w-full text-xs">
-          <thead className="border-b border-slate-200 bg-slate-50">
-            <tr>
-              {["Type", "Sev.", "First seen", "Last seen", "#", "Action"].map((h) => (
-                <th key={h} className="px-3 py-2 text-left text-[10px] uppercase tracking-wide text-slate-500">{h}</th>
-              ))}
-            </tr>
-          </thead>
-          <tbody className="divide-y divide-slate-100 bg-white">
-            {rows.map((issue) => (
-              <tr key={issue.id}>
-                <td className="px-3 py-2.5">
-                  <span className="font-mono text-slate-800">{issue.issueType}</span>
-                  {issue.adminMessage && (
-                    <p className="mt-0.5 text-[10px] text-slate-500">{issue.adminMessage}</p>
-                  )}
-                </td>
-                <td className="px-3 py-2.5">
-                  <span className={`rounded-full px-2 py-0.5 text-[10px] font-medium ${severityBadge(issue.severity)}`}>
-                    {issue.severity}
-                  </span>
-                </td>
-                <td className="whitespace-nowrap px-3 py-2.5 text-slate-500">{dateTime(issue.firstSeenAt)}</td>
-                <td className="whitespace-nowrap px-3 py-2.5 text-slate-500">{dateTime(issue.lastSeenAt)}</td>
-                <td className="px-3 py-2.5 text-center font-mono tabular-nums text-slate-700">{issue.count}</td>
-                <td className="max-w-xs px-3 py-2.5 text-slate-600">{issue.recommendedAction ?? "—"}</td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
-      </div>
-    );
-  }
 
   return (
     <section className="rounded-xl border border-slate-200 bg-white p-5 shadow-sm">

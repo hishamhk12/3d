@@ -1,6 +1,5 @@
 "use client";
 
-import { useRef } from "react";
 import AnimatedScanLoader from "@/components/ui/animated-scan-loader";
 import BrandedGlassStage from "@/components/room-preview/BrandedGlassStage";
 import SessionStatePanel from "@/components/room-preview/SessionStatePanel";
@@ -63,17 +62,13 @@ export default function ScreenSessionClient({
     errorCountdown,
     completionCountdown,
     hasRenderResult,
+    hasSeenRendering,
   } = useScreenSession({ sessionId });
 
   const devEntryHref =
     process.env.NODE_ENV === "development"
       ? `/api/room-preview/dev-entry?sessionId=${sessionId}&lang=${locale}`
       : null;
-
-  // Tracks whether we've witnessed a "rendering" status in this page load.
-  // Used to decide whether to play the fade-out transition when result arrives.
-  // A fresh page load with status already result_ready skips the animation.
-  const hasSeenRenderingRef = useRef(false);
 
   // ── Non-ready states ──────────────────────────────────────────────────────
 
@@ -197,11 +192,6 @@ export default function ScreenSessionClient({
     );
   }
 
-  // Track rendering state for the fade-out transition (ref mutation, not a hook)
-  if (session.status === "rendering" || session.status === "ready_to_render") {
-    hasSeenRenderingRef.current = true;
-  }
-
   // ── Rendering: full-screen loading animation ──────────────────────────────
 
   if (session.status === "rendering" || session.status === "ready_to_render") {
@@ -238,7 +228,7 @@ export default function ScreenSessionClient({
         {/* Animation overlay (z-9999) fades out on top of the slider (z-50),
             revealing it smoothly. Only shown if we witnessed the rendering
             status during this page load — avoids a flash on fresh loads. */}
-        {hasSeenRenderingRef.current && (
+        {hasSeenRendering && (
           <RenderLoadingAnimation
             variant="screen"
             session={session}

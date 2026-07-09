@@ -53,7 +53,7 @@ export type RoomPreviewApiErrorCode =
   | "ROOM_UPLOAD_ABORTED"
   | "DIRECT_UPLOAD_NOT_SUPPORTED"
   | "DIRECT_UPLOAD_FAILED"
-  | "MULTI_PRODUCT_RENDER_NOT_IMPLEMENTED"
+  | "UNSUPPORTED_PRODUCT_COMBINATION"
   | "RENDER_LIMIT_REACHED"
   | "RENDER_DEVICE_COOLDOWN"
   | "SCREEN_BUDGET_EXHAUSTED";
@@ -64,6 +64,15 @@ export type SelectedRoom = {
   demoRoomId?: string | null;
   floorQuad?: FloorQuad | null;
   previewRegion?: RoomPreviewPreviewRegion | null;
+};
+
+/** Where product data was resolved from. Absent on sessions persisted before
+ *  the PDC integration (equivalent to "local"). */
+export type ProductSource = "pdc" | "local";
+
+export type ProductImage = {
+  type: string;
+  url: string;
 };
 
 export type SelectedProduct = {
@@ -78,6 +87,12 @@ export type SelectedProduct = {
    */
   category?: ProductCategory;
   targetSurface?: TargetSurface;
+  nameAr?: string | null;
+  nameEn?: string | null;
+  images?: ProductImage[];
+  ecommerceUrl?: string | null;
+  pdcPageUrl?: string | null;
+  source?: ProductSource;
 };
 
 export type SelectedProductsBySurface = {
@@ -135,6 +150,12 @@ export type RoomPreviewProduct = {
   category: ProductCategory;
   targetSurface: TargetSurface;
   imageUrl: string;
+  nameAr?: string | null;
+  nameEn?: string | null;
+  images?: ProductImage[];
+  ecommerceUrl?: string | null;
+  pdcPageUrl?: string | null;
+  source?: ProductSource;
 };
 
 /** @deprecated Use RoomPreviewProduct */
@@ -198,9 +219,15 @@ export type RoomPreviewSessionEvent = {
 export type RoomPreviewSessionRoom = SelectedRoom;
 export type RoomPreviewSessionProduct = SelectedProduct;
 
+export type RenderMode = "single" | "composite";
+export type ProductReferenceOrder = readonly TargetSurface[];
+
 export type RenderJobInput = {
   product: SelectedProduct;
   room: SelectedRoom;
+  selectedProductsBySurface?: SelectedProductsBySurface;
+  renderMode?: RenderMode;
+  referenceOrder?: ProductReferenceOrder;
   sessionId: string;
 };
 

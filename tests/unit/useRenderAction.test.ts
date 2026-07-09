@@ -223,7 +223,7 @@ describe("useRenderAction", () => {
   });
 
   describe("pre-flight guards", () => {
-    it("blocks two-product renders before calling the render API and hides the technical error code", async () => {
+    it("allows two-product renders to call the render API", async () => {
       const floorProduct = {
         id: "p-floor",
         barcode: null,
@@ -251,23 +251,17 @@ describe("useRenderAction", () => {
           },
         }),
       });
+      vi.mocked(createRenderForSession).mockResolvedValue(makeSession({ status: "rendering" }));
+      vi.mocked(pollForRenderResult).mockResolvedValue(makeResultReadySession());
 
       const { result } = renderHook(() => useRenderAction(params));
       await act(async () => { await result.current.handleCreateRender(); });
 
-      expect(createRenderForSession).not.toHaveBeenCalled();
-      expect(pollForRenderResult).not.toHaveBeenCalled();
-      expect(params.setError).toHaveBeenCalledTimes(1);
-      expect(vi.mocked(params.setError).mock.calls[0][0]).not.toContain("MULTI_PRODUCT_RENDER_NOT_IMPLEMENTED");
-      expect(eventsOfType("render_request_blocked_multi_product")[0]).toMatchObject({
+      expect(createRenderForSession).toHaveBeenCalledWith(SESSION_ID);
+      expect(pollForRenderResult).toHaveBeenCalled();
+      expect(eventsOfType("render_request_started")[0]).toMatchObject({
         source: "mobile",
-        eventType: "render_request_blocked_multi_product",
-        level: "info",
-        metadata: {
-          selectedProductCount: 2,
-          selectedProductCodes: ["p-floor", "p-wall"],
-          selectedTargetSurfaces: ["floor", "walls"],
-        },
+        eventType: "render_request_started",
       });
     });
 

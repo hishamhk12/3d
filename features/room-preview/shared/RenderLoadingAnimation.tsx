@@ -72,7 +72,9 @@ export function RenderLoadingAnimation({
   }, [showResult]);
 
   useEffect(() => {
-    if (variant !== "screen" || showResult) { setShowLongRenderMsg(false); return; }
+    // Cleanup below already resets the flag whenever variant/showResult change,
+    // so no synchronous reset is needed here.
+    if (variant !== "screen" || showResult) return;
     const timer = setTimeout(() => setShowLongRenderMsg(true), 90_000);
     return () => { clearTimeout(timer); setShowLongRenderMsg(false); };
   }, [variant, showResult]);

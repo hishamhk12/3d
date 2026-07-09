@@ -58,7 +58,10 @@ import {
   sessionNotFoundResponse,
 } from "@/lib/room-preview/render-route-guards";
 import {
+  COMPOSITE_REFERENCE_ORDER,
   getSelectedProductCount,
+  getSelectedProductDiagnostics,
+  isSupportedRenderProductCombination,
   normalizeSelectedProducts,
 } from "@/lib/room-preview/selected-products";
 
@@ -131,11 +134,14 @@ export async function POST(
     if (!session) throw new RoomPreviewSessionNotFoundError();
     if (isEffectivelyExpired(session)) throw new RoomPreviewSessionExpiredError();
 
-    if (getSelectedProductCount(normalizeSelectedProducts(session)) > 1) {
+    const selectedProductsBySurface = normalizeSelectedProducts(session);
+    const selectedProductCount = getSelectedProductCount(selectedProductsBySurface);
+
+    if (!isSupportedRenderProductCombination(selectedProductsBySurface)) {
       return NextResponse.json(
         {
-          code: "MULTI_PRODUCT_RENDER_NOT_IMPLEMENTED",
-          error: "Rendering multiple products is not implemented yet.",
+          code: "UNSUPPORTED_PRODUCT_COMBINATION",
+          error: "This product combination is not supported for rendering.",
         },
         { status: 400 },
       );
@@ -144,9 +150,16 @@ export async function POST(
     // ── 5. Dedupe — return cached result if inputs haven't changed ──────────
     const roomImageUrl = session.selectedRoom?.imageUrl;
     const productId    = session.selectedProduct?.id;
+    const renderProductIds = selectedProductCount === 2
+      ? COMPOSITE_REFERENCE_ORDER.map((surface) => selectedProductsBySurface[surface]?.id).filter(
+          (id): id is string => Boolean(id),
+        )
+      : productId
+        ? [productId]
+        : [];
 
-    if (roomImageUrl && productId) {
-      const renderHash = buildRenderHash(roomImageUrl, productId);
+    if (roomImageUrl && renderProductIds.length > 0) {
+      const renderHash = buildRenderHash(roomImageUrl, renderProductIds);
       if (isCachedRenderHit(session, screenFields, renderHash)) {
         log.info({ sessionId }, "Render dedupe hit — returning cached result");
         return cachedRenderResponse(session);
@@ -332,9 +345,9 @@ export async function POST(
         );
       }
 
-      if (roomImageUrl && productId) {
+      if (roomImageUrl && renderProductIds.length > 0) {
         writes.push(
-          saveSessionRenderHash(sessionId, buildRenderHash(roomImageUrl, productId)).catch((err) => {
+          saveSessionRenderHash(sessionId, buildRenderHash(roomImageUrl, renderProductIds)).catch((err) => {
             log.error({ err, sessionId }, "Failed to save session render hash");
           }),
         );
@@ -349,6 +362,11 @@ export async function POST(
         source: "server",
         eventType: "render_requested",
         level: "info",
+        metadata: {
+          renderMode: selectedProductCount === 2 ? "composite" : "single",
+          ...(selectedProductCount === 2 ? { referenceOrder: COMPOSITE_REFERENCE_ORDER } : {}),
+          ...getSelectedProductDiagnostics(selectedProductsBySurface),
+        },
       });
     });
 

@@ -59,7 +59,6 @@ const UNTHROTTLED_EVENTS = new Set([
   "product_added",
   "product_replaced",
   "product_removed",
-  "render_request_blocked_multi_product",
   // Connection / session failure events
   "mobile_auto_connect_failed",
   "mobile_fetch_failed",

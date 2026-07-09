@@ -217,6 +217,57 @@ describe("getQrPrintLabels", () => {
     expect(labels[0].scanUrl).toBe("https://3d-ivory-rho.vercel.app/scan/CRPT050.001");
   });
 
+  it("keeps every SKU as a card when PDC fails for some (but not all) CRPT products in a batch", async () => {
+    // 30 CRPT entries — same size as the real rollout — spanning multiple
+    // PDC_LOOKUP_CONCURRENCY (8-item) batches, with roughly half failing.
+    const entries = Array.from({ length: 30 }, (_, i) =>
+      manifestEntry(`CRPT060.${String(i).padStart(3, "0")}`, "CARPET_TILE"),
+    );
+    listMock.mockReturnValue(entries);
+    resolveMock.mockImplementation(async (code: string) => {
+      const index = Number(code.split(".")[1]);
+      if (index % 2 === 0) {
+        return { ok: true, product: { ...manifestEntry(code, "CARPET_TILE"), name: code, source: "pdc" } };
+      }
+      return { ok: false, code: "PRODUCT_NOT_FOUND", status: 404, error: "Product was not found." };
+    });
+
+    const labels = await getQrPrintLabels("CARPET_TILE");
+
+    // Every single SKU still produced a card — none silently dropped.
+    expect(labels).toHaveLength(30);
+    expect(new Set(labels.map((l) => l.productCode)).size).toBe(30);
+    expect(labels.filter((l) => l.unavailable).length).toBe(15);
+    expect(labels.filter((l) => !l.unavailable).length).toBe(15);
+  });
+
+  it("one entry unexpectedly rejecting from PDC does not hide its batch-mates or later batches", async () => {
+    // 10 entries → batch 1 = entries 0-7, batch 2 = entries 8-9. Entry index 3
+    // rejects outright (not the normal {ok:false} path) to simulate an
+    // unforeseen exception; every other entry — in the SAME batch and the
+    // NEXT batch — must still come back as a card.
+    const entries = Array.from({ length: 10 }, (_, i) =>
+      manifestEntry(`CRPT060.${String(i).padStart(3, "0")}`, "CARPET_TILE"),
+    );
+    listMock.mockReturnValue(entries);
+    resolveMock.mockImplementation(async (code: string) => {
+      if (code === "CRPT060.003") {
+        throw new Error("Unexpected PDC client crash");
+      }
+      return { ok: true, product: { ...manifestEntry(code, "CARPET_TILE"), name: code, source: "pdc" } };
+    });
+
+    const labels = await getQrPrintLabels("CARPET_TILE");
+
+    expect(labels).toHaveLength(10);
+    const failed = labels.find((l) => l.productCode === "CRPT060.003");
+    expect(failed?.unavailable).toBe(true);
+    // Its batch-mates (0,1,2,4-7) and the next batch (8,9) all still resolved normally.
+    const succeeded = labels.filter((l) => l.productCode !== "CRPT060.003");
+    expect(succeeded).toHaveLength(9);
+    expect(succeeded.every((l) => !l.unavailable)).toBe(true);
+  });
+
   it("never leaks the PDC API key into the label payload sent to the page", async () => {
     listMock.mockReturnValue([
       manifestEntry("PQC201.001", "PARQUET"),

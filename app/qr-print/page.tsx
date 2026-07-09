@@ -2,7 +2,12 @@ import type { Metadata } from "next";
 import Image from "next/image";
 import Link from "next/link";
 import { ImageOff } from "lucide-react";
-import { getQrPrintLabels, type QrPrintLabel } from "@/lib/room-preview/qr-print-labels";
+import {
+  getQrPrintLabels,
+  groupQrPrintLabelsByCategory,
+  QR_PRINT_CATEGORY_ORDER,
+  type QrPrintLabel,
+} from "@/lib/room-preview/qr-print-labels";
 import { isProductCategory } from "@/lib/room-preview/validators";
 import type { ProductCategory } from "@/lib/room-preview/types";
 
@@ -20,9 +25,6 @@ const CATEGORY_LABEL: Record<ProductCategory, string> = {
   // 50x50cm tiles, not a rug or a roll.
   CARPET_TILE: "بلاطات موكيت",
 };
-
-// Fixed section/tab order — same order used everywhere else category lists appear.
-const CATEGORY_ORDER: ProductCategory[] = ["PARQUET", "WALLPAPER", "CARPET_TILE"];
 
 const TAB_LABEL_AR: Record<ProductCategory, string> = {
   PARQUET: "باركيه",
@@ -66,14 +68,22 @@ function LabelCard({ label }: { label: QrPrintLabel }) {
       // two printed pages.
       className="break-inside-avoid rounded-lg border border-slate-300 bg-white p-4 text-center shadow-sm print:rounded-none print:p-3 print:shadow-none"
     >
-      <Image
-        src={label.qrDataUrl}
-        alt={`QR code for ${label.productCode}`}
-        width={900}
-        height={900}
-        unoptimized
-        className="mx-auto aspect-square w-full max-w-[260px] object-contain print:max-w-[42mm]"
-      />
+      {label.qrDataUrl ? (
+        <Image
+          src={label.qrDataUrl}
+          alt={`QR code for ${label.productCode}`}
+          width={900}
+          height={900}
+          unoptimized
+          className="mx-auto aspect-square w-full max-w-[260px] object-contain print:max-w-[42mm]"
+        />
+      ) : (
+        // Extremely rare fallback: QR encoding itself failed for this SKU.
+        // The card still prints with its code/scan-URL text — never blank.
+        <div className="mx-auto flex aspect-square w-full max-w-[260px] items-center justify-center rounded border border-dashed border-slate-300 bg-slate-50 print:max-w-[42mm]">
+          <ImageOff className="size-8 text-slate-400" />
+        </div>
+      )}
       <div className="mt-3 flex items-center justify-center">
         <CategoryBadge category={label.category} />
       </div>
@@ -150,16 +160,10 @@ export default async function ProductQrPrintPage({ searchParams }: QrPrintPagePr
   const activeCategory = parseCategoryParam(rawCategory);
   const labels = await getQrPrintLabels(activeCategory);
 
-  // Grouped by category, in the fixed CATEGORY_ORDER, for the "all" view.
-  // In a single-category view this is just one group (still built the same
-  // way so LabelCard/CategorySection stay identical in both modes).
-  const groups = CATEGORY_ORDER.filter((c) => !activeCategory || c === activeCategory).map(
-    (category) => ({
-      category,
-      labels: labels.filter((label) => label.category === category),
-    }),
-  );
-  const visibleGroups = groups.filter((g) => g.labels.length > 0);
+  // Grouped by category, in the fixed QR_PRINT_CATEGORY_ORDER, for the "all"
+  // view. In a single-category view this is just one group (still built the
+  // same way so LabelCard/CategorySection stay identical in both modes).
+  const visibleGroups = groupQrPrintLabelsByCategory(labels, activeCategory);
 
   return (
     <main className="min-h-screen bg-white px-6 py-8 text-slate-950 print:min-h-0 print:px-0 print:py-0">
@@ -187,7 +191,7 @@ export default async function ProductQrPrintPage({ searchParams }: QrPrintPagePr
           >
             الكل
           </Link>
-          {CATEGORY_ORDER.map((category) => (
+          {QR_PRINT_CATEGORY_ORDER.map((category) => (
             <Link
               key={category}
               href={`/qr-print?category=${category}`}

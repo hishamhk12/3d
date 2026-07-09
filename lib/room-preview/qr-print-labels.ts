@@ -72,9 +72,15 @@ async function buildLabel(productCode: string, category: ProductCategory): Promi
 /**
  * Build the printable QR labels. The local manifest is used only as the list
  * of SKUs to print — all displayed product data is resolved server-side.
+ *
+ * When `category` is provided, the manifest is filtered to that category
+ * BEFORE any PDC lookup runs — a category-scoped page (e.g. CARPET_TILE only)
+ * never calls resolveProductByCode for the other categories' SKUs.
  */
-export async function getQrPrintLabels(): Promise<QrPrintLabel[]> {
-  const entries = listQrProducts();
+export async function getQrPrintLabels(category?: ProductCategory | null): Promise<QrPrintLabel[]> {
+  const entries = category
+    ? listQrProducts().filter((entry) => entry.category === category)
+    : listQrProducts();
   const labels: QrPrintLabel[] = [];
 
   for (let i = 0; i < entries.length; i += PDC_LOOKUP_CONCURRENCY) {

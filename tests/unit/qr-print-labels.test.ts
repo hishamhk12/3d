@@ -143,6 +143,80 @@ describe("getQrPrintLabels", () => {
     expect(labels[0].scanUrl).toBe("https://3d-ivory-rho.vercel.app/scan/CRPT060.303");
   });
 
+  it("category=CARPET_TILE returns only CRP products and calls PDC only for them", async () => {
+    listMock.mockReturnValue([
+      manifestEntry("PQC201.001", "PARQUET"),
+      manifestEntry("WPT01.1104-1", "WALLPAPER"),
+      manifestEntry("CRPT050.001", "CARPET_TILE"),
+      manifestEntry("CRPT060.303", "CARPET_TILE"),
+    ]);
+    resolveMock.mockImplementation(async (code: string) => ({
+      ok: true,
+      product: { ...manifestEntry(code, "CARPET_TILE"), name: code, source: "pdc" },
+    }));
+
+    const labels = await getQrPrintLabels("CARPET_TILE");
+
+    expect(labels).toHaveLength(2);
+    expect(labels.every((l) => l.category === "CARPET_TILE")).toBe(true);
+    expect(labels.map((l) => l.productCode).sort()).toEqual(["CRPT050.001", "CRPT060.303"]);
+
+    // PDC is called ONLY for the filtered SKUs — never for PARQUET/WALLPAPER.
+    expect(resolveMock).toHaveBeenCalledTimes(2);
+    expect(resolveMock).toHaveBeenCalledWith("CRPT050.001");
+    expect(resolveMock).toHaveBeenCalledWith("CRPT060.303");
+    expect(resolveMock).not.toHaveBeenCalledWith("PQC201.001");
+    expect(resolveMock).not.toHaveBeenCalledWith("WPT01.1104-1");
+  });
+
+  it("category=PARQUET excludes CRP (and wallpaper) products entirely", async () => {
+    listMock.mockReturnValue([
+      manifestEntry("PQC201.001", "PARQUET"),
+      manifestEntry("WPT01.1104-1", "WALLPAPER"),
+      manifestEntry("CRPT050.001", "CARPET_TILE"),
+    ]);
+    resolveMock.mockResolvedValue({ ok: true, product: pdcProduct("PQC201.001") });
+
+    const labels = await getQrPrintLabels("PARQUET");
+
+    expect(labels).toHaveLength(1);
+    expect(labels[0].productCode).toBe("PQC201.001");
+    expect(labels.some((l) => l.category === "CARPET_TILE")).toBe(false);
+    expect(resolveMock).toHaveBeenCalledTimes(1);
+    expect(resolveMock).toHaveBeenCalledWith("PQC201.001");
+  });
+
+  it("no category filter (all) resolves every manifest SKU", async () => {
+    listMock.mockReturnValue([
+      manifestEntry("PQC201.001", "PARQUET"),
+      manifestEntry("WPT01.1104-1", "WALLPAPER"),
+      manifestEntry("CRPT050.001", "CARPET_TILE"),
+    ]);
+    resolveMock.mockImplementation(async (code: string) => ({
+      ok: true,
+      product: { ...manifestEntry(code, "PARQUET"), name: code, source: "pdc" },
+    }));
+
+    const labels = await getQrPrintLabels();
+
+    expect(labels).toHaveLength(3);
+    expect(resolveMock).toHaveBeenCalledTimes(3);
+    const categories = labels.map((l) => l.category).sort();
+    expect(categories).toEqual(["CARPET_TILE", "PARQUET", "WALLPAPER"]);
+  });
+
+  it("keeps /scan/{sku} QR URLs when filtered by category", async () => {
+    listMock.mockReturnValue([manifestEntry("CRPT050.001", "CARPET_TILE")]);
+    resolveMock.mockResolvedValue({
+      ok: true,
+      product: { ...manifestEntry("CRPT050.001", "CARPET_TILE"), name: "CRPT050.001", source: "pdc" },
+    });
+
+    const labels = await getQrPrintLabels("CARPET_TILE");
+
+    expect(labels[0].scanUrl).toBe("https://3d-ivory-rho.vercel.app/scan/CRPT050.001");
+  });
+
   it("never leaks the PDC API key into the label payload sent to the page", async () => {
     listMock.mockReturnValue([
       manifestEntry("PQC201.001", "PARQUET"),

@@ -49,6 +49,42 @@ export const QR_PRINT_CATEGORY_ORDER: readonly ProductCategory[] = [
   "CARPET_TILE",
 ];
 
+const QR_PRINT_TAB_LABEL_AR: Record<ProductCategory, string> = {
+  PARQUET: "باركيه",
+  WALLPAPER: "ورق جدران",
+  CARPET_TILE: "بلاطات موكيت",
+};
+
+export type QrPrintTabLink = {
+  /** null = the "الكل" (all) tab. */
+  category: ProductCategory | null;
+  labelAr: string;
+  href: string;
+  active: boolean;
+};
+
+/**
+ * Build the /qr-print category tabs — a plain, server-renderable list of
+ * `{ href, active }` pairs consumed by <Link> in the page. Kept as a pure
+ * function (no JSX) so the exact href/active-state contract is unit-testable
+ * without rendering the async Server Component page.
+ */
+export function buildQrPrintTabLinks(activeCategory: ProductCategory | null): QrPrintTabLink[] {
+  const allTab: QrPrintTabLink = {
+    category: null,
+    labelAr: "الكل",
+    href: "/qr-print",
+    active: activeCategory === null,
+  };
+  const categoryTabs = QR_PRINT_CATEGORY_ORDER.map((category) => ({
+    category,
+    labelAr: QR_PRINT_TAB_LABEL_AR[category],
+    href: `/qr-print?category=${category}`,
+    active: activeCategory === category,
+  }));
+  return [allTab, ...categoryTabs];
+}
+
 /** Absolute scan URL for the QR payload. Uses NEXT_PUBLIC_BASE_URL first, then
  *  VERCEL_URL in deployed environments. Falls back to relative /scan only for
  *  local development without a configured base URL. */

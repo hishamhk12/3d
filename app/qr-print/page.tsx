@@ -3,9 +3,9 @@ import Image from "next/image";
 import Link from "next/link";
 import { ImageOff } from "lucide-react";
 import {
+  buildQrPrintTabLinks,
   getQrPrintLabels,
   groupQrPrintLabelsByCategory,
-  QR_PRINT_CATEGORY_ORDER,
   type QrPrintLabel,
 } from "@/lib/room-preview/qr-print-labels";
 import { isProductCategory } from "@/lib/room-preview/validators";
@@ -23,12 +23,6 @@ const CATEGORY_LABEL: Record<ProductCategory, string> = {
   WALLPAPER: "Wallpaper",
   // Arabic per spec: never "سجادة" (rug) or "carpet roll" — these are modular
   // 50x50cm tiles, not a rug or a roll.
-  CARPET_TILE: "بلاطات موكيت",
-};
-
-const TAB_LABEL_AR: Record<ProductCategory, string> = {
-  PARQUET: "باركيه",
-  WALLPAPER: "ورق جدران",
   CARPET_TILE: "بلاطات موكيت",
 };
 
@@ -164,6 +158,7 @@ export default async function ProductQrPrintPage({ searchParams }: QrPrintPagePr
   // view. In a single-category view this is just one group (still built the
   // same way so LabelCard/CategorySection stay identical in both modes).
   const visibleGroups = groupQrPrintLabelsByCategory(labels, activeCategory);
+  const tabLinks = buildQrPrintTabLinks(activeCategory);
 
   return (
     <main className="min-h-screen bg-white px-6 py-8 text-slate-950 print:min-h-0 print:px-0 print:py-0">
@@ -178,31 +173,24 @@ export default async function ProductQrPrintPage({ searchParams }: QrPrintPagePr
           </p>
         </div>
 
-        {/* Category tabs / filters — screen only, never printed */}
+        {/* Category tabs / filters — screen only, never printed.
+            Plain <Link> elements (no client JS, no onClick) so each tab is a
+            real server-rendered navigation: reload-safe, works with JS
+            disabled, and shareable/bookmarkable as its own URL. */}
         <nav dir="rtl" className="mb-8 flex flex-wrap items-center gap-2 print:hidden" aria-label="تصفية حسب الفئة">
-          <Link
-            href="/qr-print"
-            className={
-              "rounded-full border px-4 py-1.5 text-sm font-semibold transition-colors " +
-              (!activeCategory
-                ? "border-slate-900 bg-slate-900 text-white"
-                : "border-slate-300 text-slate-700 hover:bg-slate-50")
-            }
-          >
-            الكل
-          </Link>
-          {QR_PRINT_CATEGORY_ORDER.map((category) => (
+          {tabLinks.map((tab) => (
             <Link
-              key={category}
-              href={`/qr-print?category=${category}`}
+              key={tab.category ?? "all"}
+              href={tab.href}
+              aria-current={tab.active ? "page" : undefined}
               className={
                 "rounded-full border px-4 py-1.5 text-sm font-semibold transition-colors " +
-                (activeCategory === category
+                (tab.active
                   ? "border-slate-900 bg-slate-900 text-white"
                   : "border-slate-300 text-slate-700 hover:bg-slate-50")
               }
             >
-              {TAB_LABEL_AR[category]}
+              {tab.labelAr}
             </Link>
           ))}
 

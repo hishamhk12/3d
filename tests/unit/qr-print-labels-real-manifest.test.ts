@@ -20,6 +20,7 @@ vi.mock("@/lib/room-preview/product-resolver", () => ({
 }));
 
 import {
+  buildQrPrintTabLinks,
   getQrPrintLabels,
   groupQrPrintLabelsByCategory,
   type QrPrintLabel,
@@ -69,6 +70,44 @@ describe("getQrPrintLabels — against the real manifest", () => {
     for (const label of labels) {
       expect(label.scanUrl.endsWith(`/scan/${label.productCode}`)).toBe(true);
     }
+  });
+});
+
+describe("buildQrPrintTabLinks — category tab hrefs and active state", () => {
+  it("produces exactly the four required hrefs, in order: الكل, باركيه, ورق جدران, بلاطات موكيت", () => {
+    const tabs = buildQrPrintTabLinks(null);
+
+    expect(tabs.map((t) => t.href)).toEqual([
+      "/qr-print",
+      "/qr-print?category=PARQUET",
+      "/qr-print?category=WALLPAPER",
+      "/qr-print?category=CARPET_TILE",
+    ]);
+    expect(tabs.map((t) => t.labelAr)).toEqual(["الكل", "باركيه", "ورق جدران", "بلاطات موكيت"]);
+  });
+
+  it("marks only 'الكل' active when there is no category filter", () => {
+    const tabs = buildQrPrintTabLinks(null);
+    expect(tabs.find((t) => t.href === "/qr-print")?.active).toBe(true);
+    expect(tabs.filter((t) => t.active)).toHaveLength(1);
+  });
+
+  it("marks only 'باركيه' active for category=PARQUET", () => {
+    const tabs = buildQrPrintTabLinks("PARQUET");
+    expect(tabs.find((t) => t.href === "/qr-print?category=PARQUET")?.active).toBe(true);
+    expect(tabs.filter((t) => t.active)).toHaveLength(1);
+  });
+
+  it("marks only 'ورق جدران' active for category=WALLPAPER", () => {
+    const tabs = buildQrPrintTabLinks("WALLPAPER");
+    expect(tabs.find((t) => t.href === "/qr-print?category=WALLPAPER")?.active).toBe(true);
+    expect(tabs.filter((t) => t.active)).toHaveLength(1);
+  });
+
+  it("marks only 'بلاطات موكيت' active for category=CARPET_TILE", () => {
+    const tabs = buildQrPrintTabLinks("CARPET_TILE");
+    expect(tabs.find((t) => t.href === "/qr-print?category=CARPET_TILE")?.active).toBe(true);
+    expect(tabs.filter((t) => t.active)).toHaveLength(1);
   });
 });
 

@@ -13,6 +13,7 @@ import {
   createOrRefreshCustomer,
   refreshCustomerLastSeen,
   getCustomerById,
+  getCustomerExperienceById,
   normalizePhoneToE164,
   maskPhone,
 } from "@/lib/room-preview/customer-service";
@@ -24,10 +25,12 @@ import { MOBILE_TOKEN_COOKIE } from "@/lib/room-preview/cookies";
 import { trackSessionEvent } from "@/lib/room-preview/session-diagnostics";
 import {
   connectMobileToSession,
+  getRoomPreviewSession,
   isRoomPreviewSessionExpiredError,
   isRoomPreviewSessionNotFoundError,
   RoomPreviewSessionTransitionError,
   selectCustomerRoomPreviewRole,
+  selectRoomForSession,
 } from "@/lib/room-preview/session-service";
 
 export async function selectCustomerRole(sessionId: string) {
@@ -304,6 +307,7 @@ export async function submitGateForm(formData: FormData) {
     phone: formData.get("phone"),
     customerId: formData.get("customerId"),
     employeeCode: formData.get("employeeCode"),
+    experienceId: formData.get("experienceId") || undefined,
   };
 
   const parsed = gateFormSchema.safeParse(raw);
@@ -492,5 +496,90 @@ export async function submitGateForm(formData: FormData) {
   });
 
   await connectAfterGateSuccess(sessionId, { flow: data.flow, userSessionId });
+
+  // ── Existing customer: reuse a previously captured room photo ──────────────
+  // The customer picked one of their last visits on the confirm screen; carry
+  // that visit's original room photo (not the rendered result) into this
+  // session's selectedRoom so the mobile flow skips straight to product
+  // selection instead of asking them to re-photograph their room. The client
+  // only ever sends an experienceId — never a raw image URL — and it's
+  // re-verified against the confirmed customerId here before use. Never
+  // blocks the redirect below: if anything here fails, the customer just
+  // lands on the normal room-capture step.
+  if (data.flow === "customer_confirm" && data.experienceId && customerId) {
+    try {
+      const experience = await getCustomerExperienceById(data.experienceId);
+
+      if (!experience || experience.customerId !== customerId) {
+        console.warn("[room-preview] previous_experience_room_rejected", {
+          reason: "not_found_or_customer_mismatch",
+          experienceId: data.experienceId,
+          sessionId,
+        });
+        await trackSessionEvent({
+          sessionId,
+          source: "server",
+          eventType: "previous_experience_room_rejected",
+          level: "warning",
+          code: "EXPERIENCE_CUSTOMER_MISMATCH",
+          metadata: { experienceId: data.experienceId },
+        });
+      } else if (!experience.roomImageUrl) {
+        console.warn("[room-preview] previous_experience_room_rejected", {
+          reason: "missing_room_image",
+          experienceId: data.experienceId,
+          sessionId,
+        });
+        await trackSessionEvent({
+          sessionId,
+          source: "server",
+          eventType: "previous_experience_room_rejected",
+          level: "warning",
+          code: "EXPERIENCE_NO_ROOM_IMAGE",
+          metadata: { experienceId: data.experienceId },
+        });
+      } else {
+        const beforeSession = await getRoomPreviewSession(sessionId);
+        const updatedSession = await selectRoomForSession(sessionId, {
+          source: "gallery",
+          imageUrl: experience.roomImageUrl,
+          demoRoomId: null,
+          floorQuad: null,
+          previewRegion: null,
+        });
+        console.info("[room-preview] previous_experience_room_applied", {
+          experienceId: data.experienceId,
+          sessionId,
+          statusAfter: updatedSession.status,
+          statusBefore: beforeSession?.status,
+        });
+        await trackSessionEvent({
+          sessionId,
+          source: "server",
+          eventType: "previous_experience_room_applied",
+          level: "info",
+          statusAfter: updatedSession.status,
+          statusBefore: beforeSession?.status,
+          metadata: { experienceId: data.experienceId },
+        });
+      }
+    } catch (error) {
+      console.error("[room-preview] previous_experience_room_failed", {
+        error: error instanceof Error ? error.message : String(error),
+        experienceId: data.experienceId,
+        sessionId,
+      });
+      await trackSessionEvent({
+        sessionId,
+        source: "server",
+        eventType: "previous_experience_room_failed",
+        level: "error",
+        code: "PREVIOUS_EXPERIENCE_ROOM_FAILED",
+        message: error instanceof Error ? error.message : String(error),
+        metadata: { experienceId: data.experienceId },
+      });
+    }
+  }
+
   redirect(ROOM_PREVIEW_ROUTES.mobileSession(sessionId));
 }

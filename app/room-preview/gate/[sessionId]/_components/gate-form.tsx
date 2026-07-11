@@ -5,7 +5,7 @@ import Image from "next/image";
 import { useRouter } from "next/navigation";
 import { useFormStatus } from "react-dom";
 import { selectCustomerRole, submitGateForm } from "../actions";
-import { VerticalImageStack } from "@/components/ui/vertical-image-stack";
+import { PreviousPreviewsCarousel } from "@/components/room-preview/PreviousPreviewsCarousel";
 import RoomPreviewBackButton from "@/components/room-preview/RoomPreviewBackButton";
 import { MobileActionButton } from "@/components/room-preview/MobileActionButton";
 import { trackClientSessionEvent } from "@/lib/room-preview/session-diagnostics-client";
@@ -485,6 +485,19 @@ export function GateForm({
   // ── Existing customer confirm screen ──────────────────────────────────────
   if (step === "customer_confirm") {
     const greeting = confirmGreeting ?? "";
+
+    // Computed once, shared by the hidden experienceId field and the carousel
+    // below, so both always agree on which previous visit is centered.
+    const exps = previousExperiences.filter((e) => e.resultImageUrl);
+    const items = exps.map((e) => ({
+      id: e.id,
+      src: e.resultImageUrl!,
+      alt: locale === "ar" ? "آخر معاينة" : "Previous preview",
+      title: e.productName,
+    }));
+    const safeIndex = exps.length > 0 ? Math.min(expIndex, exps.length - 1) : 0;
+    const cur = exps[safeIndex];
+
     return (
       <FormShell onBack={() => setStep("customer_existing")} backLabel={isRtl ? "رجوع" : "Back"}>
       <div className="w-full max-w-sm mx-auto">
@@ -494,6 +507,9 @@ export function GateForm({
           <input type="hidden" name="flow" value="customer_confirm" />
           <input type="hidden" name="customerId" value={confirmCustomerId ?? ""} />
           <input type="hidden" name="name" value={greeting} />
+          {/* The experience currently centered in the carousel below — re-verified
+              server-side against customerId before it's used as the session's room. */}
+          <input type="hidden" name="experienceId" value={cur?.id ?? ""} />
 
           <div className="text-center mb-6">
             <div className="w-16 h-16 mx-auto mb-5 rounded-2xl bg-emerald-500/10 border border-emerald-500/20 flex items-center justify-center">
@@ -507,36 +523,24 @@ export function GateForm({
             <p className="mt-2 text-sm text-[var(--text-secondary)]">{t.greetingSubtitle}</p>
           </div>
 
-          {/* Previous render results — 21st.dev VerticalImageStack (replaces the
-              old arrow carousel; same data, same order, no other UI changes) */}
-          {(() => {
-            const exps = previousExperiences.filter((e) => e.resultImageUrl);
-            if (exps.length === 0) return null;
-            const items = exps.map((e, i) => ({
-              id: e.id || String(i),
-              src: e.resultImageUrl!,
-              alt: locale === "ar" ? "آخر معاينة" : "Previous preview",
-              title: e.productName,
-            }));
-            const cur = exps[Math.min(expIndex, exps.length - 1)];
+          {/* Previous render results — mobile 3D carousel over the customer's
+              real last-3 previews. The centered item drives experienceId above. */}
+          {exps.length > 0 && (
+            <div className="mb-6">
+              <p className="text-xs font-semibold tracking-[0.18em] text-[var(--brand-cyan)] uppercase mb-4 text-center">
+                {locale === "ar" ? "آخر معايناتك" : "Your previous previews"}
+              </p>
 
-            return (
-              <div className="mb-6">
-                <p className="text-xs font-semibold tracking-[0.18em] text-[var(--brand-cyan)] uppercase mb-4 text-center">
-                  {locale === "ar" ? "آخر معايناتك" : "Your previous previews"}
+              <PreviousPreviewsCarousel items={items} index={safeIndex} onIndexChange={setExpIndex} />
+
+              {/* Current item's product name — same placement as before */}
+              {cur?.productName && (
+                <p className="mt-3 text-sm font-medium text-center text-[var(--text-secondary)] truncate px-4">
+                  {cur.productName}
                 </p>
-
-                <VerticalImageStack items={items} initialIndex={0} onIndexChange={setExpIndex} />
-
-                {/* Current item's product name — same placement as the old carousel */}
-                {cur?.productName && (
-                  <p className="mt-3 text-sm font-medium text-center text-[var(--text-secondary)] truncate px-4">
-                    {cur.productName}
-                  </p>
-                )}
-              </div>
-            );
-          })()}
+              )}
+            </div>
+          )}
 
           <SubmitButton
             label={t.confirmAndStart}

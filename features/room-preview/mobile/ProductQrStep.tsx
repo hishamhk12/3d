@@ -6,7 +6,6 @@ import { Camera, LoaderCircle, QrCode, RotateCcw } from "lucide-react";
 import { parseProductCodeFromQrValue } from "@/lib/room-preview/product-qr";
 import { useI18n } from "@/lib/i18n/provider";
 import { MobileActionButton } from "@/components/room-preview/MobileActionButton";
-import { useParticleBurst } from "@/components/ui/particle-button";
 import type {
   RoomPreviewProduct,
   SelectedProductsBySurface,
@@ -150,7 +149,6 @@ export default function ProductQrStep({
   const { locale } = useI18n();
   const isAr = locale === "ar";
   const surfaceLabel = surfaceLabels(isAr);
-  const { burst: renderBurst, particles: renderParticles } = useParticleBurst();
   const videoRef = useRef<HTMLVideoElement | null>(null);
   const scannerRef = useRef<{ stop: () => void; destroy: () => void } | null>(null);
   const handledScanRef = useRef<string | null>(null);
@@ -334,17 +332,20 @@ export default function ProductQrStep({
     await onSaveProductCode?.(product.id);
   };
 
-  // Fixed shell: header (flex-none) → scrollable content (flex-1) → pinned
-  // action footer (flex-none). Swapping between the camera, the found-product
-  // card, and error notices only changes the inner scroll area — the title and
-  // the action buttons never move, so the page does not jump on iPhone.
+  // Single scroll boundary: the whole step (header + content + footer) scrolls
+  // together as one column when it doesn't fit — nothing scrolls on its own.
+  // Content still grows via flex-1 to push the footer to the bottom on
+  // roomy screens, but it no longer clips/scrolls independently, so a tall
+  // found-product card (e.g. with a mismatch/replace banner) on shorter
+  // phones no longer gets boxed into its own internal scrollbar — the whole
+  // page scrolls instead.
   return (
     <section
-      className="flex h-full min-h-0 w-full flex-col text-center"
+      className="flex h-full min-h-0 w-full flex-col overflow-y-auto overscroll-contain text-center"
       data-mobile-step="scan_product_qr"
     >
-      <div className="mx-auto flex h-full min-h-0 w-full max-w-[345px] flex-col">
-        {/* Header — fixed at the top (padding clears the absolute back button) */}
+      <div className="mx-auto flex w-full max-w-[345px] flex-col">
+        {/* Header */}
         <div className="flex-none pb-3 pt-14">
           <h2 className="font-display text-center text-2xl font-semibold text-[var(--text-primary)]">
             {modeTitle}
@@ -354,8 +355,8 @@ export default function ProductQrStep({
           </p>
         </div>
 
-        {/* Content — the only scrollable region */}
-        <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain py-1">
+        {/* Content */}
+        <div className="flex-1 py-1">
           {!product ? (
             <div className="group flex w-full flex-col items-center justify-center gap-4 rounded-[40px] border border-[var(--border)] bg-[var(--bg-surface)] p-3 shadow-[var(--shadow-lg)] transition-all duration-300">
               <div className="relative flex min-h-[180px] w-full overflow-hidden rounded-[32px] border border-[var(--brand-cyan)]/25 bg-[var(--brand-cyan)]/[0.05]">
@@ -501,16 +502,12 @@ export default function ProductQrStep({
             <>
               <MobileActionButton
                 variant="light"
-                onClick={(e) => {
-                  renderBurst(e);
-                  void handlePrimaryAction();
-                }}
+                onClick={() => void handlePrimaryAction()}
                 loading={isBusy}
                 disabled={Boolean(expectedMismatch || duplicateProduct)}
               >
                 {actionLabel}
               </MobileActionButton>
-              {renderParticles}
               <button
                 type="button"
                 onClick={resetProduct}

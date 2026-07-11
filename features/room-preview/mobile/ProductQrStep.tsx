@@ -94,6 +94,26 @@ function surfaceLabels(isAr: boolean) {
   } satisfies Record<TargetSurface, string>;
 }
 
+// Custom scan-frame guide, drawn with plain CSS corner brackets instead of
+// relying on qr-scanner's own highlightScanRegion/highlightCodeOutline SVG
+// overlay — that overlay is positioned against the raw video element and gets
+// clipped by this preview's rounded, overflow-hidden container (showing up as
+// stray vertical slivers instead of full "L" corners). #e9b213 matches the
+// library's own default highlight color, so the look is unchanged.
+function ScanFrameOverlay() {
+  const corner = "absolute h-6 w-6 border-[#e9b213]";
+  return (
+    <div className="pointer-events-none absolute inset-0 z-10" aria-hidden="true">
+      <div className="absolute left-1/2 top-1/2 aspect-square w-[78%] -translate-x-1/2 -translate-y-1/2">
+        <span className={`${corner} left-4 top-4 rounded-tl-[4px] border-l-[3px] border-t-[3px]`} />
+        <span className={`${corner} right-4 top-4 rounded-tr-[4px] border-r-[3px] border-t-[3px]`} />
+        <span className={`${corner} bottom-4 left-4 rounded-bl-[4px] border-b-[3px] border-l-[3px]`} />
+        <span className={`${corner} bottom-4 right-4 rounded-br-[4px] border-b-[3px] border-r-[3px]`} />
+      </div>
+    </div>
+  );
+}
+
 export default function ProductQrStep({
   initialProductCode,
   isBusy,
@@ -189,8 +209,11 @@ export default function ProductQrStep({
         },
         {
           preferredCamera: "environment",
-          highlightScanRegion: true,
-          highlightCodeOutline: true,
+          // Visual-only flags — detection/decoding is unaffected. Turned off
+          // in favor of the custom <ScanFrameOverlay /> below, which doesn't
+          // get clipped by this preview's rounded/overflow-hidden container.
+          highlightScanRegion: false,
+          highlightCodeOutline: false,
           maxScansPerSecond: 8,
           returnDetailedScanResult: true,
         },
@@ -324,6 +347,8 @@ export default function ProductQrStep({
                   playsInline
                 />
 
+                {scannerStatus === "scanning" ? <ScanFrameOverlay /> : null}
+
                 {scannerStatus === "idle" ? (
                   <div className="absolute inset-0 flex flex-col items-center justify-center gap-3 px-6 text-center">
                     <QrCode className="size-9 text-[var(--brand-cyan)]" strokeWidth={2.1} />
@@ -334,7 +359,7 @@ export default function ProductQrStep({
                 ) : null}
 
                 {scannerStatus === "starting" || isLookingUp ? (
-                  <div className="absolute inset-0 flex flex-col items-center justify-center gap-3 bg-[var(--bg-page)]/80 backdrop-blur-sm">
+                  <div className="absolute inset-0 z-20 flex flex-col items-center justify-center gap-3 bg-[var(--bg-page)]/80 backdrop-blur-sm">
                     <LoaderCircle className="size-7 animate-spin text-[var(--brand-cyan)]" />
                     <span className="text-sm font-semibold text-[var(--text-secondary)]">
                       {isLookingUp

@@ -111,7 +111,13 @@ function ScanFrameOverlay() {
   const v = `${bar} h-7 w-1`; // 28px long, 4px thick — vertical leg
   return (
     <div className="pointer-events-none absolute inset-0 z-10" aria-hidden="true">
-      <div className="absolute left-1/2 top-1/2 aspect-square w-[70%] -translate-x-1/2 -translate-y-1/2 overflow-visible">
+      {/* Sized from height, not width: this camera container is a short,
+          wide rectangle (min-h-[180px], full width). A width-based square
+          (70% of ~320px ≈ 224px) is taller than the ~178px-tall container
+          and gets clipped top/bottom by its overflow-hidden. Height is
+          always the smaller dimension here, so a height-based square never
+          exceeds the container in either axis. */}
+      <div className="absolute left-1/2 top-1/2 aspect-square h-[70%] -translate-x-1/2 -translate-y-1/2 overflow-visible">
         {/* top-left */}
         <span className={`${h} left-0 top-0`} />
         <span className={`${v} left-0 top-0`} />

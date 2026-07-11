@@ -100,15 +100,30 @@ function surfaceLabels(isAr: boolean) {
 // clipped by this preview's rounded, overflow-hidden container (showing up as
 // stray vertical slivers instead of full "L" corners). #e9b213 matches the
 // library's own default highlight color, so the look is unchanged.
+//
+// Each corner is two independent rounded bars (one horizontal, one vertical)
+// anchored flush (0 offset — no inset) to that corner of the scan-area square,
+// so they sit exactly on the square's own boundary — never inside or outside
+// it — regardless of the camera container's size.
 function ScanFrameOverlay() {
-  const corner = "absolute h-6 w-6 border-[#e9b213]";
+  const bar = "absolute rounded-full bg-[#e9b213]";
+  const h = `${bar} h-1 w-7`; // 4px thick, 28px long — horizontal leg
+  const v = `${bar} h-7 w-1`; // 28px long, 4px thick — vertical leg
   return (
     <div className="pointer-events-none absolute inset-0 z-10" aria-hidden="true">
-      <div className="absolute left-1/2 top-1/2 aspect-square w-[78%] -translate-x-1/2 -translate-y-1/2">
-        <span className={`${corner} left-4 top-4 rounded-tl-[4px] border-l-[3px] border-t-[3px]`} />
-        <span className={`${corner} right-4 top-4 rounded-tr-[4px] border-r-[3px] border-t-[3px]`} />
-        <span className={`${corner} bottom-4 left-4 rounded-bl-[4px] border-b-[3px] border-l-[3px]`} />
-        <span className={`${corner} bottom-4 right-4 rounded-br-[4px] border-b-[3px] border-r-[3px]`} />
+      <div className="absolute left-1/2 top-1/2 aspect-square w-[70%] -translate-x-1/2 -translate-y-1/2 overflow-visible">
+        {/* top-left */}
+        <span className={`${h} left-0 top-0`} />
+        <span className={`${v} left-0 top-0`} />
+        {/* top-right */}
+        <span className={`${h} right-0 top-0`} />
+        <span className={`${v} right-0 top-0`} />
+        {/* bottom-left */}
+        <span className={`${h} bottom-0 left-0`} />
+        <span className={`${v} bottom-0 left-0`} />
+        {/* bottom-right */}
+        <span className={`${h} bottom-0 right-0`} />
+        <span className={`${v} bottom-0 right-0`} />
       </div>
     </div>
   );

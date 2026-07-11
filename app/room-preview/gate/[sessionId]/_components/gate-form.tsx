@@ -486,8 +486,8 @@ export function GateForm({
   if (step === "customer_confirm") {
     const greeting = confirmGreeting ?? "";
 
-    // Computed once, shared by the hidden experienceId field and the carousel
-    // below, so both always agree on which previous visit is centered.
+    // Display-only: the carousel below just shows the customer's last visits.
+    // Nothing here is submitted with the form or affects the session.
     const exps = previousExperiences.filter((e) => e.resultImageUrl);
     const items = exps.map((e) => ({
       id: e.id,
@@ -507,9 +507,6 @@ export function GateForm({
           <input type="hidden" name="flow" value="customer_confirm" />
           <input type="hidden" name="customerId" value={confirmCustomerId ?? ""} />
           <input type="hidden" name="name" value={greeting} />
-          {/* The experience currently centered in the carousel below — re-verified
-              server-side against customerId before it's used as the session's room. */}
-          <input type="hidden" name="experienceId" value={cur?.id ?? ""} />
 
           <div className="text-center mb-6">
             <div className="w-16 h-16 mx-auto mb-5 rounded-2xl bg-emerald-500/10 border border-emerald-500/20 flex items-center justify-center">
@@ -524,7 +521,7 @@ export function GateForm({
           </div>
 
           {/* Previous render results — mobile 3D carousel over the customer's
-              real last-3 previews. The centered item drives experienceId above. */}
+              real last-3 previews. Display only; selection here is never submitted. */}
           {exps.length > 0 && (
             <div className="mb-6">
               <p className="text-xs font-semibold tracking-[0.18em] text-[var(--brand-cyan)] uppercase mb-4 text-center">

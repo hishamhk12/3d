@@ -50,10 +50,6 @@ export const gateFormSchema = z.discriminatedUnion("flow", [
     flow: z.literal("customer_confirm"),
     customerId: z.string().min(1),
     name: z.string().min(1),
-    /** Optional — id of the previous CustomerExperience the customer picked
-     *  in the carousel. Re-validated server-side against customerId before
-     *  it's ever used, never trusted as-is. */
-    experienceId: z.string().min(1).optional(),
   }),
 
   z.object({

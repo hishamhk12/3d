@@ -71,10 +71,6 @@ export async function refreshCustomerLastSeen(customerId: string): Promise<void>
   });
 }
 
-export async function getCustomerExperienceById(id: string): Promise<CustomerExperience | null> {
-  return prisma.customerExperience.findUnique({ where: { id } });
-}
-
 export async function getLatestCustomerExperiences(
   customerId: string,
   limit = 3,

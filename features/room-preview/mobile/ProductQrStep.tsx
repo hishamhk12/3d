@@ -358,8 +358,8 @@ export default function ProductQrStep({
         {/* Content */}
         <div className="flex-1 py-1">
           {!product ? (
-            <div className="group flex w-full flex-col items-center justify-center gap-[clamp(8px,1.8svh,20px)] rounded-[40px] border border-[var(--border)] bg-[var(--bg-surface)] p-3 shadow-[var(--shadow-lg)] transition-all duration-300 [@media(max-height:600px)]:p-2">
-              <div className="relative flex h-[clamp(140px,26svh,280px)] w-full overflow-hidden rounded-[32px] border border-[var(--brand-cyan)]/25 bg-[var(--brand-cyan)]/[0.05]">
+            <div className="group flex w-full flex-col items-center justify-center gap-4 rounded-[40px] border border-[var(--border)] bg-[var(--bg-surface)] p-3 shadow-[var(--shadow-lg)] transition-all duration-300">
+              <div className="relative flex min-h-[180px] w-full overflow-hidden rounded-[32px] border border-[var(--brand-cyan)]/25 bg-[var(--brand-cyan)]/[0.05]">
                 <video
                   ref={videoRef}
                   className={`absolute inset-0 h-full w-full object-cover transition-opacity duration-300 ${
@@ -398,9 +398,9 @@ export default function ProductQrStep({
             </div>
           ) : (
             <>
-              <div className="flex w-full flex-col items-center justify-center gap-[clamp(8px,1.8svh,20px)] rounded-[40px] border border-[var(--border)] bg-[var(--bg-surface)] p-3 shadow-[var(--shadow-lg)] transition-all duration-300 [@media(max-height:600px)]:p-2">
-                <div className="flex h-[clamp(140px,26svh,280px)] w-full flex-col items-center justify-center gap-[clamp(8px,1.8svh,20px)] rounded-[32px] border border-[var(--brand-cyan)]/25 bg-[var(--brand-cyan)]/[0.05] p-[clamp(12px,2svh,24px)]">
-                  <div className="relative aspect-square w-[clamp(120px,22svh,160px)] overflow-hidden rounded-[24px] border border-[var(--border)] bg-white">
+              <div className="flex w-full flex-col items-center justify-center gap-4 rounded-[40px] border border-[var(--border)] bg-[var(--bg-surface)] p-3 shadow-[var(--shadow-lg)] transition-all duration-300">
+                <div className="flex min-h-[180px] w-full flex-col items-center justify-center gap-3 rounded-[32px] border border-[var(--brand-cyan)]/25 bg-[var(--brand-cyan)]/[0.05] px-6 py-6">
+                  <div className="relative aspect-square w-full max-w-[160px] shrink-0 overflow-hidden rounded-[24px] border border-[var(--border)] bg-white">
                     <Image
                       src={product.imageUrl}
                       alt={product.name}
@@ -426,17 +426,17 @@ export default function ProductQrStep({
               </div>
 
               {expectedMismatch ? (
-                <p className="mt-4 w-full rounded-[18px] border border-amber-400/30 bg-amber-50 px-4 py-3 text-center text-sm leading-6 text-amber-800 [@media(max-height:740px)]:mt-2">
+                <p className="mt-4 w-full rounded-[18px] border border-amber-400/30 bg-amber-50 px-4 py-3 text-center text-sm leading-6 text-amber-800">
                   {isAr
                     ? "هذا المنتج مخصص لسطح مختلف. يرجى اختيار منتج مناسب."
                     : "This product is for a different surface. Please choose a matching product."}
                 </p>
               ) : duplicateProduct ? (
-                <p className="mt-4 w-full rounded-[18px] border border-[var(--border)] bg-[var(--bg-surface)] px-4 py-3 text-center text-sm leading-6 text-[var(--text-secondary)] [@media(max-height:740px)]:mt-2">
+                <p className="mt-4 w-full rounded-[18px] border border-[var(--border)] bg-[var(--bg-surface)] px-4 py-3 text-center text-sm leading-6 text-[var(--text-secondary)]">
                   {isAr ? "هذا المنتج مختار مسبقاً." : "This product is already selected."}
                 </p>
               ) : requiresReplaceConfirmation ? (
-                <p className="mt-4 w-full rounded-[18px] border border-amber-400/30 bg-amber-50 px-4 py-3 text-center text-sm leading-6 text-amber-800 [@media(max-height:740px)]:mt-2">
+                <p className="mt-4 w-full rounded-[18px] border border-amber-400/30 bg-amber-50 px-4 py-3 text-center text-sm leading-6 text-amber-800">
                   {isAr
                     ? "يوجد منتج مختار مسبقاً لهذا السطح. هل تريد استبداله؟"
                     : "A product is already selected for this surface. Replace it?"}
@@ -446,7 +446,7 @@ export default function ProductQrStep({
           )}
 
           {error ? (
-            <p className="mt-4 w-full rounded-[18px] border border-red-400/25 bg-red-50 px-4 py-3 text-center text-sm leading-6 text-red-700 dark:bg-red-500/08 dark:text-red-300 [@media(max-height:740px)]:mt-2">
+            <p className="mt-4 w-full rounded-[18px] border border-red-400/25 bg-red-50 px-4 py-3 text-center text-sm leading-6 text-red-700 dark:bg-red-500/08 dark:text-red-300">
               {error}
             </p>
           ) : null}
@@ -463,7 +463,7 @@ export default function ProductQrStep({
         </div>
 
         {/* Footer — action buttons stay pinned to the bottom */}
-        <div className="flex flex-none flex-col gap-3 pb-1 pt-3 [@media(max-height:667px)]:gap-2 [@media(max-height:667px)]:pb-0.5 [@media(max-height:667px)]:pt-2">
+        <div className="flex flex-none flex-col gap-3 pb-1 pt-3">
           {!product ? (
             <>
               <MobileActionButton

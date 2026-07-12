@@ -80,7 +80,7 @@ export function buildRenderJobInput(session: RoomPreviewSession): RenderJobInput
   }
 
   if (!isRenderableProduct(selectedProduct)) {
-    throw new Error("Only floor_material or wall_material products are supported.");
+    throw new Error("Only floor_material, wall_material, or wall_cladding products are supported.");
   }
 
   const selectedProductCount = getSelectedProductCount(selectedProductsBySurface);

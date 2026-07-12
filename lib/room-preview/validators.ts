@@ -65,11 +65,16 @@ export function isFloorMaterialProductType(value: unknown): value is "floor_mate
 }
 
 export function isProductType(value: unknown): value is ProductType {
-  return value === "floor_material" || value === "wall_material";
+  return value === "floor_material" || value === "wall_material" || value === "wall_cladding";
 }
 
 export function isProductCategory(value: unknown): value is ProductCategory {
-  return value === "PARQUET" || value === "WALLPAPER" || value === "CARPET_TILE";
+  return (
+    value === "PARQUET" ||
+    value === "WALLPAPER" ||
+    value === "CARPET_TILE" ||
+    value === "WALL_CLADDING"
+  );
 }
 
 export function isTargetSurface(value: unknown): value is TargetSurface {

@@ -66,6 +66,16 @@ const validWallpaperProduct: SelectedProduct = {
   imageUrl: "https://example.com/wallpaper.jpg",
 };
 
+const validWallCladdingProduct: SelectedProduct = {
+  id: "PWM02.020",
+  barcode: "PWM02.020",
+  name: "Oak Wall Panel",
+  productType: "wall_cladding",
+  category: "WALL_CLADDING",
+  targetSurface: "walls",
+  imageUrl: "https://example.com/wall-cladding.jpg",
+};
+
 const validRenderResult: RoomPreviewRenderResult = {
   imageUrl: "https://example.com/render.jpg",
   kind: "composited_preview",
@@ -283,6 +293,41 @@ describe("selectProductTransition", () => {
     expect(next.selectedProductsBySurface?.floor).toEqual(validProduct);
     expect(next.selectedProductsBySurface?.walls).toEqual(validWallpaperProduct);
     expect(next.selectedProduct).toEqual(validProduct);
+  });
+
+  it("REGRESSION: accepts a WALL_CLADDING (productType wall_cladding) product — found failing via live E2E testing", () => {
+    // Live testing against the real API (POST /sessions/[id]/product) found
+    // that selecting a genuine WALL_CLADDING product from PDC failed with
+    // SESSION_INVALID_STATE / "A valid product selection is required.",
+    // because assertValidSelectedProduct only allowed productType
+    // "floor_material" or "wall_material" — "wall_cladding" was never added
+    // when the WALL_CLADDING category was introduced. This must never
+    // regress: a WALL_CLADDING product is exactly as valid as WALLPAPER here.
+    const next = selectProductTransition(roomSelectedSession, validWallCladdingProduct);
+    expect(next.status).toBe("product_selected");
+    expect(next.selectedProductsBySurface?.walls).toEqual(validWallCladdingProduct);
+  });
+
+  it("REGRESSION: WALL_CLADDING replaces WALLPAPER on the walls surface, and vice versa — never both at once", () => {
+    const withWallpaper = makeSession({
+      status: "product_selected",
+      mobileConnected: true,
+      selectedRoom: validRoom,
+      selectedProduct: validWallpaperProduct,
+      selectedProductsBySurface: { walls: validWallpaperProduct },
+    });
+    const afterCladding = selectProductTransition(withWallpaper, validWallCladdingProduct);
+    expect(afterCladding.selectedProductsBySurface?.walls).toEqual(validWallCladdingProduct);
+
+    const withCladding = makeSession({
+      status: "product_selected",
+      mobileConnected: true,
+      selectedRoom: validRoom,
+      selectedProduct: validWallCladdingProduct,
+      selectedProductsBySurface: { walls: validWallCladdingProduct },
+    });
+    const afterWallpaper = selectProductTransition(withCladding, validWallpaperProduct);
+    expect(afterWallpaper.selectedProductsBySurface?.walls).toEqual(validWallpaperProduct);
   });
 
   it("replaces only the matching surface", () => {

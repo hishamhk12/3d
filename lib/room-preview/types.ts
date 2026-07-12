@@ -5,7 +5,7 @@ export type QuadPoint = {
 };
 
 export type FloorQuad = readonly [QuadPoint, QuadPoint, QuadPoint, QuadPoint];
-export type ProductType = "floor_material" | "wall_material";
+export type ProductType = "floor_material" | "wall_material" | "wall_cladding";
 export type RoomPreviewProductType = ProductType;
 
 /**
@@ -13,7 +13,13 @@ export type RoomPreviewProductType = ProductType;
  * Resolved from the product's source (e.g. the qr-products subfolder), never
  * inferred from the image or guessed by the model.
  */
-export type ProductCategory = "PARQUET" | "WALLPAPER" | "CARPET_TILE";
+export type ProductCategory = "PARQUET" | "WALLPAPER" | "CARPET_TILE" | "WALL_CLADDING";
+
+/**
+ * Commercial availability of a product (display/filtering only — e.g. the
+ * WALL_CLADDING "تصفية" badge). Never read by a render strategy.
+ */
+export type ProductAvailability = "regular" | "clearance";
 
 /** Which surface a category's render strategy targets. */
 export type TargetSurface = "floor" | "walls";
@@ -93,6 +99,8 @@ export type SelectedProduct = {
   ecommerceUrl?: string | null;
   pdcPageUrl?: string | null;
   source?: ProductSource;
+  /** Regular vs. clearance ("تصفية"). Currently only set for WALL_CLADDING. Display/filtering only. */
+  availability?: ProductAvailability;
 };
 
 export type SelectedProductsBySurface = {
@@ -156,6 +164,8 @@ export type RoomPreviewProduct = {
   ecommerceUrl?: string | null;
   pdcPageUrl?: string | null;
   source?: ProductSource;
+  /** Regular vs. clearance ("تصفية"). Currently only set for WALL_CLADDING. Display/filtering only. */
+  availability?: ProductAvailability;
 };
 
 /** @deprecated Use RoomPreviewProduct */

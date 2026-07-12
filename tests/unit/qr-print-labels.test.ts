@@ -18,10 +18,12 @@ const listMock = vi.mocked(listQrProducts);
 
 function manifestEntry(
   id: string,
-  category: "PARQUET" | "WALLPAPER" | "CARPET_TILE",
+  category: "PARQUET" | "WALLPAPER" | "CARPET_TILE" | "WALL_CLADDING",
+  availability?: "regular" | "clearance",
 ): RoomPreviewProduct {
-  const productType = category === "WALLPAPER" ? "wall_material" : "floor_material";
-  const targetSurface = category === "WALLPAPER" ? "walls" : "floor";
+  const productType =
+    category === "WALLPAPER" ? "wall_material" : category === "WALL_CLADDING" ? "wall_cladding" : "floor_material";
+  const targetSurface = category === "WALLPAPER" || category === "WALL_CLADDING" ? "walls" : "floor";
   return {
     id,
     barcode: id,
@@ -31,6 +33,7 @@ function manifestEntry(
     targetSurface,
     // Local manifest image — must never appear in the printed label output.
     imageUrl: `/qr-products/${category.toLowerCase().replace("_", "-")}/${id}.jpg`,
+    ...(availability ? { availability } : {}),
   };
 }
 
@@ -336,5 +339,92 @@ describe("getQrPrintLabels", () => {
     const labels = await getQrPrintLabels();
 
     expect(JSON.stringify(labels)).not.toContain("pdc_secret_key_value");
+  });
+
+  it("builds a WALL_CLADDING label with category and availability preserved, PDC as the data source", async () => {
+    listMock.mockReturnValue([manifestEntry("PWM02.020", "WALL_CLADDING", "regular")]);
+    resolveMock.mockResolvedValue({
+      ok: true,
+      product: {
+        ...manifestEntry("PWM02.020", "WALL_CLADDING", "regular"),
+        name: "Oak Wall Panel (PDC)",
+        imageUrl: "https://pdc-cdn.example.com/products/PWM02.020/main.jpg",
+        source: "pdc",
+      },
+    });
+
+    const labels = await getQrPrintLabels();
+
+    expect(resolveMock).toHaveBeenCalledWith("PWM02.020");
+    expect(labels[0].category).toBe("WALL_CLADDING");
+    expect(labels[0].unavailable).toBe(false);
+    expect(labels[0].availability).toBe("regular");
+    expect(labels[0].productName).toBe("Oak Wall Panel (PDC)");
+  });
+
+  it("keeps the availability (clearance) badge data even when PDC fails for a WALL_CLADDING SKU", async () => {
+    listMock.mockReturnValue([manifestEntry("MDF125.001", "WALL_CLADDING", "clearance")]);
+    resolveMock.mockResolvedValue({
+      ok: false,
+      code: "PRODUCT_NOT_FOUND",
+      status: 404,
+      error: "Product was not found.",
+    });
+
+    const labels = await getQrPrintLabels();
+
+    expect(labels[0].category).toBe("WALL_CLADDING");
+    expect(labels[0].unavailable).toBe(true);
+    // Availability is our own catalog data (not PDC's) — still present on an unavailable card.
+    expect(labels[0].availability).toBe("clearance");
+  });
+
+  it("a regular (non-clearance) product has a null availability, not a false-y placeholder", async () => {
+    listMock.mockReturnValue([manifestEntry("PQC201.001", "PARQUET")]);
+    resolveMock.mockResolvedValue({ ok: true, product: pdcProduct("PQC201.001") });
+
+    const labels = await getQrPrintLabels();
+
+    expect(labels[0].availability).toBeNull();
+  });
+
+  it("category=WALL_CLADDING returns only wall-cladding products and calls PDC only for them", async () => {
+    listMock.mockReturnValue([
+      manifestEntry("PQC201.001", "PARQUET"),
+      manifestEntry("WPT01.1104-1", "WALLPAPER"),
+      manifestEntry("PWM02.020", "WALL_CLADDING", "regular"),
+      manifestEntry("MDF125.001", "WALL_CLADDING", "clearance"),
+    ]);
+    resolveMock.mockImplementation(async (code: string) => ({
+      ok: true,
+      product: { ...manifestEntry(code, "WALL_CLADDING"), name: code, source: "pdc" },
+    }));
+
+    const labels = await getQrPrintLabels("WALL_CLADDING");
+
+    expect(labels).toHaveLength(2);
+    expect(labels.every((l) => l.category === "WALL_CLADDING")).toBe(true);
+    expect(resolveMock).toHaveBeenCalledTimes(2);
+    expect(resolveMock).not.toHaveBeenCalledWith("PQC201.001");
+    expect(resolveMock).not.toHaveBeenCalledWith("WPT01.1104-1");
+  });
+
+  it("no category filter (all) now resolves all four categories, including WALL_CLADDING", async () => {
+    listMock.mockReturnValue([
+      manifestEntry("PQC201.001", "PARQUET"),
+      manifestEntry("WPT01.1104-1", "WALLPAPER"),
+      manifestEntry("CRPT050.001", "CARPET_TILE"),
+      manifestEntry("PWM02.020", "WALL_CLADDING"),
+    ]);
+    resolveMock.mockImplementation(async (code: string) => ({
+      ok: true,
+      product: { ...manifestEntry(code, "PARQUET"), name: code, source: "pdc" },
+    }));
+
+    const labels = await getQrPrintLabels();
+
+    expect(labels).toHaveLength(4);
+    const categories = labels.map((l) => l.category).sort();
+    expect(categories).toEqual(["CARPET_TILE", "PARQUET", "WALLPAPER", "WALL_CLADDING"]);
   });
 });

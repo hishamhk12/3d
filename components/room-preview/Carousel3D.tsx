@@ -33,7 +33,7 @@ type Carousel3DProps = {
 // and dominant while its neighbours overlap (hiding background gaps).
 const CARD_W = 400;
 const CARD_H = 400;
-const RING_RADIUS = 780;
+const RING_RADIUS = 650;
 const RING_PERSPECTIVE = 1500;
 
 // Fixed stage that contains the whole ring, scaled to fit the viewport.

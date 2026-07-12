@@ -125,8 +125,11 @@ function isRenderableSurfaceProduct(product: SelectedProduct | null | undefined,
       normalized.productType === "floor_material" &&
       (normalized.category === "PARQUET" || normalized.category === "CARPET_TILE")) ||
       (surface === "walls" &&
-        normalized.productType === "wall_material" &&
-        normalized.category === "WALLPAPER"))
+        // "walls" accepts either WALLPAPER (wall_material) or WALL_CLADDING
+        // (wall_cladding) — they share the same surface slot and are mutually
+        // exclusive (selecting one replaces the other), never both at once.
+        (normalized.productType === "wall_material" || normalized.productType === "wall_cladding") &&
+        (normalized.category === "WALLPAPER" || normalized.category === "WALL_CLADDING")))
   );
 }
 

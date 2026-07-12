@@ -128,16 +128,18 @@ describe("carpet-tiles — single render strategy", () => {
 });
 
 describe("carpet-tiles-wallpaper — composite render strategy", () => {
-  it("resolveCompositeRenderStrategy maps PARQUET floors to the existing parquet-wallpaper strategy", () => {
-    expect(resolveCompositeRenderStrategy("PARQUET")).toBe(parquetWallpaperStrategy);
+  it("resolveCompositeRenderStrategy maps PARQUET + WALLPAPER to the existing parquet-wallpaper strategy", () => {
+    expect(resolveCompositeRenderStrategy("PARQUET", "WALLPAPER")).toBe(parquetWallpaperStrategy);
   });
 
-  it("resolveCompositeRenderStrategy maps CARPET_TILE floors to the carpet-tiles-wallpaper strategy", () => {
-    expect(resolveCompositeRenderStrategy("CARPET_TILE")).toBe(carpetTilesWallpaperStrategy);
+  it("resolveCompositeRenderStrategy maps CARPET_TILE + WALLPAPER to the carpet-tiles-wallpaper strategy", () => {
+    expect(resolveCompositeRenderStrategy("CARPET_TILE", "WALLPAPER")).toBe(carpetTilesWallpaperStrategy);
   });
 
-  it("throws for a floor category with no composite strategy (e.g. WALLPAPER as a floor category)", () => {
-    expect(() => resolveCompositeRenderStrategy("WALLPAPER")).toThrow(UnsupportedRenderCategoryError);
+  it("throws for a floor:walls pair with no composite strategy (e.g. WALLPAPER as a floor category)", () => {
+    expect(() => resolveCompositeRenderStrategy("WALLPAPER", "WALLPAPER")).toThrow(
+      UnsupportedRenderCategoryError,
+    );
   });
 
   it("carpet-tiles-wallpaper prompt never says parquet and keeps the seams/grid contract", () => {

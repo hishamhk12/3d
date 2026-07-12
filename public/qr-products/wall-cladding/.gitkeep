@@ -1,0 +1,8 @@
+This folder intentionally has no product images yet.
+WALL_CLADDING product images are resolved from PDC at request time
+(see lib/room-preview/product-resolver.ts), same as CARPET_TILE.
+Do not add placeholder/fake images here — see AGENTS.md / IMPROVMENT task notes.
+When real product photos are vendored locally, name each file
+"<SKU>.jpg" (or .png/.webp) to match the codes in
+data/room-preview/wall-cladding-sku-allowlist.json, then re-run
+scripts/generate-qr-product-manifest.mjs to refresh the manifest from disk.

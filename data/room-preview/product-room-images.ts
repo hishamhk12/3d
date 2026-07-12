@@ -19,11 +19,26 @@ function toPublicProductUrl(folderName: string, fileName: string) {
   return `/product/${encodeURIComponent(folderName)}/${encodeURIComponent(fileName)}`;
 }
 
+// Fixed 8-image homepage carousel: 4 curated Parquet + 4 curated Carpet
+// codes, interleaved so no two of the same flooring type are ever adjacent
+// in the ring. Folder discovery below is unchanged — this only selects and
+// orders the final result.
+const CAROUSEL_ORDER = [
+  "PQC301.002", // parquet — honey SPC
+  "PQA200.001", // carpet — Streamline 578
+  "PQH090.051", // parquet — warm laminate
+  "PQD200.001", // carpet — Gleam 511
+  "PQH111.013", // parquet — grey flat parquet
+  "PQH111.100", // carpet — Mezzo 672
+  "PQH111.301", // parquet — chateau laminate
+  "PQH100.001", // carpet — Litho 208
+];
+
 export function getRoomPreviewProductRoomImages() {
   const productRoot = getProductRoot();
   if (!existsSync(productRoot)) return [];
 
-  return readdirSync(productRoot, { withFileTypes: true })
+  const items = readdirSync(productRoot, { withFileTypes: true })
     .filter((entry) => entry.isDirectory())
     .map((entry) => {
       const folderName = entry.name;
@@ -41,7 +56,11 @@ export function getRoomPreviewProductRoomImages() {
         imageUrl: toPublicProductUrl(folderName, roomImage),
       };
     })
-    .filter((item): item is { code: string; imageUrl: string } => item !== null)
-    .sort((a, b) => a.code.localeCompare(b.code))
-    .map((item) => item.imageUrl);
+    .filter((item): item is { code: string; imageUrl: string } => item !== null);
+
+  const imageUrlByCode = new Map(items.map((item) => [item.code, item.imageUrl]));
+
+  return CAROUSEL_ORDER.map((code) => imageUrlByCode.get(code)).filter(
+    (imageUrl): imageUrl is string => Boolean(imageUrl),
+  );
 }

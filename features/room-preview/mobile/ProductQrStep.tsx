@@ -86,11 +86,33 @@ function lookupErrorMessage(error: unknown, isAr: boolean): string {
   }
 }
 
+/**
+ * Generic surface names — used BEFORE a specific product is scanned (mode
+ * title/description), when the walls surface could still resolve to either
+ * WALLPAPER or WALL_CLADDING. Deliberately category-neutral (not "wallpaper")
+ * so the instruction stays correct no matter which wall category the
+ * customer ends up scanning.
+ */
 function surfaceLabels(isAr: boolean) {
   return {
     floor: isAr ? "الأرضية" : "flooring",
-    walls: isAr ? "ورق الجدران" : "wallpaper",
+    walls: isAr ? "الجدران" : "the wall",
   } satisfies Record<TargetSurface, string>;
+}
+
+/**
+ * Short category label for a FOUND product's walls-surface caption — unlike
+ * surfaceLabels() above, the category is already known here, so this shows
+ * the real category name instead of a generic "walls" label (previously this
+ * caption always said "wallpaper", which was wrong once WALL_CLADDING
+ * products could also target the walls surface).
+ */
+function wallProductCategoryShortLabel(
+  category: RoomPreviewProduct["category"] | undefined,
+  isAr: boolean,
+): string {
+  if (category === "WALL_CLADDING") return isAr ? "كسوات الجدران" : "Wall cladding";
+  return isAr ? "ورق الجدران" : "Wallpaper";
 }
 
 // Custom scan-frame guide, drawn with plain CSS corner brackets instead of
@@ -419,9 +441,18 @@ export default function ProductQrStep({
                   <p className="break-all font-mono text-2xl font-black text-[var(--text-primary)]">
                     {product.id}
                   </p>
-                  <p className="text-xs font-semibold text-[var(--text-secondary)]">
-                    {surfaceLabel[product.targetSurface]}
-                  </p>
+                  <div className="flex items-center justify-center gap-2">
+                    <p className="text-xs font-semibold text-[var(--text-secondary)]">
+                      {product.targetSurface === "walls"
+                        ? wallProductCategoryShortLabel(product.category, isAr)
+                        : surfaceLabel.floor}
+                    </p>
+                    {product.availability === "clearance" ? (
+                      <span className="rounded-full bg-rose-100 px-2.5 py-0.5 text-[10px] font-bold text-rose-900">
+                        {isAr ? "تصفية" : "Clearance"}
+                      </span>
+                    ) : null}
+                  </div>
                 </div>
               </div>
 

@@ -18,6 +18,7 @@ function toRoomPreviewProduct(product: QrProductManifestProduct): RoomPreviewPro
     category: product.category,
     targetSurface: product.targetSurface,
     imageUrl: product.imageUrl,
+    ...("availability" in product && product.availability ? { availability: product.availability } : {}),
   };
 }
 

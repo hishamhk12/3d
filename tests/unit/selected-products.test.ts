@@ -42,6 +42,18 @@ function wallpaper(id = "WPT01.1104-1"): SelectedProduct {
   };
 }
 
+function wallCladding(id = "PWM02.020"): SelectedProduct {
+  return {
+    id,
+    barcode: id,
+    name: id,
+    productType: "wall_cladding",
+    category: "WALL_CLADDING",
+    targetSurface: "walls",
+    imageUrl: `/qr-products/wall-cladding/${id}.jpg`,
+  };
+}
+
 function session(overrides: Partial<RoomPreviewSession>): RoomPreviewSession {
   return {
     id: "session-1",
@@ -184,5 +196,69 @@ describe("selected products by surface", () => {
   it("old QR links still resolve to products", () => {
     expect(getQrProductByCode("PQH111.152")?.targetSurface).toBe("floor");
     expect(getQrProductByCode("WPT01.1104-1")?.targetSurface).toBe("walls");
+  });
+
+  describe("WALL_CLADDING on the walls surface", () => {
+    it("selecting wall cladding fills walls, same as wallpaper", () => {
+      const products = upsertSelectedProductBySurface({}, wallCladding());
+
+      expect(products.walls?.id).toBe("PWM02.020");
+      expect(products.walls?.category).toBe("WALL_CLADDING");
+      expect(products.floor).toBeUndefined();
+    });
+
+    it("selecting wall cladding after wallpaper REPLACES it (same walls slot — never both at once)", () => {
+      const products = upsertSelectedProductBySurface({ walls: wallpaper() }, wallCladding());
+
+      expect(products.walls?.id).toBe("PWM02.020");
+      expect(products.walls?.category).toBe("WALL_CLADDING");
+    });
+
+    it("selecting wallpaper after wall cladding REPLACES it (same walls slot — never both at once)", () => {
+      const products = upsertSelectedProductBySurface({ walls: wallCladding() }, wallpaper());
+
+      expect(products.walls?.id).toBe("WPT01.1104-1");
+      expect(products.walls?.category).toBe("WALLPAPER");
+    });
+
+    it("selecting parquet then wall cladding preserves both (composite combination)", () => {
+      const products = upsertSelectedProductBySurface(
+        upsertSelectedProductBySurface({}, parquet()),
+        wallCladding(),
+      );
+
+      expect(products.floor?.category).toBe("PARQUET");
+      expect(products.walls?.category).toBe("WALL_CLADDING");
+    });
+
+    it("removing wall cladding keeps floor", () => {
+      const products = removeSelectedProductBySurface(
+        { floor: parquet(), walls: wallCladding() },
+        "walls",
+      );
+
+      expect(products.floor?.id).toBe("PQH111.152");
+      expect(products.walls).toBeUndefined();
+    });
+
+    it("session validator accepts a wall-cladding selectedProductsBySurface map", () => {
+      expect(
+        isRoomPreviewSession(
+          session({ selectedProductsBySurface: { floor: parquet(), walls: wallCladding() } }),
+        ),
+      ).toBe(true);
+    });
+
+    it("validators accept a surface map with WALL_CLADDING on walls", () => {
+      expect(isSelectedProductsBySurface({ walls: wallCladding() })).toBe(true);
+    });
+
+    it("validators reject a WALL_CLADDING product whose own targetSurface disagrees with its map key", () => {
+      // Same structural check the existing "mismatched targetSurface" test above
+      // exercises for wallpaper — a product declaring targetSurface "walls" can
+      // never be placed under the "floor" key, regardless of its category.
+      const inconsistent: SelectedProduct = { ...wallCladding(), targetSurface: "walls" };
+      expect(isSelectedProductsBySurface({ floor: inconsistent })).toBe(false);
+    });
   });
 });

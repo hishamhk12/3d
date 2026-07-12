@@ -34,6 +34,15 @@ const CARPET_TILE_CLASSIFICATION = {
   targetSurface: "floor",
 } as const;
 
+const WALL_CLADDING_CLASSIFICATION = {
+  category: "WALL_CLADDING",
+  productType: "wall_cladding",
+  targetSurface: "walls",
+} as const;
+
+// Real allowlisted codes, one per family (see data/room-preview/wall-cladding-sku-allowlist.json).
+const ALLOWLISTED_WALL_CLADDING_CODES = ["MDF125.001", "PWM02.020", "PWP09.001", "PWW04.100"] as const;
+
 describe("classifySkuCategory", () => {
   it.each(["P001", "PAR006.10", "P-123"])("classifies %s as floor/parquet", (sku) => {
     expect(classifySkuCategory(sku)).toEqual(FLOOR_CLASSIFICATION);
@@ -86,6 +95,50 @@ describe("classifySkuCategory", () => {
       category: "WALLPAPER",
       productType: "wall_material",
       targetSurface: "walls",
+    });
+  });
+
+  describe("WALL_CLADDING (MDF / PWM / PWP / PWW families)", () => {
+    it.each(ALLOWLISTED_WALL_CLADDING_CODES)("classifies allowlisted %s as walls/wall_cladding", (sku) => {
+      expect(classifySkuCategory(sku)).toEqual(WALL_CLADDING_CLASSIFICATION);
+    });
+
+    it("is case-insensitive and trims, same as the other prefix families", () => {
+      expect(classifySkuCategory("pwm02.020")).toEqual(WALL_CLADDING_CLASSIFICATION);
+      expect(classifySkuCategory("  MDF125.001  ")).toEqual(WALL_CLADDING_CLASSIFICATION);
+    });
+
+    it("does NOT classify a non-allowlisted MDF/PWM/PWP/PWW SKU as WALL_CLADDING — a prefix match alone is not enough", () => {
+      expect(classifySkuCategory("PWM99.999")).toBeNull();
+      expect(classifySkuCategory("MDF999.999")).toBeNull();
+      expect(classifySkuCategory("PWP99.999")).toBeNull();
+      expect(classifySkuCategory("PWW99.999")).toBeNull();
+    });
+
+    it("critically: a non-allowlisted PWM/PWP/PWW SKU never falls through to the generic PARQUET (\"P\") branch", () => {
+      // These all start with "P" — without the family-prefix check running
+      // FIRST, a naive switch on the first character would wrongly classify
+      // a wall product as floor parquet.
+      const result = classifySkuCategory("PWM99.999");
+      expect(result).not.toEqual(
+        expect.objectContaining({ category: "PARQUET" }),
+      );
+      expect(result).toBeNull();
+    });
+
+    it("a genuine PARQUET SKU that happens to start with the same letter as the wall-cladding families is unaffected", () => {
+      // "PAR006.10" starts with "P" but not with "PWM"/"PWP"/"PWW" — must still resolve to PARQUET.
+      expect(classifySkuCategory("PAR006.10")).toEqual(FLOOR_CLASSIFICATION);
+    });
+
+    it("adding WALL_CLADDING support does not change PARQUET, WALLPAPER, or CARPET_TILE classification", () => {
+      expect(classifySkuCategory("P001")).toEqual(FLOOR_CLASSIFICATION);
+      expect(classifySkuCategory("W001")).toEqual({
+        category: "WALLPAPER",
+        productType: "wall_material",
+        targetSurface: "walls",
+      });
+      expect(classifySkuCategory("CRP001")).toEqual(CARPET_TILE_CLASSIFICATION);
     });
   });
 });
@@ -179,5 +232,24 @@ describe("mapPdcResponseToProduct", () => {
     );
     expect(product.ecommerceUrl).toBeNull();
     expect(product.pdcPageUrl).toBeNull();
+  });
+
+  it("attaches the correct availability (regular/clearance) for a WALL_CLADDING SKU", () => {
+    const regular = mapPdcResponseToProduct(
+      pdcResponse({ sku: "PWM02.020", product_name_ar: "لوح خشبي" }),
+      WALL_CLADDING_CLASSIFICATION,
+    );
+    expect(regular.availability).toBe("regular");
+
+    const clearance = mapPdcResponseToProduct(
+      pdcResponse({ sku: "MDF125.001", product_name_ar: "لوح تصفية" }),
+      WALL_CLADDING_CLASSIFICATION,
+    );
+    expect(clearance.availability).toBe("clearance");
+  });
+
+  it("never attaches availability to a non-WALL_CLADDING product", () => {
+    const product = mapPdcResponseToProduct(pdcResponse(), FLOOR_CLASSIFICATION);
+    expect(product.availability).toBeUndefined();
   });
 });

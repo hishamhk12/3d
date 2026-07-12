@@ -173,6 +173,7 @@ function MediaTile({
   sizes,
   priority,
   placeholderText = null,
+  caption = null,
 }: {
   imageUrl: string | null;
   className: string;
@@ -180,6 +181,8 @@ function MediaTile({
   priority?: boolean;
   /** Shown when a selected product has no usable image (never hide the card). */
   placeholderText?: string | null;
+  /** Small "code · category" pill anchored to the tile's bottom edge (product tiles only). */
+  caption?: string | null;
 }) {
   return (
     <div
@@ -193,11 +196,39 @@ function MediaTile({
           <p className="text-sm font-semibold text-white/60" dir="rtl">{placeholderText}</p>
         </div>
       ) : null}
+      {caption ? (
+        <div className="pointer-events-none absolute inset-x-0 bottom-0 flex justify-center pb-2">
+          <span
+            className="max-w-[92%] truncate rounded-full bg-black/50 px-2.5 py-1 text-[11px] font-semibold text-white/90 backdrop-blur-sm"
+            style={{ fontFamily: VISION_FONT }}
+            dir="rtl"
+          >
+            {caption}
+          </span>
+        </div>
+      ) : null}
     </div>
   );
 }
 
 const PRODUCT_IMAGE_UNAVAILABLE = "الصورة غير متوفرة";
+
+/** Short Arabic category name shown in each product tile's caption — same
+ *  short forms used by /qr-print's compact category badges, so the wording
+ *  is consistent across the kiosk screen and the printed labels. */
+const SCREEN_CATEGORY_SHORT_LABEL_AR: Partial<Record<NonNullable<SelectedProduct["category"]>, string>> = {
+  PARQUET: "باركيه",
+  WALLPAPER: "ورق جدران",
+  CARPET_TILE: "بلاطات موكيت",
+  WALL_CLADDING: "كسوات الجدران",
+};
+
+/** "code · category" caption for a selected product tile, or null when there's nothing to show. */
+function productTileCaption(product: SelectedProduct | null): string | null {
+  if (!product?.id) return null;
+  const categoryLabel = product.category ? SCREEN_CATEGORY_SHORT_LABEL_AR[product.category] : null;
+  return categoryLabel ? `${product.id} · ${categoryLabel}` : product.id;
+}
 
 function GalleryCard({
   roomImageUrl,
@@ -238,6 +269,7 @@ function GalleryCard({
               <MediaTile
                 imageUrl={product?.imageUrl ?? null}
                 placeholderText={product && !product.imageUrl ? PRODUCT_IMAGE_UNAVAILABLE : null}
+                caption={product?.imageUrl ? productTileCaption(product) : null}
                 className="size-[226px]"
                 sizes="226px"
               />

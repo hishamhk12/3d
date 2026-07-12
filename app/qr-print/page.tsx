@@ -24,6 +24,15 @@ const CATEGORY_LABEL: Record<ProductCategory, string> = {
   // Arabic per spec: never "سجادة" (rug) or "carpet roll" — these are modular
   // 50x50cm tiles, not a rug or a roll.
   CARPET_TILE: "بلاطات موكيت",
+  WALL_CLADDING: "ألواح وكسوات الجدران",
+};
+
+/** Short label for tight spaces (thumbnail caption fallback, etc). */
+const CATEGORY_SHORT_LABEL: Record<ProductCategory, string> = {
+  PARQUET: "Parquet",
+  WALLPAPER: "Wallpaper",
+  CARPET_TILE: "بلاطات موكيت",
+  WALL_CLADDING: "كسوات الجدران",
 };
 
 type QrPrintPageProps = {
@@ -36,21 +45,37 @@ function parseCategoryParam(raw: string | undefined): ProductCategory | null {
   return isProductCategory(upper) ? upper : null;
 }
 
+const ARABIC_LABEL_CATEGORIES: readonly ProductCategory[] = ["CARPET_TILE", "WALL_CLADDING"];
+
 function CategoryBadge({ category }: { category: ProductCategory }) {
+  const isArabicLabel = ARABIC_LABEL_CATEGORIES.includes(category);
   return (
     <span
-      dir={category === "CARPET_TILE" ? "rtl" : "ltr"}
+      dir={isArabicLabel ? "rtl" : "ltr"}
       className={
         "rounded-full px-3 py-1 text-xs font-bold tracking-wide print:text-[8pt] " +
-        (category === "CARPET_TILE" ? "" : "uppercase ") +
+        (isArabicLabel ? "" : "uppercase ") +
         (category === "WALLPAPER"
           ? "bg-amber-100 text-amber-900"
           : category === "CARPET_TILE"
             ? "bg-sky-100 text-sky-900"
-            : "bg-emerald-100 text-emerald-900")
+            : category === "WALL_CLADDING"
+              ? "bg-violet-100 text-violet-900"
+              : "bg-emerald-100 text-emerald-900")
       }
     >
-      {CATEGORY_LABEL[category]}
+      {CATEGORY_SHORT_LABEL[category]}
+    </span>
+  );
+}
+
+function ClearanceBadge() {
+  return (
+    <span
+      dir="rtl"
+      className="rounded-full bg-rose-100 px-3 py-1 text-xs font-bold tracking-wide text-rose-900 print:text-[8pt]"
+    >
+      تصفية
     </span>
   );
 }
@@ -78,8 +103,9 @@ function LabelCard({ label }: { label: QrPrintLabel }) {
           <ImageOff className="size-8 text-slate-400" />
         </div>
       )}
-      <div className="mt-3 flex items-center justify-center">
+      <div className="mt-3 flex items-center justify-center gap-2">
         <CategoryBadge category={label.category} />
+        {label.availability === "clearance" ? <ClearanceBadge /> : null}
       </div>
       <h2 className="mt-2 break-words text-2xl font-black tracking-normal text-slate-950 print:text-[18pt]">
         {label.productCode}

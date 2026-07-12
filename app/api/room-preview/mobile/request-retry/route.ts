@@ -63,7 +63,8 @@ async function resolveRetryProduct(body: z.infer<typeof RequestRetryBodySchema>)
     selectedProduct.name &&
     selectedProduct.imageUrl &&
     (selectedProduct.productType === "floor_material" ||
-      selectedProduct.productType === "wall_material")
+      selectedProduct.productType === "wall_material" ||
+      selectedProduct.productType === "wall_cladding")
     ? selectedProduct
     : null;
 }

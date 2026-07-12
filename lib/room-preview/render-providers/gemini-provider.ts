@@ -229,12 +229,16 @@ export const geminiRoomPreviewRenderProvider = {
     } = request.renderJobInput;
     const isCompositeRender = renderMode === "composite";
     const floorProduct = selectedProductsBySurface?.floor ?? null;
+    // Named `wallpaperProduct` for historical reasons — holds whatever product
+    // is selected on the "walls" surface, which can be WALLPAPER or (since
+    // WALL_CLADDING) a wall panel/cladding product. Not renamed everywhere in
+    // this file to keep this change scoped; behavior is category-agnostic.
     const wallpaperProduct = selectedProductsBySurface?.walls ?? null;
 
     if (!room.imageUrl)    throw new Error("A room image is required for Gemini rendering.");
     if (!product.imageUrl) throw new Error("A product image is required for Gemini rendering.");
     if (isCompositeRender && (!floorProduct?.imageUrl || !wallpaperProduct?.imageUrl)) {
-      throw new Error("Floor and wallpaper product images are required for composite Gemini rendering.");
+      throw new Error("Floor and walls (wallpaper/wall-cladding) product images are required for composite Gemini rendering.");
     }
 
     const ai = getGeminiClient();
@@ -283,15 +287,19 @@ export const geminiRoomPreviewRenderProvider = {
     const inputDimensions = { width: roomImage.width, height: roomImage.height };
 
     // Resolve the render strategy from PRODUCT DATA (category), never from the
-    // image. PARQUET → floor prompt (+ floorQuad); WALLPAPER → wall prompt
-    // (prompt-only, no floorQuad); CARPET_TILE → carpet-tiles floor prompt
-    // (+ floorQuad). Old sessions without a category default to PARQUET / floor
-    // via the normalizer. In composite mode the FLOOR product's category picks
-    // the composite prompt (parquet+wallpaper vs carpet-tiles+wallpaper) — the
-    // two floor materials use different floor-application language.
+    // image. PARQUET → floor prompt (+ floorQuad); WALLPAPER/WALL_CLADDING →
+    // wall prompt (prompt-only, no floorQuad); CARPET_TILE → carpet-tiles
+    // floor prompt (+ floorQuad). Old sessions without a category default to
+    // PARQUET / floor via the normalizer. In composite mode BOTH the floor
+    // product's category AND the walls product's category pick the composite
+    // prompt (parquet/carpet-tiles × wallpaper/wall-cladding) — each floor
+    // material and each wall material use different application language.
     const { category, targetSurface } = normalizeSelectedProductClassification(product);
     const strategy = isCompositeRender
-      ? resolveCompositeRenderStrategy(normalizeSelectedProductClassification(floorProduct!).category)
+      ? resolveCompositeRenderStrategy(
+          normalizeSelectedProductClassification(floorProduct!).category,
+          normalizeSelectedProductClassification(wallpaperProduct!).category,
+        )
       : resolveRenderStrategy(category);
     const usesFloorQuad = strategy.geometryMode === "floorQuad";
     const productCodes = productCodesForReferences(productReferences);

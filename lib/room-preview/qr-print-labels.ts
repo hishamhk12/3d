@@ -4,7 +4,7 @@ import QRCode from "qrcode";
 import { resolveProductByCode, type ResolveProductResult } from "@/lib/room-preview/product-resolver";
 import { listQrProducts } from "@/lib/room-preview/qr-products";
 import { getLogger } from "@/lib/logger";
-import type { ProductCategory } from "@/lib/room-preview/types";
+import type { ProductAvailability, ProductCategory } from "@/lib/room-preview/types";
 
 const log = getLogger("qr-print-labels");
 
@@ -19,6 +19,12 @@ export type QrPrintLabel = {
   productImageUrl: string | null;
   /** True when PDC could not resolve the product (no local image fallback — see module docs). */
   unavailable: boolean;
+  /**
+   * Regular vs. clearance ("تصفية"). Sourced from the local QR manifest (our
+   * own catalog classification), never from PDC — so it is always present
+   * even when the PDC lookup itself fails and the card renders `unavailable`.
+   */
+  availability: ProductAvailability | null;
 };
 
 // ─── Concurrency & retry tuning ────────────────────────────────────────────────
@@ -47,12 +53,15 @@ export const QR_PRINT_CATEGORY_ORDER: readonly ProductCategory[] = [
   "PARQUET",
   "WALLPAPER",
   "CARPET_TILE",
+  "WALL_CLADDING",
 ];
 
 const QR_PRINT_TAB_LABEL_AR: Record<ProductCategory, string> = {
   PARQUET: "باركيه",
   WALLPAPER: "ورق جدران",
   CARPET_TILE: "بلاطات موكيت",
+  // Short form for the compact tab chip — full name is "ألواح وكسوات الجدران".
+  WALL_CLADDING: "كسوات الجدران",
 };
 
 export type QrPrintTabLink = {
@@ -96,7 +105,13 @@ export function buildScanUrl(productCode: string): string {
   return `${base}/scan/${encodeURIComponent(productCode)}`;
 }
 
-function unavailableLabel(productCode: string, category: ProductCategory, scanUrl: string, qrDataUrl: string): QrPrintLabel {
+function unavailableLabel(
+  productCode: string,
+  category: ProductCategory,
+  scanUrl: string,
+  qrDataUrl: string,
+  availability: ProductAvailability | null = null,
+): QrPrintLabel {
   return {
     productCode,
     category,
@@ -105,6 +120,7 @@ function unavailableLabel(productCode: string, category: ProductCategory, scanUr
     productName: null,
     productImageUrl: null,
     unavailable: true,
+    availability,
   };
 }
 
@@ -140,7 +156,11 @@ async function resolveWithRetry(productCode: string): Promise<ResolveProductResu
  * SKU must never take down its batch (Promise.all would otherwise reject the
  * whole batch) or abort the SKUs processed after it.
  */
-async function buildLabel(productCode: string, category: ProductCategory): Promise<QrPrintLabel> {
+async function buildLabel(
+  productCode: string,
+  category: ProductCategory,
+  availability: ProductAvailability | null,
+): Promise<QrPrintLabel> {
   const scanUrl = buildScanUrl(productCode);
 
   try {
@@ -154,6 +174,9 @@ async function buildLabel(productCode: string, category: ProductCategory): Promi
     // resolver's development-only manifest fallback keeps local work possible
     // — never in production, and never surfaced as if it were PDC data).
     // On failure the label renders as unavailable — never a stale local image.
+    // `availability` (regular/clearance) is our own catalog classification —
+    // sourced from the local manifest, not PDC — so it is always attached
+    // regardless of whether the PDC lookup succeeds.
     const result = await resolveWithRetry(productCode);
 
     if (result.ok) {
@@ -166,6 +189,7 @@ async function buildLabel(productCode: string, category: ProductCategory): Promi
         productName: result.product.name,
         productImageUrl: result.product.imageUrl,
         unavailable: false,
+        availability,
       };
     }
 
@@ -173,7 +197,7 @@ async function buildLabel(productCode: string, category: ProductCategory): Promi
       { productCode, category, pdcOk: false, pdcErrorCode: result.code },
       "qr_print_label_resolved",
     );
-    return unavailableLabel(productCode, category, scanUrl, qrDataUrl);
+    return unavailableLabel(productCode, category, scanUrl, qrDataUrl, availability);
   } catch (error) {
     // resolveProductByCode is designed to never throw, and QR encoding of a
     // controlled ASCII URL essentially never fails — this catch is the last
@@ -181,7 +205,7 @@ async function buildLabel(productCode: string, category: ProductCategory): Promi
     // unavailable card instead of silently dropping this SKU (and, via
     // Promise.all, every other SKU still queued in the same batch).
     log.error({ err: error, productCode }, "Unexpected failure while building a QR print label");
-    return unavailableLabel(productCode, category, scanUrl, "");
+    return unavailableLabel(productCode, category, scanUrl, "", availability);
   }
 }
 
@@ -211,7 +235,9 @@ export async function getQrPrintLabels(category?: ProductCategory | null): Promi
 
   for (let i = 0; i < entries.length; i += PDC_LOOKUP_CONCURRENCY) {
     const batch = entries.slice(i, i + PDC_LOOKUP_CONCURRENCY);
-    const settled = await Promise.allSettled(batch.map((entry) => buildLabel(entry.id, entry.category)));
+    const settled = await Promise.allSettled(
+      batch.map((entry) => buildLabel(entry.id, entry.category, entry.availability ?? null)),
+    );
 
     settled.forEach((outcome, index) => {
       const entry = batch[index]!;
@@ -223,7 +249,9 @@ export async function getQrPrintLabels(category?: ProductCategory | null): Promi
       // fires if something outside its own try/catch went wrong. Still: this
       // SKU gets an unavailable card, not a silent gap.
       log.error({ err: outcome.reason, productCode: entry.id }, "QR label build rejected unexpectedly");
-      labels.push(unavailableLabel(entry.id, entry.category, buildScanUrl(entry.id), ""));
+      labels.push(
+        unavailableLabel(entry.id, entry.category, buildScanUrl(entry.id), "", entry.availability ?? null),
+      );
     });
   }
 

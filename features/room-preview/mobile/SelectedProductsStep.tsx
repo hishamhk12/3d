@@ -54,14 +54,25 @@ function labels(locale: Locale) {
   return {
     title: ar ? "المنتجات المختارة" : "Selected products",
     floor: ar ? "الأرضية" : "Flooring",
-    walls: ar ? "ورق الجدران" : "Wallpaper",
     change: ar ? "تغيير" : "Change",
     remove: ar ? "إزالة" : "Remove",
     removing: ar ? "جارٍ الإزالة..." : "Removing...",
     chooseAnother: ar ? "اختيار منتج آخر" : "Choose another product",
     surfacesFull: ar ? "تم اختيار الحد الأقصى من المنتجات" : "Maximum products selected",
     create: ar ? "إنشاء التصميم" : "Generate preview",
+    clearance: ar ? "تصفية" : "Clearance",
   };
+}
+
+/**
+ * The walls surface can hold either a WALLPAPER or a WALL_CLADDING product —
+ * show the product's real category instead of always saying "Wallpaper"
+ * (which was correct before WALL_CLADDING existed, but is now wrong for a
+ * wall-cladding selection).
+ */
+function wallsSurfaceLabel(category: SelectedProduct["category"] | undefined, ar: boolean): string {
+  if (category === "WALL_CLADDING") return ar ? "كسوات الجدران" : "Wall cladding";
+  return ar ? "ورق الجدران" : "Wallpaper";
 }
 
 function ProductCard({
@@ -82,7 +93,8 @@ function ProductCard({
   onRemove: () => void;
 }) {
   const l = labels(locale);
-  const surfaceLabel = surface === "floor" ? l.floor : l.walls;
+  const ar = locale === "ar";
+  const surfaceLabel = surface === "floor" ? l.floor : wallsSurfaceLabel(product.category, ar);
 
   return (
     <article className="w-full flex-none rounded-[28px] border border-[var(--border)] bg-white p-3 text-start shadow-[var(--shadow-sm)]">
@@ -100,7 +112,14 @@ function ProductCard({
           ) : null}
         </div>
         <div className="min-w-0 flex-1">
-          <p className="text-xs font-bold text-[var(--brand-cyan)]">{surfaceLabel}</p>
+          <div className="flex items-center gap-2">
+            <p className="text-xs font-bold text-[var(--brand-cyan)]">{surfaceLabel}</p>
+            {product.availability === "clearance" ? (
+              <span className="rounded-full bg-rose-100 px-2 py-0.5 text-[10px] font-bold text-rose-900">
+                {l.clearance}
+              </span>
+            ) : null}
+          </div>
           <p className="mt-1 break-all font-mono text-lg font-black text-[var(--text-primary)]">
             {product.id}
           </p>

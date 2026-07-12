@@ -1,5 +1,7 @@
 import "server-only";
 
+import fs from "node:fs";
+import path from "node:path";
 import { getLogger } from "@/lib/logger";
 import { fetchPdcProduct, isPdcError } from "@/lib/room-preview/pdc-client";
 import {
@@ -27,6 +29,28 @@ export type ResolveProductResult =
 
 function failure(code: ResolveProductErrorCode, status: number, error: string): ResolveProductResult {
   return { ok: false, code, status, error };
+}
+
+/**
+ * True only when `imageUrl` is a local `/public` path AND the file actually
+ * exists on disk with real bytes.
+ *
+ * Found by live E2E testing: the QR manifest can list an entry (e.g. every
+ * WALL_CLADDING / CARPET_TILE SKU today) whose image was never vendored
+ * locally — only PDC has the real photo. Without this check, the dev-only
+ * fallback below would happily return `ok: true` with an `imageUrl` that
+ * 404s in the browser and would later reach the Gemini pipeline as a dead
+ * reference image. This function is the guard that stops that: the dev
+ * fallback is only used when the local file genuinely exists.
+ */
+function localImageFileExists(imageUrl: string): boolean {
+  if (!imageUrl.startsWith("/")) return false;
+  const absPath = path.join(process.cwd(), "public", ...imageUrl.split("/").filter(Boolean));
+  try {
+    return fs.statSync(absPath).size > 0;
+  } catch {
+    return false;
+  }
 }
 
 /**
@@ -68,12 +92,24 @@ export async function resolveProductByCode(code: string): Promise<ResolveProduct
     }
 
     // Development-only fallback: any PDC failure (missing config included)
-    // falls back to the bundled QR manifest so local work never needs PDC.
+    // falls back to the bundled QR manifest so local work never needs PDC —
+    // but ONLY when the manifest's image file is actually present on disk.
+    // A manifest entry with no vendored image (true today for every
+    // WALL_CLADDING and CARPET_TILE SKU — those images live in PDC only)
+    // must never be handed back as a usable/selectable product; falling
+    // through to the normal PDC-failure response below is the correct,
+    // honest outcome instead of a silent dead image link.
     if (process.env.NODE_ENV === "development") {
       const localProduct = getQrProductByCode(sku);
-      if (localProduct) {
+      if (localProduct && localImageFileExists(localProduct.imageUrl)) {
         log.info({ sku, pdcErrorKind: error.kind }, "PDC unavailable — using local manifest fallback");
         return { ok: true, product: { ...localProduct, source: "local" } };
+      }
+      if (localProduct) {
+        log.warn(
+          { sku, pdcErrorKind: error.kind, imageUrl: localProduct.imageUrl },
+          "PDC unavailable and local manifest image is not vendored on disk — refusing the dev fallback instead of returning a dead image link",
+        );
       }
     }
 

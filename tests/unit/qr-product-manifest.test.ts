@@ -3,6 +3,15 @@ import path from "node:path";
 import { describe, expect, it } from "vitest";
 
 import { QR_PRODUCT_MANIFEST } from "@/data/room-preview/qr-product-manifest";
+import type { QrProductManifestEntry } from "@/data/room-preview/qr-product-manifest";
+import wallCladdingAllowlist from "@/data/room-preview/wall-cladding-sku-allowlist.json";
+
+// Widened view of the manifest: QR_PRODUCT_MANIFEST is `as const`, so each
+// element keeps its own narrow literal type (only listing the keys that
+// entry actually has). Widening to QrProductManifestEntry[] here lets these
+// tests read the optional `availability` field uniformly across entries,
+// without changing the generator's own `as const` output.
+const MANIFEST: readonly QrProductManifestEntry[] = QR_PRODUCT_MANIFEST;
 
 const allowedExtensions = new Set([".jpg", ".jpeg", ".png", ".webp"]);
 const categoryDirs = [
@@ -117,6 +126,61 @@ describe("QR product manifest", () => {
       expect(entry?.category).toBe("CARPET_TILE");
       expect(entry?.targetSurface).toBe("floor");
       expect(entry?.productType).toBe("floor_material");
+    }
+  });
+
+  describe("WALL_CLADDING rollout", () => {
+    const allowlistCodes = Object.keys(wallCladdingAllowlist);
+
+    it("includes every allowlisted WALL_CLADDING code, and nothing extra", () => {
+      const manifestWallCladdingCodes: Set<string> = new Set(
+        MANIFEST.filter((p) => p.category === "WALL_CLADDING").map((p) => p.code),
+      );
+      expect(manifestWallCladdingCodes.size).toBe(allowlistCodes.length);
+      for (const code of allowlistCodes) {
+        expect(manifestWallCladdingCodes.has(code)).toBe(true);
+      }
+    });
+
+    it("has exactly 50 approved WALL_CLADDING codes (30 regular + 20 clearance)", () => {
+      expect(allowlistCodes).toHaveLength(50);
+      const regular = Object.values(wallCladdingAllowlist).filter((v) => v === "regular");
+      const clearance = Object.values(wallCladdingAllowlist).filter((v) => v === "clearance");
+      expect(regular).toHaveLength(30);
+      expect(clearance).toHaveLength(20);
+    });
+
+    it("classifies every WALL_CLADDING manifest entry as WALL_CLADDING / walls / wall_cladding", () => {
+      for (const code of allowlistCodes) {
+        const entry = MANIFEST.find((p) => p.code === code);
+        expect(entry).toBeDefined();
+        expect(entry?.category).toBe("WALL_CLADDING");
+        expect(entry?.targetSurface).toBe("walls");
+        expect(entry?.productType).toBe("wall_cladding");
+      }
+    });
+
+    it("carries the correct availability (regular/clearance) from the central allowlist onto each entry", () => {
+      for (const [code, availability] of Object.entries(wallCladdingAllowlist)) {
+        const entry = MANIFEST.find((p) => p.code === code);
+        expect(entry?.availability).toBe(availability);
+      }
+    });
+
+    it("every WALL_CLADDING imageUrl points under /qr-products/wall-cladding/", () => {
+      for (const code of allowlistCodes) {
+        const entry = MANIFEST.find((p) => p.code === code);
+        expect(entry?.imageUrl).toBe(`/qr-products/wall-cladding/${code}.jpg`);
+      }
+    });
+  });
+
+  it("has no duplicate codes across PARQUET/WALLPAPER/CARPET_TILE/WALL_CLADDING combined", () => {
+    const byCategory = new Map<string, string>();
+    for (const product of QR_PRODUCT_MANIFEST) {
+      const previous = byCategory.get(product.code);
+      expect(previous).toBeUndefined();
+      byCategory.set(product.code, product.category);
     }
   });
 });

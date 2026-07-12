@@ -1,4 +1,4 @@
-import { beforeEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { resolveProductByCode } from "@/lib/room-preview/product-resolver";
 import { PdcError } from "@/lib/room-preview/pdc-client";
 
@@ -102,6 +102,44 @@ describe("resolveProductByCode", () => {
       ok: false,
       code: "PRODUCT_IMAGE_MISSING",
       status: 404,
+    });
+  });
+
+  describe("development-only local manifest fallback", () => {
+    beforeEach(() => {
+      vi.stubEnv("NODE_ENV", "development");
+    });
+    afterEach(() => {
+      vi.unstubAllEnvs();
+    });
+
+    it("REGRESSION: refuses the fallback (and returns the normal PDC failure) for a manifest SKU whose image is not vendored on disk", async () => {
+      // PWM02.020 is a real WALL_CLADDING manifest entry whose imageUrl points
+      // to public/qr-products/wall-cladding/PWM02.020.jpg — a file that does
+      // not exist in this checkout (WALL_CLADDING images are PDC-only today,
+      // same as CARPET_TILE). Found via live E2E testing: before this fix,
+      // resolveProductByCode returned `ok: true, source: "local"` with that
+      // dead imageUrl instead of surfacing the PDC failure — meaning a
+      // customer could reach the render step with an image that 404s.
+      fetchPdcProduct.mockRejectedValue(new PdcError("unavailable", "PDC down"));
+
+      const result = await resolveProductByCode("PWM02.020");
+
+      expect(result).toMatchObject({ ok: false, code: "PDC_UNAVAILABLE", status: 502 });
+    });
+
+    it("still uses the local fallback for a manifest SKU whose image genuinely exists on disk (PARQUET)", async () => {
+      // PQC201.132 has a real bundled file at public/qr-products/parquet/PQC201.132.jpg
+      // — the fallback must keep working for entries that are actually vendored.
+      fetchPdcProduct.mockRejectedValue(new PdcError("unavailable", "PDC down"));
+
+      const result = await resolveProductByCode("PQC201.132");
+
+      expect(result.ok).toBe(true);
+      if (result.ok) {
+        expect(result.product.source).toBe("local");
+        expect(result.product.imageUrl).toBe("/qr-products/parquet/PQC201.132.jpg");
+      }
     });
   });
 });

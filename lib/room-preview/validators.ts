@@ -24,6 +24,12 @@ function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === "object" && value !== null;
 }
 
+export function isValidRoomPreviewSessionId(value: unknown): value is string {
+  if (typeof value !== "string") return false;
+  const normalized = value.trim().toLowerCase();
+  return normalized.length > 0 && normalized !== "null" && normalized !== "undefined";
+}
+
 function isFiniteNumber(value: unknown): value is number {
   return typeof value === "number" && Number.isFinite(value);
 }
@@ -258,7 +264,11 @@ export function isRoomPreviewSession(value: unknown): value is RoomPreviewSessio
 export function isCreateRoomPreviewSessionResponse(
   value: unknown,
 ): value is CreateRoomPreviewSessionResponse {
-  return isRecord(value) && typeof value.sessionId === "string";
+  return (
+    isRecord(value) &&
+    isValidRoomPreviewSessionId(value.sessionId) &&
+    (value.token === undefined || typeof value.token === "string")
+  );
 }
 
 export function isConnectRoomPreviewSessionResponse(

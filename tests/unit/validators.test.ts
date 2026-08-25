@@ -15,6 +15,7 @@ import {
   isSaveRoomPreviewSessionRoomResponse,
   isSelectedProduct,
   isSelectedRoom,
+  isValidRoomPreviewSessionId,
   roomHasValidFloorQuad,
 } from "@/lib/room-preview/validators";
 import type {
@@ -378,6 +379,18 @@ describe("isCreateRoomPreviewSessionResponse", () => {
 
   it("rejects when sessionId is missing", () => {
     expect(isCreateRoomPreviewSessionResponse({ token: "xyz" })).toBe(false);
+  });
+
+  it.each([null, undefined, "", "   ", "null", "undefined"])(
+    "rejects a non-real session id: %j",
+    (sessionId) => {
+      expect(isCreateRoomPreviewSessionResponse({ sessionId, token: "xyz" })).toBe(false);
+      expect(isValidRoomPreviewSessionId(sessionId)).toBe(false);
+    },
+  );
+
+  it("rejects a non-string token", () => {
+    expect(isCreateRoomPreviewSessionResponse({ sessionId: "abc", token: null })).toBe(false);
   });
 });
 

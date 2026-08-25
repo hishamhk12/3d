@@ -23,7 +23,11 @@ const SCREEN_SESSION_CREATE_LOCK_TTL_MS = 30_000;
 const TERMINAL_SESSION_STATUSES = new Set(["expired", "failed", "completed", "result_ready"]);
 
 function logScreenSessionLifecycle(
-  eventType: "screen_session_created" | "screen_session_reused" | "duplicate_session_create_blocked",
+  eventType:
+    | "screen_session_created"
+    | "screen_session_reused"
+    | "duplicate_session_create_blocked"
+    | "screen_session_navigation_requested",
   metadata?: Record<string, unknown>,
 ) {
   console.info(`[room-preview] ${eventType}`, metadata ?? {});
@@ -131,6 +135,7 @@ export default function ScreenLauncherClient() {
   const [error, setError] = useState<string | null>(null);
   const [attempt, setAttempt] = useState(0);
   const screenSessionCreationLockRef = useRef(false);
+  const launcherMountedRef = useRef(false);
 
   // Read the screen token from the URL once — safe to memo in state because the
   // launcher page is only rendered when the URL already contains the final param.
@@ -139,8 +144,13 @@ export default function ScreenLauncherClient() {
     searchParams.get("source") === "hero_try_button" ? "hero_try_button" : "screen_launcher";
 
   useEffect(() => {
-    let active = true;
+    launcherMountedRef.current = true;
+    return () => {
+      launcherMountedRef.current = false;
+    };
+  }, []);
 
+  useEffect(() => {
     async function createSession() {
       if (screenSessionCreationLockRef.current) {
         logScreenSessionLifecycle("duplicate_session_create_blocked", { reason: "ref_lock" });
@@ -164,7 +174,13 @@ export default function ScreenLauncherClient() {
             statusAfter: reusableSession.status,
           });
 
-          router.replace(ROOM_PREVIEW_ROUTES.screenSession(reusableSession.id));
+          const destination = ROOM_PREVIEW_ROUTES.screenSession(reusableSession.id);
+          logScreenSessionLifecycle("screen_session_navigation_requested", {
+            destination,
+            sessionId: reusableSession.id,
+            source: "stored_session",
+          });
+          router.replace(destination);
           return;
         }
 
@@ -185,7 +201,13 @@ export default function ScreenLauncherClient() {
               metadata: { source: "storage_lock_wait" },
             });
 
-            router.replace(ROOM_PREVIEW_ROUTES.screenSession(lockedSession.id));
+            const destination = ROOM_PREVIEW_ROUTES.screenSession(lockedSession.id);
+            logScreenSessionLifecycle("screen_session_navigation_requested", {
+              destination,
+              sessionId: lockedSession.id,
+              source: "storage_lock_wait",
+            });
+            router.replace(destination);
             return;
           }
 
@@ -208,15 +230,21 @@ export default function ScreenLauncherClient() {
         const elapsed = Date.now() - startedAt;
         const remaining = Math.max(0, BRANDED_LOADING_MIN_MS - elapsed);
 
-        // Only honour the minimum display time if the effect is still active.
-        // If Strict Mode cleaned up the effect, skip the wait and navigate immediately.
-        if (active && remaining > 0) {
+        // React Strict Mode replays effects in development. The mounted ref remains
+        // authoritative after that replay while still preventing work after a real unmount.
+        if (launcherMountedRef.current && remaining > 0) {
           await new Promise((resolve) => setTimeout(resolve, remaining));
         }
 
-        router.replace(ROOM_PREVIEW_ROUTES.screenSession(data.sessionId));
+        const destination = ROOM_PREVIEW_ROUTES.screenSession(data.sessionId);
+        logScreenSessionLifecycle("screen_session_navigation_requested", {
+          destination,
+          sessionId: data.sessionId,
+          source: createSource,
+        });
+        router.replace(destination);
       } catch (createError) {
-        if (!active) {
+        if (!launcherMountedRef.current) {
           return;
         }
 
@@ -233,10 +261,6 @@ export default function ScreenLauncherClient() {
     }
 
     void createSession();
-
-    return () => {
-      active = false;
-    };
   }, [attempt, createSource, router, screenToken, t.roomPreview.launcher.createFailed]);
 
   return (

@@ -91,6 +91,7 @@ function mapSession(session: {
   id: string;
   status: string;
   mobileConnected: boolean;
+  customerRoleSelected: boolean;
   selectedRoom: unknown;
   selectedProduct: unknown;
   renderResult: unknown;
@@ -104,6 +105,7 @@ function mapSession(session: {
     id: session.id,
     status: toStatus(session.status),
     mobileConnected: session.mobileConnected,
+    customerRoleSelected: session.customerRoleSelected,
     selectedRoom: toSelectedRoom(session.selectedRoom),
     selectedProduct: productState.selectedProduct,
     selectedProductsBySurface: productState.selectedProductsBySurface,
@@ -155,6 +157,7 @@ export async function createSession(
     data: {
       status: initialState?.status ?? "created",
       mobileConnected: initialState?.mobileConnected ?? false,
+      customerRoleSelected: false,
       selectedRoom: toJsonValue(initialState?.selectedRoom) ?? Prisma.JsonNull,
       selectedProduct:
         toSelectedProductJsonValue(
@@ -187,34 +190,12 @@ export async function getSessionById(id: string) {
   return session ? mapSession(session) : null;
 }
 
-const CUSTOMER_ROLE_SELECTED_EVENT = "gate_customer_role_selected";
-
 export async function recordCustomerRoleSelection(sessionId: string) {
-  const existing = await prisma.sessionEvent.findFirst({
-    where: { sessionId, eventType: CUSTOMER_ROLE_SELECTED_EVENT },
-    select: { id: true },
+  const session = await prisma.roomPreviewSession.update({
+    where: { id: sessionId },
+    data: { customerRoleSelected: true, updatedAt: new Date() },
   });
-
-  if (!existing) {
-    await prisma.sessionEvent.create({
-      data: {
-        sessionId,
-        source: "mobile",
-        eventType: CUSTOMER_ROLE_SELECTED_EVENT,
-        level: "info",
-        metadata: { role: "customer" },
-      },
-    });
-  }
-}
-
-export async function hasCustomerRoleSelection(sessionId: string) {
-  const event = await prisma.sessionEvent.findFirst({
-    where: { sessionId, eventType: CUSTOMER_ROLE_SELECTED_EVENT },
-    select: { id: true },
-  });
-
-  return event !== null;
+  return mapSession(session);
 }
 
 export async function updateSession(id: string, data: SessionUpdateData) {

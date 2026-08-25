@@ -16,7 +16,6 @@ import {
   expireSessionById,
   findActiveLiveSessions,
   getSessionById,
-  hasCustomerRoleSelection,
   recordCustomerRoleSelection,
   saveSessionState,
   tryClaimMobileConnection,
@@ -191,22 +190,22 @@ export async function getRoomPreviewSession(
   if (session && isTimeExpired(session)) {
     return { ...session, status: "expired" as const };
   }
-  if (!session) return null;
-
-  return {
-    ...session,
-    customerRoleSelected: await hasCustomerRoleSelection(sessionId),
-  };
+  return session;
 }
 
 export async function selectCustomerRoomPreviewRole(sessionId: string) {
-  const session = await getRequiredRoomPreviewSession(sessionId);
-  await recordCustomerRoleSelection(sessionId);
-  const updatedSession = {
-    ...session,
-    customerRoleSelected: true,
-    updatedAt: new Date().toISOString(),
-  };
+  await getRequiredRoomPreviewSession(sessionId);
+  const updatedSession = await recordCustomerRoleSelection(sessionId);
+
+  // Audit is intentionally best-effort. Durable UI state lives on the session
+  // row, so a diagnostics-table outage cannot make the session unreadable.
+  void trackSessionEvent({
+    sessionId,
+    source: "mobile",
+    eventType: "gate_customer_role_selected",
+    level: "info",
+    metadata: { role: "customer" },
+  });
 
   publishRoomPreviewSessionEvent(updatedSession.id, {
     type: "session_updated",

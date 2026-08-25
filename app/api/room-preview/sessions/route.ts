@@ -10,6 +10,8 @@ import { createRoomPreviewSession } from "@/lib/room-preview/session-service";
 import { generateSessionToken } from "@/lib/room-preview/session-token";
 import { SCREEN_TOKEN_COOKIE } from "@/lib/room-preview/cookies";
 import { isRoomPreviewRateLimitDisabled } from "@/lib/room-preview/rate-limit-bypass";
+import { isValidRoomPreviewSessionId } from "@/lib/room-preview/validators";
+import { getDatabaseTargetFingerprint } from "@/lib/server/database-target";
 
 const log = getLogger("sessions-api");
 
@@ -29,14 +31,20 @@ export async function POST(request: NextRequest) {
   const rateLimitDisabled = isRoomPreviewRateLimitDisabled();
   const ip = getClientIp(request.headers);
   const source = request.headers.get("x-room-preview-source") ?? "unknown";
+  const existingSessionId =
+    request.headers.get("x-room-preview-existing-session-id") ?? null;
+  const databaseTarget = getDatabaseTargetFingerprint();
 
   console.info("[room-preview] create_session_called", {
-    existingSessionId: null,
+    existingSessionId,
     route: "/api/room-preview/sessions",
     source,
     timestamp: new Date().toISOString(),
   });
-  log.info({ ip, source }, "Room Preview session create request received");
+  log.info(
+    { databaseTarget, existingSessionId, ip, source },
+    "Room Preview session create request received",
+  );
 
   // ── 1. Rate limit: creation frequency ─────────────────────────────────────
   if (!rateLimitDisabled) {
@@ -75,13 +83,39 @@ export async function POST(request: NextRequest) {
     const session = await createRoomPreviewSession(screenToken);
     const token = generateSessionToken(session.id);
 
+    if (!isValidRoomPreviewSessionId(session.id)) {
+      throw new Error("Session repository returned an invalid id after create");
+    }
+
     // Register the session against the IP's active-session tracker.
     // Non-blocking — a failure here does not roll back the created session.
     if (!rateLimitDisabled && session.expiresAt) {
-      await registerSessionForIp(ip, session.id, new Date(session.expiresAt).getTime());
+      try {
+        await registerSessionForIp(ip, session.id, new Date(session.expiresAt).getTime());
+      } catch (err) {
+        log.warn(
+          { err, sessionId: session.id, source },
+          "Failed to register active session for IP; session remains valid",
+        );
+      }
     }
 
-    const response = NextResponse.json({ ...session, token }, { status: 201 });
+    log.info(
+      {
+        databaseTarget,
+        sessionId: session.id,
+        source,
+        status: session.status,
+      },
+      "Room Preview session created and persisted",
+    );
+
+    // `id` remains for backward compatibility with the session payload while
+    // `sessionId` makes the create contract explicit for navigation clients.
+    const response = NextResponse.json(
+      { ...session, sessionId: session.id, token },
+      { status: 201 },
+    );
     response.cookies.set(SCREEN_TOKEN_COOKIE, token, {
       httpOnly: true,
       secure: process.env.NODE_ENV === "production",
@@ -91,7 +125,10 @@ export async function POST(request: NextRequest) {
     });
     return response;
   } catch (err) {
-    log.error({ err }, "Failed to create session");
+    log.error(
+      { databaseTarget, err, source },
+      "Failed to create session",
+    );
     return NextResponse.json(
       { error: "Failed to create session" },
       { status: 500 },

@@ -62,7 +62,7 @@ describe("POST /api/room-preview/sessions", () => {
 
     expect(response.status).toBe(201);
     expect(typeof body.id).toBe("string");
-    expect(body.sessionId).toBeUndefined(); // spreads session directly — no wrapper object
+    expect(body.sessionId).toBe(body.id);
     expect(typeof body.token).toBe("string");
     expect(body.token.length).toBeGreaterThan(0);
   });
@@ -133,6 +133,25 @@ describe("GET /api/room-preview/sessions/[sessionId]", () => {
     const body = await response.json();
 
     expect(response.status).toBe(500);
-    expect(typeof body.error).toBe("string");
+    expect(body.code).toBe("SESSION_READ_FAILED");
+    expect(body.error).toBe("Failed to get session");
+    expect(typeof body.requestId).toBe("string");
   });
+
+  it.each(["", "null", "undefined", "   "])(
+    "rejects an invalid session id before reading the store: %j",
+    async (sessionId) => {
+      vi.mocked(getRoomPreviewSession).mockClear();
+
+      const response = await getSessionGET(
+        new Request("http://localhost"),
+        makeContext(sessionId),
+      );
+      const body = await response.json();
+
+      expect(response.status).toBe(400);
+      expect(body.code).toBe("INVALID_SESSION_ID");
+      expect(getRoomPreviewSession).not.toHaveBeenCalled();
+    },
+  );
 });

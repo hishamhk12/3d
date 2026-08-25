@@ -36,6 +36,9 @@ model RoomPreviewSession {
   id              String  @id @default(cuid())
   status          String
   mobileConnected Boolean @default(false)
+  /// Durable UI state. SessionEvent remains audit-only and must not be required
+  /// to read the session that owns it.
+  customerRoleSelected Boolean @default(false)
   renderCount     Int     @default(0)
 
   selectedRoom    Json?

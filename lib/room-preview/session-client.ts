@@ -7,9 +7,11 @@ import type {
 } from "@/lib/room-preview/types";
 import {
   assertValidResponse,
+  isCreateRoomPreviewSessionResponse,
   isConnectRoomPreviewSessionResponse,
   isRoomPreviewApiErrorResponse,
   isRoomPreviewSessionResponse,
+  isValidRoomPreviewSessionId,
 } from "@/lib/room-preview/validators";
 
 
@@ -260,6 +262,9 @@ export async function createRoomPreviewSession(
     "x-room-preview-source": source,
   };
   if (screenToken) headers["x-screen-token"] = screenToken;
+  if (isValidRoomPreviewSessionId(existingSessionId)) {
+    headers["x-room-preview-existing-session-id"] = existingSessionId;
+  }
 
   console.info("[room-preview] create_session_called", {
     existingSessionId,
@@ -278,23 +283,54 @@ export async function createRoomPreviewSession(
     "Could not create a QR test session.",
   );
 
+  console.info("[room-preview] create_session_response_received", {
+    responseKeys:
+      typeof data === "object" && data !== null ? Object.keys(data).sort() : [],
+    responseType: data === null ? "null" : typeof data,
+    source,
+    timestamp: new Date().toISOString(),
+  });
+
+  const createResponse = assertRoomPreviewResponse<CreateRoomPreviewSessionResponse>(
+    data,
+    isCreateRoomPreviewSessionResponse,
+    "The server did not return a valid session id.",
+  );
+
   const session = assertRoomPreviewResponse<RoomPreviewSession>(
     data,
     isRoomPreviewSessionResponse,
     "The server did not return a valid session.",
   );
 
-  const token =
-    typeof (data as Record<string, unknown>).token === "string"
-      ? ((data as Record<string, unknown>).token as string)
-      : undefined;
+  if (createResponse.sessionId !== session.id) {
+    throw new RoomPreviewRequestError(
+      "invalid_response",
+      "The server returned inconsistent session identifiers.",
+    );
+  }
 
-  return { sessionId: session.id, token } satisfies CreateRoomPreviewSessionResponse;
+  console.info("[room-preview] create_session_id_resolved", {
+    sessionId: createResponse.sessionId,
+    source,
+    timestamp: new Date().toISOString(),
+  });
+
+  return {
+    sessionId: createResponse.sessionId,
+    token: createResponse.token,
+  } satisfies CreateRoomPreviewSessionResponse;
 }
 
 export async function fetchRoomPreviewSession(sessionId: string) {
+  const route = ROOM_PREVIEW_ROUTES.sessionApi(sessionId);
+  console.info("[room-preview] fetch_session_requested", {
+    route,
+    sessionId,
+    timestamp: new Date().toISOString(),
+  });
   const data = await requestRoomPreviewJson(
-    ROOM_PREVIEW_ROUTES.sessionApi(sessionId),
+    route,
     {
       cache: "no-store",
     },

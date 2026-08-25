@@ -1,21 +1,30 @@
+import { isValidRoomPreviewSessionId } from "@/lib/room-preview/validators";
+
+function sessionSegment(sessionId: string): string {
+  if (!isValidRoomPreviewSessionId(sessionId)) {
+    throw new Error("A valid Room Preview session id is required to build this route");
+  }
+  return encodeURIComponent(sessionId.trim());
+}
+
 export const ROOM_PREVIEW_ROUTES = {
   landing: "/room-preview",
   mobileLauncher: "/room-preview/start",
   screenLauncher: "/room-preview/screen",
-  screenSession: (sessionId: string) => `/room-preview/screen/${sessionId}`,
-  mobileSession: (sessionId: string) => `/room-preview/mobile/${sessionId}`,
+  screenSession: (sessionId: string) => `/room-preview/screen/${sessionSegment(sessionId)}`,
+  mobileSession: (sessionId: string) => `/room-preview/mobile/${sessionSegment(sessionId)}`,
   sessionsApi: "/api/room-preview/sessions",
-  sessionApi: (sessionId: string) => `/api/room-preview/sessions/${sessionId}`,
-  sessionEventsApi: (sessionId: string) => `/api/room-preview/sessions/${sessionId}/events`,
-  connectSessionApi: (sessionId: string) => `/api/room-preview/sessions/${sessionId}/connect`,
-  roomApi: (sessionId: string) => `/api/room-preview/sessions/${sessionId}/room`,
-  uploadUrlApi: (sessionId: string) => `/api/room-preview/sessions/${sessionId}/room/upload-url`,
-  confirmUploadApi: (sessionId: string) => `/api/room-preview/sessions/${sessionId}/room/confirm-upload`,
-  productApi: (sessionId: string) => `/api/room-preview/sessions/${sessionId}/product`,
-  renderApi: (sessionId: string) => `/api/room-preview/sessions/${sessionId}/render`,
-  screenTokenApi: (sessionId: string) => `/api/room-preview/sessions/${sessionId}/screen-token`,
+  sessionApi: (sessionId: string) => `/api/room-preview/sessions/${sessionSegment(sessionId)}`,
+  sessionEventsApi: (sessionId: string) => `/api/room-preview/sessions/${sessionSegment(sessionId)}/events`,
+  connectSessionApi: (sessionId: string) => `/api/room-preview/sessions/${sessionSegment(sessionId)}/connect`,
+  roomApi: (sessionId: string) => `/api/room-preview/sessions/${sessionSegment(sessionId)}/room`,
+  uploadUrlApi: (sessionId: string) => `/api/room-preview/sessions/${sessionSegment(sessionId)}/room/upload-url`,
+  confirmUploadApi: (sessionId: string) => `/api/room-preview/sessions/${sessionSegment(sessionId)}/room/confirm-upload`,
+  productApi: (sessionId: string) => `/api/room-preview/sessions/${sessionSegment(sessionId)}/product`,
+  renderApi: (sessionId: string) => `/api/room-preview/sessions/${sessionSegment(sessionId)}/render`,
+  screenTokenApi: (sessionId: string) => `/api/room-preview/sessions/${sessionSegment(sessionId)}/screen-token`,
   cleanupApi: "/api/room-preview/cleanup",
-  abandonApi: (sessionId: string) => `/api/room-preview/sessions/${sessionId}/abandon`,
+  abandonApi: (sessionId: string) => `/api/room-preview/sessions/${sessionSegment(sessionId)}/abandon`,
 } as const;
 
 // ─── Showroom screen auto-reset timings ──────────────────────────────────────

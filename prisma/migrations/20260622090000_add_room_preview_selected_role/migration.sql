@@ -1,0 +1,6 @@
+-- No-op migration.
+--
+-- This migration originally added RoomPreviewSession.selectedRole, but that
+-- schema change was reverted before deployment. The current Prisma schema does
+-- not include selectedRole, so this migration is intentionally empty to keep
+-- migration history deployable without changing existing database schema/data.

@@ -9,9 +9,9 @@ vi.mock("next/headers", () => ({
   cookies: vi.fn(async () => ({ get: cookieGetMock })),
 }));
 
-import { POST as preview } from "@/app/api/admin/chatbot/import/preview/route";
-import { POST as apply } from "@/app/api/admin/chatbot/import/apply/route";
-import { POST as cancel } from "@/app/api/admin/chatbot/import/cancel/route";
+import { POST as preview } from "@/app/api/admin/chatbot/import/preview/handler";
+import { POST as apply } from "@/app/api/admin/chatbot/import/apply/handler";
+import { POST as cancel } from "@/app/api/admin/chatbot/import/cancel/handler";
 import { requireAdminResponse } from "@/lib/admin/require-admin";
 import { internalAdminFetchJson } from "@/lib/admin/fastapi-internal";
 import { IMPORT_CONFIRMATION_COOKIE } from "@/lib/admin/chatbot/import-gateway";

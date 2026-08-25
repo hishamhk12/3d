@@ -27,7 +27,7 @@ vi.mock("@/lib/analytics/event-tracker", () => ({
 }));
 
 const { POST } = await import(
-  "@/app/api/room-preview/sessions/[sessionId]/connect/route"
+  "@/app/api/room-preview/sessions/[sessionId]/connect/handler"
 );
 const { connectMobileToSession } = await import("@/lib/room-preview/session-service");
 

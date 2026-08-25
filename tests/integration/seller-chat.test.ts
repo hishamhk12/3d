@@ -12,7 +12,7 @@ vi.mock("@/lib/logger", () => ({
 }));
 
 import { jwtVerify } from "jose";
-import { POST } from "@/app/api/seller/chat/route";
+import { POST } from "@/app/api/seller/chat/handler";
 import { getCurrentSeller } from "@/lib/seller/auth";
 
 const getSeller = getCurrentSeller as unknown as ReturnType<typeof vi.fn>;

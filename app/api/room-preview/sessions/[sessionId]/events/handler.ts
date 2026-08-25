@@ -34,7 +34,7 @@ function createSseRetry(ms: number) {
 
 export async function GET(
   request: Request,
-  context: RouteContext<"/api/room-preview/sessions/[sessionId]/events">,
+  context: { params: Promise<{ sessionId: string }> },
 ) {
   const { sessionId } = await context.params;
 

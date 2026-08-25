@@ -29,8 +29,8 @@ vi.mock("@/lib/logger", () => ({
   getLogger: () => ({ info: vi.fn(), warn: vi.fn(), error: vi.fn(), debug: vi.fn() }),
 }));
 
-import { GET, POST } from "@/app/api/admin/chatbot/sellers/route";
-import { PATCH } from "@/app/api/admin/chatbot/sellers/[id]/route";
+import { GET, POST } from "@/app/api/admin/chatbot/sellers/handler";
+import { PATCH } from "@/app/api/admin/chatbot/sellers/[id]/handler";
 import { requireAdminResponse } from "@/lib/admin/require-admin";
 import { prisma } from "@/lib/server/prisma";
 import { verifyPassword } from "@/lib/seller/password";

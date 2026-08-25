@@ -116,7 +116,7 @@ vi.mock("@/lib/room-preview/render-rate-limit", () => ({
 // ─── Import route and mocked helpers after mocks are registered ───────────────
 
 const { POST } = await import(
-  "@/app/api/room-preview/sessions/[sessionId]/render/route"
+  "@/app/api/room-preview/sessions/[sessionId]/render/handler"
 );
 const {
   getSessionById,

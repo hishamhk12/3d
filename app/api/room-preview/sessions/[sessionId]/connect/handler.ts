@@ -13,7 +13,7 @@ const log = getLogger("connect-api");
 
 export async function POST(
   request: Request,
-  context: RouteContext<"/api/room-preview/sessions/[sessionId]/connect">,
+  context: { params: Promise<{ sessionId: string }> },
 ) {
   const { sessionId } = await context.params;
 

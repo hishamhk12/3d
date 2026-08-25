@@ -67,7 +67,7 @@ vi.mock("@/lib/room-preview/session-service", () => ({
 
 // ─── Import route and mocked helpers after mocks are registered ───────────────
 
-const { POST } = await import("@/app/api/room-preview/mobile/request-retry/route");
+const { POST } = await import("@/app/api/room-preview/mobile/request-retry/handler");
 const { getSessionById } = await import("@/lib/room-preview/session-repository");
 const { selectProductForSession } = await import("@/lib/room-preview/session-service");
 

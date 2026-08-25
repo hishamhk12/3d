@@ -13,7 +13,7 @@ vi.mock("@/lib/logger", () => ({
   getLogger: () => ({ info: vi.fn(), warn: vi.fn(), error: vi.fn(), debug: vi.fn() }),
 }));
 
-import { POST } from "@/app/api/seller/auth/login/route";
+import { POST } from "@/app/api/seller/auth/login/handler";
 import { prisma } from "@/lib/server/prisma";
 import { checkIpRateLimit } from "@/lib/ip-rate-limit";
 import { hashPassword } from "@/lib/seller/password";

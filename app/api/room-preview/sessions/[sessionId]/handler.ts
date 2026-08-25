@@ -11,7 +11,7 @@ const log = getLogger("session-api");
 
 export async function GET(
   request: Request,
-  context: RouteContext<"/api/room-preview/sessions/[sessionId]">,
+  context: { params: Promise<{ sessionId: string }> },
 ) {
   const requestId = request.headers.get("x-request-id") ?? randomUUID();
   const databaseTarget = getDatabaseTargetFingerprint();

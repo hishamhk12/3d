@@ -9,8 +9,8 @@ vi.mock("@/lib/server/prisma", () => ({
   },
 }));
 
-import * as historyRoute from "@/app/api/admin/chatbot/import/history/route";
-import * as metricsRoute from "@/app/api/admin/chatbot/metrics/route";
+import * as historyRoute from "@/app/api/admin/chatbot/import/history/handler";
+import * as metricsRoute from "@/app/api/admin/chatbot/metrics/handler";
 import { requireAdminResponse } from "@/lib/admin/require-admin";
 import { internalAdminFetchJson } from "@/lib/admin/fastapi-internal";
 import { prisma } from "@/lib/server/prisma";

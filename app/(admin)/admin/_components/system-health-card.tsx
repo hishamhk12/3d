@@ -3,7 +3,7 @@
 import { useCallback, useEffect, useState } from "react";
 import { Badge, Card, Text, Button, Spinner } from "@fluentui/react-components";
 import { RefreshCcw } from "lucide-react";
-import type { SystemHealthResponse } from "@/app/api/admin/system-health/route";
+import type { SystemHealthResponse } from "@/app/api/admin/system-health/handler";
 
 type BadgeColor = "success" | "danger" | "important" | "severe" | "subtle" | "informative";
 

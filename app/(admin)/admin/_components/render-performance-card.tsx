@@ -1,7 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
-import type { RenderPerformanceResponse, RenderPerformanceEntry, RenderSpeedLabel } from "@/app/api/admin/render-performance/route";
+import type { RenderPerformanceResponse, RenderPerformanceEntry, RenderSpeedLabel } from "@/app/api/admin/render-performance/handler";
 
 // ─── Helpers ───────────────────────────────────────────────────────────────────
 

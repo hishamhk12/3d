@@ -23,9 +23,9 @@ vi.mock("@/lib/logger", () => ({
   getLogger: () => ({ info: vi.fn(), warn: vi.fn(), error: vi.fn(), debug: vi.fn() }),
 }));
 
-import { GET, POST } from "@/app/api/admin/chatbot/showrooms/route";
-import { PATCH } from "@/app/api/admin/chatbot/showrooms/[id]/route";
-import * as showroomDetail from "@/app/api/admin/chatbot/showrooms/[id]/route";
+import { GET, POST } from "@/app/api/admin/chatbot/showrooms/handler";
+import { PATCH } from "@/app/api/admin/chatbot/showrooms/[id]/handler";
+import * as showroomDetail from "@/app/api/admin/chatbot/showrooms/[id]/handler";
 import { requireAdminResponse } from "@/lib/admin/require-admin";
 import { prisma } from "@/lib/server/prisma";
 

@@ -60,7 +60,7 @@ function buildSessionProduct(product: RoomPreviewProduct) {
 
 export async function POST(
   request: Request,
-  context: RouteContext<"/api/room-preview/sessions/[sessionId]/product">,
+  context: { params: Promise<{ sessionId: string }> },
 ) {
   const { sessionId } = await context.params;
 
@@ -237,7 +237,7 @@ export async function POST(
 
 export async function DELETE(
   request: Request,
-  context: RouteContext<"/api/room-preview/sessions/[sessionId]/product">,
+  context: { params: Promise<{ sessionId: string }> },
 ) {
   const { sessionId } = await context.params;
 

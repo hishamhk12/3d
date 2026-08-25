@@ -80,7 +80,7 @@ export const dynamic = "force-dynamic";
 
 export async function POST(
   request: Request,
-  context: RouteContext<"/api/room-preview/sessions/[sessionId]/render">,
+  context: { params: Promise<{ sessionId: string }> },
 ) {
   const { sessionId } = await context.params;
 

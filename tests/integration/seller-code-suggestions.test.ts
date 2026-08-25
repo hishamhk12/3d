@@ -3,7 +3,7 @@ import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 vi.mock("@/lib/seller/auth", () => ({ getCurrentSeller: vi.fn() }));
 
 import { jwtVerify } from "jose";
-import { GET } from "@/app/api/seller/inventory/code-suggestions/route";
+import { GET } from "@/app/api/seller/inventory/code-suggestions/handler";
 import { getCurrentSeller } from "@/lib/seller/auth";
 
 const getSeller = getCurrentSeller as unknown as ReturnType<typeof vi.fn>;

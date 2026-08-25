@@ -35,9 +35,9 @@ function makePostRequest() {
   return new NextRequest("http://localhost/api/room-preview/sessions", { method: "POST" });
 }
 
-const { POST: createSessionPOST } = await import("@/app/api/room-preview/sessions/route");
+const { POST: createSessionPOST } = await import("@/app/api/room-preview/sessions/handler");
 const { GET: getSessionGET } = await import(
-  "@/app/api/room-preview/sessions/[sessionId]/route"
+  "@/app/api/room-preview/sessions/[sessionId]/handler"
 );
 const { createRoomPreviewSession, getRoomPreviewSession } = await import(
   "@/lib/room-preview/session-service"

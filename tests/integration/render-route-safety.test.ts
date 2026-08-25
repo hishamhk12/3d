@@ -97,7 +97,7 @@ vi.mock("@/lib/room-preview/screen-repository", () => ({
 // ─── Import route after mocks ─────────────────────────────────────────────────
 
 const { POST } = await import(
-  "@/app/api/room-preview/sessions/[sessionId]/render/route"
+  "@/app/api/room-preview/sessions/[sessionId]/render/handler"
 );
 
 const {

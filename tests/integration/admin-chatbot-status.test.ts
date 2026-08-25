@@ -11,7 +11,7 @@ vi.mock("@/lib/server/prisma", () => ({
 }));
 vi.mock("@/lib/seller/fastapi", () => ({ isSellerChatEnabled: vi.fn() }));
 
-import { GET } from "@/app/api/admin/chatbot/status/route";
+import { GET } from "@/app/api/admin/chatbot/status/handler";
 import { requireAdminResponse } from "@/lib/admin/require-admin";
 import { internalAdminFetchJson } from "@/lib/admin/fastapi-internal";
 import { prisma } from "@/lib/server/prisma";

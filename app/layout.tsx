@@ -1,9 +1,8 @@
 import type { Metadata } from "next";
-import { cookies } from "next/headers";
 import { Inter, Tajawal, Geist } from "next/font/google";
 import "@photo-sphere-viewer/core/index.css";
 import "@photo-sphere-viewer/markers-plugin/index.css";
-import { LOCALE_COOKIE_NAME, normalizeLocale, getLocaleDirection } from "@/lib/i18n/config";
+import { DEFAULT_LOCALE, getLocaleDirection } from "@/lib/i18n/config";
 import { I18nProvider } from "@/lib/i18n/provider";
 import { ThemeProvider } from "@/components/ThemeProvider";
 import "./globals.css";
@@ -28,14 +27,12 @@ export const metadata: Metadata = {
     "A bilingual interface for panorama tours and the room preview workflow.",
 };
 
-export default async function RootLayout({
+export default function RootLayout({
   children,
 }: Readonly<{
   children: React.ReactNode;
 }>) {
-  const cookieStore = await cookies();
-  const localeCookie = cookieStore.get(LOCALE_COOKIE_NAME);
-  const locale = normalizeLocale(localeCookie?.value);
+  const locale = DEFAULT_LOCALE;
   const dir = getLocaleDirection(locale);
 
   return (
@@ -47,7 +44,7 @@ export default async function RootLayout({
     >
       <body className="min-h-full flex flex-col bg-[var(--bg-page)] text-[var(--text-primary)]">
         <ThemeProvider>
-          <I18nProvider initialLocale={locale} initialLocaleCookiePresent={Boolean(localeCookie)}>
+          <I18nProvider initialLocale={locale}>
             {children}
           </I18nProvider>
         </ThemeProvider>

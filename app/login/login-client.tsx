@@ -4,7 +4,7 @@
 // (navigates to /room-preview). Seller posts to the seller login API and, on
 // success, redirects to /seller/chat.
 import { useState } from "react";
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 
 export type LoginMode = "default" | "customer" | "seller";
 type Tab = "customer" | "seller";
@@ -20,6 +20,17 @@ const CHARCOAL_STYLE = { background: "#192126", boxShadow: "0 10px 26px rgba(25,
 const LOGIN_INPUT =
   "w-full rounded-xl border border-slate-300 bg-white px-3 py-3 text-base text-slate-900 " +
   "focus:border-[var(--brand-cyan)] focus:outline-none focus:ring-2 focus:ring-[var(--brand-cyan)]/25";
+
+function resolveMode(type: string | null): LoginMode {
+  if (type === "seller") return "seller";
+  if (type === "customer") return "customer";
+  return "default";
+}
+
+export function LoginClientFromSearchParams() {
+  const searchParams = useSearchParams();
+  return <LoginClient mode={resolveMode(searchParams.get("type"))} />;
+}
 
 export function LoginClient({ mode }: { mode: LoginMode }) {
   const router = useRouter();

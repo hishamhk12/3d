@@ -18,7 +18,7 @@ vi.mock("@/lib/logger", () => ({
   getLogger: vi.fn().mockReturnValue({ info: vi.fn(), warn: vi.fn(), error: vi.fn() }),
 }));
 
-const { GET } = await import("@/app/api/room-preview/cleanup/route");
+const { GET } = await import("@/app/api/room-preview/cleanup/handler");
 const {
   expireOldSessions,
   expireIdleWaitingSessions,

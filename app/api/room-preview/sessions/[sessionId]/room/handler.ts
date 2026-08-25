@@ -34,7 +34,7 @@ function isAbortedUploadError(error: unknown) {
 
 export async function POST(
   request: Request,
-  context: RouteContext<"/api/room-preview/sessions/[sessionId]/room">,
+  context: { params: Promise<{ sessionId: string }> },
 ) {
   const { sessionId } = await context.params;
 

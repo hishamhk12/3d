@@ -7,8 +7,18 @@ import { verifySessionToken } from "@/lib/room-preview/session-token";
 import { getRoomPreviewSession } from "@/lib/room-preview/session-service";
 import { subscribeToRoomPreviewSessionEvents } from "@/lib/room-preview/session-events";
 import { trackSessionEvent } from "@/lib/room-preview/session-diagnostics";
+import { isRedisEnabled } from "@/lib/redis";
 
 const log = getLogger("events-api");
+
+/**
+ * Without Redis, published events only reach SSE streams in the SAME process.
+ * On serverless (Vercel) the phone's updates land on other instances, so the
+ * screen's stream would stay open but silent — and the client never falls back
+ * to polling because the connection itself is healthy. In that case the stream
+ * polls the session row and pushes any change itself.
+ */
+const DB_POLL_INTERVAL_MS = 2_000;
 
 export const dynamic = "force-dynamic";
 export const runtime = "nodejs";
@@ -91,6 +101,7 @@ export async function GET(
       // is invoked early (e.g. safeEnqueue throws on the initial messages).
       const cleanup: {
         heartbeat?: ReturnType<typeof setInterval>;
+        dbPoll?: ReturnType<typeof setInterval>;
         unsubscribe?: () => void;
       } = {};
 
@@ -108,6 +119,7 @@ export async function GET(
         closed = true;
 
         clearInterval(cleanup.heartbeat);
+        clearInterval(cleanup.dbPoll);
         cleanup.unsubscribe?.();
         request.signal.removeEventListener("abort", close);
 
@@ -165,6 +177,36 @@ export async function GET(
         // and detect a silently-stale connection (e.g. Redis unavailable).
         safeEnqueue(createSseMessage("keepalive", "{}"));
       }, ROOM_PREVIEW_TIMEOUTS.SSE_KEEPALIVE_MS);
+
+      if (!isRedisEnabled()) {
+        let lastUpdatedAt = session.updatedAt;
+        let polling = false;
+        cleanup.dbPoll = setInterval(() => {
+          if (polling || closed) return;
+          polling = true;
+          void getRoomPreviewSession(sessionId)
+            .then((latest) => {
+              if (!latest) {
+                close();
+                return;
+              }
+              if (latest.updatedAt === lastUpdatedAt) return;
+              lastUpdatedAt = latest.updatedAt;
+              safeEnqueue(
+                createSseMessage(
+                  "session_updated",
+                  JSON.stringify({ sessionId, type: "session_updated", session: latest }),
+                ),
+              );
+            })
+            .catch((err) => {
+              log.warn({ err, sessionId }, "SSE DB poll failed — will retry");
+            })
+            .finally(() => {
+              polling = false;
+            });
+        }, DB_POLL_INTERVAL_MS);
+      }
 
       request.signal.addEventListener("abort", close);
     },

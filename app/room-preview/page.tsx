@@ -10,7 +10,7 @@ export default function RoomPreviewLandingPage() {
     // (never the old blue flash).
     <main
       style={{
-        background: '#14110d url("/room-preview/private.jpg") center / cover no-repeat',
+        background: '#14110d url("/room-preview/private.webp") center / cover no-repeat',
         minHeight: "100dvh",
       }}
     >

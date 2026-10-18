@@ -42,7 +42,10 @@ export default function RootLayout({
       className={cn("h-full", "antialiased", inter.variable, tajawal.variable, "font-sans", geist.variable)}
       suppressHydrationWarning
     >
-      <body className="min-h-full flex flex-col bg-[var(--bg-page)] text-[var(--text-primary)]">
+      <body
+        className="min-h-full flex flex-col bg-[var(--bg-page)] text-[var(--text-primary)]"
+        suppressHydrationWarning
+      >
         <ThemeProvider>
           <I18nProvider initialLocale={locale}>
             {children}

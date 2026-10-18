@@ -38,8 +38,9 @@ export async function selectCustomerRole(sessionId: string) {
       ? !token || verifySessionToken(token, sessionId)
       : verifySessionToken(token, sessionId);
 
-  if (!sessionId || !tokenOk) return;
+  if (!sessionId || !tokenOk) return false;
   await selectCustomerRoomPreviewRole(sessionId);
+  return true;
 }
 
 function getClientIp(reqHeaders: Awaited<ReturnType<typeof headers>>): string | null {

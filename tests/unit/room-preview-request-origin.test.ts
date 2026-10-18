@@ -90,6 +90,17 @@ describe("resolveBaseUrl — current deployment origin wins", () => {
     expect(base).toBe("http://192.168.1.50:3000");
   });
 
+  it("development: an explicit public base URL overrides an inferred WSL address", () => {
+    const base = resolveBaseUrl({
+      headerOrigin: "http://localhost:3000",
+      nodeEnv: "development",
+      publicBaseUrl: "http://192.168.8.157:3000/",
+      localIp: "172.23.248.100",
+      port: "3000",
+    });
+    expect(base).toBe("http://192.168.8.157:3000");
+  });
+
   it("development: a LAN-IP request host is kept as-is", () => {
     const base = resolveBaseUrl({
       headerOrigin: "http://192.168.1.50:3000",

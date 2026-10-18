@@ -5,6 +5,7 @@ import { getLogger } from "@/lib/logger";
 import { isSessionIssueType } from "@/lib/room-preview/issue-catalog";
 import { openSessionIssue, trackSessionEvent } from "@/lib/room-preview/session-diagnostics";
 import { getRoomPreviewSession } from "@/lib/room-preview/session-service";
+import { UNTHROTTLED_EVENTS } from "@/lib/room-preview/session-diagnostics-client";
 
 export const dynamic = "force-dynamic";
 export const runtime = "nodejs";
@@ -21,6 +22,13 @@ const log = getLogger("diagnostics-api");
 
 /** Rate limit: max N events per session per rolling window. */
 const RATE_LIMIT_MAX = 30;
+/**
+ * Critical events (UNTHROTTLED_EVENTS: errors, user actions, upload/render
+ * lifecycle) get their own, higher budget so routine noise can never crowd
+ * them out — previously a busy page load used up the shared 30/min and the
+ * upload events that explain a failure were silently dropped.
+ */
+const CRITICAL_RATE_LIMIT_MAX = 120;
 const RATE_LIMIT_WINDOW_MS = 60_000;
 type RateLimitEntry = { count: number; windowStart: number };
 const rateLimitMap = new Map<string, RateLimitEntry>();
@@ -62,13 +70,13 @@ function maybeEvict(now: number) {
  * Returns true if the event should be dropped by the rate limiter.
  * Increments the counter and resets the window when expired.
  */
-function isRateLimited(sessionId: string, now: number): boolean {
-  const entry = rateLimitMap.get(sessionId);
+function isRateLimited(key: string, now: number, max: number): boolean {
+  const entry = rateLimitMap.get(key);
   if (!entry || now - entry.windowStart > RATE_LIMIT_WINDOW_MS) {
-    rateLimitMap.set(sessionId, { count: 1, windowStart: now });
+    rateLimitMap.set(key, { count: 1, windowStart: now });
     return false;
   }
-  if (entry.count >= RATE_LIMIT_MAX) return true;
+  if (entry.count >= max) return true;
   entry.count += 1;
   return false;
 }
@@ -140,16 +148,7 @@ export async function POST(
 
   maybeEvict(now);
 
-  // ── 1. Rate limit check (no DB) ───────────────────────────────────────────
-  if (isRateLimited(sessionId, now)) {
-    log.warn(
-      { sessionId, reason: "diagnostics_event_dropped_rate_limit" },
-      "Diagnostics rate-limited",
-    );
-    return NextResponse.json({ ok: true, ignored: true });
-  }
-
-  // ── 2. Parse and validate body (no DB) ───────────────────────────────────
+  // ── 1. Parse and validate body (no DB) ───────────────────────────────────
   let body: unknown;
   try {
     body = await request.json();
@@ -162,8 +161,24 @@ export async function POST(
     return NextResponse.json({ error: "Invalid diagnostics payload." }, { status: 400 });
   }
 
-  // ── 3. Per-event dedup (no DB) ────────────────────────────────────────────
-  if (isDuplicate(sessionId, parsed.data.eventType, now)) {
+  const isCritical = UNTHROTTLED_EVENTS.has(parsed.data.eventType);
+
+  // ── 2. Rate limit check (no DB) — separate budgets for critical events ────
+  if (
+    isCritical
+      ? isRateLimited(`${sessionId}:critical`, now, CRITICAL_RATE_LIMIT_MAX)
+      : isRateLimited(sessionId, now, RATE_LIMIT_MAX)
+  ) {
+    log.warn(
+      { sessionId, eventType: parsed.data.eventType, reason: "diagnostics_event_dropped_rate_limit" },
+      "Diagnostics rate-limited",
+    );
+    return NextResponse.json({ ok: true, ignored: true });
+  }
+
+  // ── 3. Per-event dedup (no DB) — critical events are never deduped, e.g. a
+  // retried upload legitimately emits room_upload_failed twice within 5 s ────
+  if (!isCritical && isDuplicate(sessionId, parsed.data.eventType, now)) {
     log.debug(
       { sessionId, eventType: parsed.data.eventType, reason: "diagnostics_event_deduped" },
       "Diagnostics deduped",

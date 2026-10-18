@@ -107,8 +107,16 @@ export async function fetchPdcProduct(sku: string): Promise<PdcProductResponse> 
 
   if (!response.ok) {
     // Read PDC's { error } body for logs only — it must never reach the client.
-    const errorBody = await response.text().catch(() => "");
-    log.warn({ sku, status: response.status, errorBody }, "PDC returned an error response");
+    const rawBody = await response.text().catch(() => "");
+    // Cloudflare in front of PDC answers bursts with a full HTML challenge page
+    // ("Just a moment...") — flag it and keep the log line short instead of
+    // dumping several KB of HTML per SKU.
+    const cloudflareChallenge = rawBody.includes("challenge-platform");
+    const errorBody = cloudflareChallenge ? "[Cloudflare challenge page]" : rawBody.slice(0, 300);
+    log.warn(
+      { sku, status: response.status, cloudflareChallenge, errorBody },
+      "PDC returned an error response",
+    );
 
     switch (response.status) {
       case 400:

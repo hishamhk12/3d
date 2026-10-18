@@ -61,6 +61,32 @@ async function fetchProductByCode(productCode: string) {
   return data.product;
 }
 
+/**
+ * Map camera start failures to a customer message. getUserMedia rejects with a
+ * DOMException (by name); qr-scanner itself rejects with plain strings such as
+ * "Camera not found.".
+ */
+function cameraErrorMessage(error: unknown, isAr: boolean): string {
+  const name = error instanceof DOMException ? error.name : null;
+  const text = typeof error === "string" ? error : error instanceof Error ? error.message : "";
+
+  if (name === "NotAllowedError" || name === "SecurityError") {
+    return isAr
+      ? "تم رفض إذن الكاميرا. اسمح للمتصفح باستخدام الكاميرا من إعدادات الجهاز ثم حاول مجدداً."
+      : "Camera permission was denied. Allow camera access for this browser in your device settings and try again.";
+  }
+  if (name === "NotFoundError" || name === "OverconstrainedError" || /camera not found/i.test(text)) {
+    return isAr ? "لم يتم العثور على كاميرا في هذا الجهاز." : "No camera was found on this device.";
+  }
+  if (name === "NotReadableError" || name === "AbortError") {
+    return isAr
+      ? "الكاميرا مستخدمة من تطبيق آخر. أغلقه ثم حاول مجدداً."
+      : "The camera is in use by another app. Close it and try again.";
+  }
+  if (error instanceof Error && !name && text) return text; // our own secure-context message
+  return isAr ? "تعذر تشغيل الكاميرا." : "Camera scanning could not be started.";
+}
+
 function lookupErrorMessage(error: unknown, isAr: boolean): string {
   const code = error instanceof ProductLookupError ? error.code : null;
 
@@ -179,6 +205,8 @@ export default function ProductQrStep({
   const [product, setProduct] = useState<RoomPreviewProduct | null>(null);
   const [isLookingUp, setIsLookingUp] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [showManualCodeInput, setShowManualCodeInput] = useState(false);
+  const [manualCode, setManualCode] = useState("");
 
   const stopScanner = useCallback(() => {
     scannerRef.current?.stop();
@@ -237,11 +265,20 @@ export default function ProductQrStep({
     setError(null);
 
     try {
-      const { default: QrScanner } = await import("qr-scanner");
-      const hasCamera = await QrScanner.hasCamera();
-      if (!hasCamera) {
-        throw new Error(isAr ? "لم يتم العثور على كاميرا في هذا الجهاز." : "No camera was found on this device.");
+      // Browsers only expose the camera on secure origins (https / localhost).
+      if (!window.isSecureContext || !navigator.mediaDevices?.getUserMedia) {
+        throw new Error(
+          isAr
+            ? "الكاميرا تحتاج اتصالاً آمناً (https). افتح الرابط الآمن أو أدخل الكود يدوياً."
+            : "The camera needs a secure (https) connection. Open the secure link or enter the code manually.",
+        );
       }
+
+      // No QrScanner.hasCamera() pre-check: it relies on enumerateDevices(),
+      // which iOS browsers return empty until camera permission is granted —
+      // so it reported "no camera" and never showed the permission prompt.
+      // scanner.start() calls getUserMedia, which prompts and surfaces real errors.
+      const { default: QrScanner } = await import("qr-scanner");
 
       const scanner = new QrScanner(
         videoRef.current,
@@ -267,13 +304,7 @@ export default function ProductQrStep({
       scannerRef.current?.destroy();
       scannerRef.current = null;
       setScannerStatus("idle");
-      setError(
-        scanError instanceof Error
-          ? scanError.message
-          : isAr
-            ? "تعذر تشغيل الكاميرا."
-            : "Camera scanning could not be started.",
-      );
+      setError(cameraErrorMessage(scanError, isAr));
     }
   };
 
@@ -483,13 +514,59 @@ export default function ProductQrStep({
           ) : null}
 
           {canUseProductListFallback ? (
-            <button
-              type="button"
-              onClick={onUseProductListFallback}
-              className="mt-4 text-xs font-semibold text-[var(--text-muted)] underline underline-offset-4"
-            >
-              {isAr ? "استخدام قائمة المنتجات القديمة" : "Use old product list fallback"}
-            </button>
+            <div className="mt-4 flex flex-col items-center gap-3">
+              <button
+                type="button"
+                onClick={() => setShowManualCodeInput((shown) => !shown)}
+                className="text-sm font-semibold text-[var(--brand-cyan)] underline underline-offset-4"
+              >
+                {showManualCodeInput
+                  ? isAr ? "إخفاء إدخال الكود" : "Hide code entry"
+                  : isAr ? "إدخال كود المنتج يدوياً" : "Enter product code manually"}
+              </button>
+              {showManualCodeInput ? (
+                <form
+                  className="flex w-full flex-col gap-2"
+                  onSubmit={(event) => {
+                    event.preventDefault();
+                    void handleScannedValue(manualCode.trim());
+                  }}
+                >
+                  <label htmlFor="manual-product-code" className="text-start text-xs font-medium text-[var(--text-secondary)]">
+                    {isAr ? "اكتب الكود المطبوع على المنتج" : "Type the code printed on the product"}
+                  </label>
+                  <input
+                    id="manual-product-code"
+                    type="text"
+                    dir="ltr"
+                    value={manualCode}
+                    onChange={(event) => setManualCode(event.target.value)}
+                    placeholder="PQH111.152"
+                    autoCapitalize="characters"
+                    autoCorrect="off"
+                    spellCheck={false}
+                    disabled={isBusy || isLookingUp}
+                    className="h-12 w-full rounded-2xl border border-[var(--border)] bg-[var(--bg-surface)] px-4 text-center font-mono text-base text-[var(--text-primary)] outline-none focus:border-[var(--brand-cyan)]"
+                  />
+                  <MobileActionButton
+                    variant="light"
+                    type="submit"
+                    disabled={isBusy || isLookingUp || !manualCode.trim()}
+                  >
+                    {isLookingUp
+                      ? isAr ? "جاري التحقق..." : "Checking..."
+                      : isAr ? "تحقق من الكود" : "Check code"}
+                  </MobileActionButton>
+                </form>
+              ) : null}
+              <button
+                type="button"
+                onClick={onUseProductListFallback}
+                className="text-xs font-semibold text-[var(--text-muted)] underline underline-offset-4"
+              >
+                {isAr ? "استخدام قائمة المنتجات القديمة" : "Use old product list fallback"}
+              </button>
+            </div>
           ) : null}
         </div>
 

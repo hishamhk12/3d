@@ -48,6 +48,12 @@ async function dispatch(request: NextRequest, context: CatchAllContext) {
     return POST(request);
   }
 
+  if (path.length === 1 && path[0] === "dev-entry") {
+    if (method !== "GET") return methodNotAllowed();
+    const { GET } = await import("../dev-entry/handler");
+    return GET(request);
+  }
+
   if (path.length === 1 && path[0] === "sessions") {
     if (method !== "POST") return methodNotAllowed();
     const { POST } = await import("../sessions/handler");

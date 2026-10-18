@@ -10,12 +10,12 @@ const log = getLogger("mobile-page");
 
 type MobileSessionPageProps = {
   params: Promise<{ sessionId: string }>;
-  searchParams: Promise<{ devEntry?: string; lang?: string; productCode?: string; t?: string }>;
+  searchParams: Promise<{ lang?: string; productCode?: string; t?: string }>;
 };
 
 export default async function MobileSessionPage({ params, searchParams }: MobileSessionPageProps) {
   const { sessionId } = await params;
-  const { devEntry, lang, productCode, t } = await searchParams;
+  const { lang, productCode, t } = await searchParams;
   const langQuery = lang === "ar" || lang === "en" ? `?lang=${lang}` : "";
 
   if (t) {
@@ -24,14 +24,10 @@ export default async function MobileSessionPage({ params, searchParams }: Mobile
     redirect(`/api/room-preview/sessions/${sessionId}/activate?${params}`);
   }
 
-  const skipGateForDevEntry =
-    process.env.NODE_ENV === "development" && devEntry === "1";
-
   const cookieStore = await cookies();
   const gateJustCompleted = cookieStore.get(`gate_ok_${sessionId}`)?.value === "1";
 
   const gateCompleted =
-    skipGateForDevEntry ||
     gateJustCompleted ||
     (await sessionHasCompletedGate(sessionId));
 

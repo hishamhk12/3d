@@ -31,7 +31,26 @@ function getLanIpAddresses(): string[] {
   return addrs;
 }
 
-const lanIps = isProd ? [] : getLanIpAddresses();
+/**
+ * Host the phone actually uses (from NEXT_PUBLIC_BASE_URL). Under WSL2 the
+ * machine's interfaces only expose the internal WSL IP (172.x), while phones
+ * reach the dev server via the Windows host's LAN IP — so that host must be
+ * allowlisted explicitly or Next blocks /_next/* and the page never hydrates.
+ */
+function getBaseUrlHost(): string | null {
+  const raw = process.env.NEXT_PUBLIC_BASE_URL;
+  if (!raw) return null;
+  try {
+    return new URL(raw).hostname;
+  } catch {
+    return null;
+  }
+}
+
+const baseUrlHost = isProd ? null : getBaseUrlHost();
+const lanIps = isProd
+  ? []
+  : [...new Set([...getLanIpAddresses(), ...(baseUrlHost ? [baseUrlHost] : [])])];
 
 /**
  * If R2_PUBLIC_URL is set to a custom domain (e.g. https://cdn.example.com),
@@ -101,12 +120,15 @@ const nextConfig: NextConfig = {
   }),
 
   // Allow Server Actions submitted from LAN devices.
-  // In Next.js 16 `serverActions` is a top-level key (no longer experimental).
+  // In Next.js 16.2 this still lives under `experimental` (a top-level
+  // `serverActions` key is rejected as unrecognized and silently ignored).
   // Next.js validates the Origin header on every Server Action POST; without
   // this, gate form submissions from mobile are rejected with a CSRF error.
   ...(!isProd && lanOrigins.length > 0 && {
-    serverActions: {
-      allowedOrigins: lanOrigins,
+    experimental: {
+      serverActions: {
+        allowedOrigins: lanOrigins,
+      },
     },
   }),
 

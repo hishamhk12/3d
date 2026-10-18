@@ -73,15 +73,6 @@ export function Carousel3D({ images }: Carousel3DProps) {
     return () => window.removeEventListener("resize", compute);
   }, []);
 
-  // Preload room images so the ring renders instantly.
-  useEffect(() => {
-    if (!hasImages) return;
-    images.forEach((src) => {
-      const img = new window.Image();
-      img.src = src;
-    });
-  }, [hasImages, images]);
-
   const galleryItems: CircularGalleryItem[] = hasImages
     ? images.map((url, i) => ({ url, alt: `صورة غرفة ${i + 1}` }))
     : [];
@@ -97,7 +88,7 @@ export function Carousel3D({ images }: Carousel3DProps) {
         minHeight: "100dvh",
         overflow: "hidden",
         // Transparent: the server-rendered <main> behind already paints the
-        // private.jpg background, so no interim color ever shows.
+        // private.webp background, so no interim color ever shows.
         background: "transparent",
         display: "flex",
         flexDirection: "column",
@@ -115,10 +106,10 @@ export function Carousel3D({ images }: Carousel3DProps) {
       {/* ---- Full-bleed fixed "private" background ---- */}
       <div aria-hidden="true" style={{ position: "absolute", inset: 0, zIndex: 0 }}>
         <Image
-          src="/room-preview/private.jpg"
+          src="/room-preview/private.webp"
           alt=""
           fill
-          priority
+          preload
           unoptimized
           sizes="100vw"
           style={{ objectFit: "cover", objectPosition: "center" }}
@@ -230,10 +221,9 @@ export function Carousel3D({ images }: Carousel3DProps) {
         >
           <div style={{ position: "absolute", inset: 0 }}>
             <Image
-              src="/room-preview/private.jpg"
+              src="/room-preview/private.webp"
               alt=""
               fill
-              priority
               unoptimized
               sizes="100vw"
               style={{ objectFit: "cover", objectPosition: "center" }}

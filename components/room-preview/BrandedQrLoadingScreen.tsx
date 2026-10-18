@@ -27,7 +27,7 @@ export default function BrandedQrLoadingScreen({ dir }: BrandedQrLoadingScreenPr
       dir={dir}
     >
       {/* Full-screen background + glass panel — shared with the QR session screen */}
-      <BrandedGlassStage backgroundImage='url("/room-preview/private.jpg")'>
+      <BrandedGlassStage backgroundImage='url("/room-preview/private.webp")'>
         {/* Company logo pinned to the exact centre of the glass panel,
             animated by the 21st.dev scan loader (glowing cyan scan line). */}
         <div

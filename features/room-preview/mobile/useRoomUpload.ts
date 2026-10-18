@@ -97,6 +97,10 @@ export function useRoomUpload(params: UseRoomUploadParams): UseRoomUploadReturn 
   } | null>(null);
 
   useEffect(() => {
+    // Re-arm on every mount: React Strict Mode (dev) runs mount → cleanup →
+    // mount on the same instance, and without this the cleanup leaves the ref
+    // false forever, so every upload silently aborts after "room_upload_started".
+    mountedRef.current = true;
     return () => {
       mountedRef.current = false;
       activeUploadIdRef.current += 1;

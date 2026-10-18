@@ -28,8 +28,9 @@ const THROTTLE_MS = 5_000;
 const _lastSent = new Map<string, number>();
 
 // Events that carry unique/actionable data and must never be suppressed.
-// Everything NOT in this set is subject to the 5-second throttle.
-const UNTHROTTLED_EVENTS = new Set([
+// Everything NOT in this set is subject to the 5-second throttle. Exported so
+// the diagnostics API applies the same rule (no shared rate limit / dedupe).
+export const UNTHROTTLED_EVENTS: ReadonlySet<string> = new Set([
   // Hard lifecycle — one-shot by nature
   "mobile_page_mounted",
   "mobile_page_unmounted",

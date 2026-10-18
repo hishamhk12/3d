@@ -172,6 +172,33 @@ describe("SelectedProductsStep", () => {
 });
 
 describe("ProductQrStep", () => {
+  it("looks up a manually entered product code in development fallback mode", async () => {
+    localeState.current = "en";
+    vi.mocked(fetch).mockResolvedValue(productLookupResponse(floorProduct as RoomPreviewProduct));
+
+    render(
+      <ProductQrStep
+        isBusy={false}
+        canUseProductListFallback
+        onUseProductListFallback={vi.fn()}
+        onSaveProductCode={vi.fn().mockResolvedValue(undefined)}
+        onGenerateWithProductCode={vi.fn()}
+      />,
+    );
+
+    fireEvent.click(screen.getByRole("button", { name: "Enter product code manually" }));
+    fireEvent.change(screen.getByLabelText("Type the code printed on the product"), {
+      target: { value: "PARQ.001" },
+    });
+    fireEvent.click(screen.getByRole("button", { name: "Check code" }));
+
+    expect(await screen.findByText("Product found")).toBeTruthy();
+    expect(fetch).toHaveBeenCalledWith(
+      "/api/room-preview/mobile/products?code=PARQ.001",
+      { cache: "no-store" },
+    );
+  });
+
   it("shows the Arabic wrong-surface message in change mode and disables saving", async () => {
     localeState.current = "ar";
     vi.mocked(fetch).mockResolvedValue(productLookupResponse(wallpaperProduct as RoomPreviewProduct));

@@ -12,6 +12,7 @@ import {
 } from "@/lib/room-preview/constants";
 import {
   fetchRoomPreviewSession,
+  fetchRoomPreviewSessionForScreen,
   isRoomPreviewRequestError,
   type RoomPreviewRequestError,
 } from "@/lib/room-preview/session-client";
@@ -363,7 +364,7 @@ export function useScreenSession({ sessionId }: { sessionId: string }): UseScree
       setIsUsingPollingFallback(false);
 
       try {
-        const nextSession = await fetchRoomPreviewSession(sessionId);
+        const nextSession = await fetchRoomPreviewSessionForScreen(sessionId);
         if (!active) return;
         applySessionUpdate(nextSession, "initial_fetch");
         setViewState("ready");

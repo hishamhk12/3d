@@ -1106,7 +1106,7 @@ body.translated-rtl { top: 0 !important; }
 }
 
 /* Neutral warm-dark placeholder — must never be blue: this color is what
-   flashes while each page's real background image (private.jpg / croissant.jpg,
+   flashes while each page's real background image (private.webp / croissant.jpg,
    set in server-rendered markup) is still downloading. */
 html:has(.screen-kiosk-page),
 body:has(.screen-kiosk-page) {
@@ -1241,4 +1241,17 @@ body:has(.screen-kiosk-page) {
   html {
     @apply font-sans;
   }
+}
+
+/* Gate login: soft breathing halo behind the company logo (CSS-only so it
+   runs before/without hydration). */
+@keyframes gate-logo-halo {
+  0%, 100% { transform: scale(1); opacity: 0.7; }
+  50% { transform: scale(1.12); opacity: 1; }
+}
+.gate-logo-halo {
+  animation: gate-logo-halo 4s ease-in-out infinite;
+}
+@media (prefers-reduced-motion: reduce) {
+  .gate-logo-halo { animation: none; }
 }

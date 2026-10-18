@@ -38,9 +38,9 @@ export interface ResolveBaseUrlOptions {
 /**
  * Final base-URL resolution order:
  *   1. The incoming request origin (current deployment — Production or Preview).
- *   2. NEXT_PUBLIC_BASE_URL (fallback when there is no request host).
- *   3. Development only: if the result is empty/localhost, use the LAN IP so a
- *      phone on the same network can reach the dev server.
+ *   2. In development, NEXT_PUBLIC_BASE_URL when the request came through localhost.
+ *   3. NEXT_PUBLIC_BASE_URL when there is no request host.
+ *   4. Development only: if the result is empty/localhost, use the detected LAN IP.
  * Returns null when nothing usable is available.
  */
 export function resolveBaseUrl(opts: ResolveBaseUrlOptions): string | null {
@@ -51,7 +51,13 @@ export function resolveBaseUrl(opts: ResolveBaseUrlOptions): string | null {
     opts.localIp &&
     (!base || base.includes("localhost") || base.includes("127.0.0.1"))
   ) {
-    base = `http://${opts.localIp}:${opts.port || "3000"}`;
+    const configuredBase = opts.publicBaseUrl?.replace(/\/$/, "");
+    const isConfiguredLocalBase =
+      configuredBase?.includes("localhost") || configuredBase?.includes("127.0.0.1");
+    base =
+      configuredBase && !isConfiguredLocalBase
+        ? configuredBase
+        : `http://${opts.localIp}:${opts.port || "3000"}`;
   }
 
   return base || null;

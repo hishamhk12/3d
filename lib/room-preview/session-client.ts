@@ -344,6 +344,29 @@ export async function fetchRoomPreviewSession(sessionId: string) {
   );
 }
 
+/**
+ * Initial screen loads can race Next.js development's on-demand route compile.
+ * Retry only transient transport failures; session/auth/response errors remain
+ * visible immediately and continue through the normal error handling path.
+ */
+export async function fetchRoomPreviewSessionForScreen(sessionId: string) {
+  const retryDelaysMs = [300, 900] as const;
+
+  for (let attempt = 0; ; attempt += 1) {
+    try {
+      return await fetchRoomPreviewSession(sessionId);
+    } catch (error) {
+      const canRetry =
+        isRoomPreviewRequestError(error) &&
+        (error.code === "timeout" || error.code === "network") &&
+        attempt < retryDelaysMs.length;
+
+      if (!canRetry) throw error;
+      await new Promise((resolve) => setTimeout(resolve, retryDelaysMs[attempt]));
+    }
+  }
+}
+
 export async function connectRoomPreviewSession(sessionId: string) {
   const data = await requestRoomPreviewJson(
     ROOM_PREVIEW_ROUTES.connectSessionApi(sessionId),

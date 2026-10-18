@@ -1,13 +1,24 @@
 "use client";
 
 import { useState } from "react";
-import Image from "next/image";
-import { useRouter } from "next/navigation";
 import { useFormStatus } from "react-dom";
 import { selectCustomerRole, submitGateForm } from "../actions";
 import { PreviousPreviewsCarousel } from "@/components/room-preview/PreviousPreviewsCarousel";
 import RoomPreviewBackButton from "@/components/room-preview/RoomPreviewBackButton";
 import { MobileActionButton } from "@/components/room-preview/MobileActionButton";
+import { CompanyLogo } from "@/components/CompanyLogo";
+import { BorderBeam } from "@/components/ui/border-beam";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardFooter,
+  CardHeader,
+  CardTitle,
+} from "@/components/ui/card";
 import { trackClientSessionEvent } from "@/lib/room-preview/session-diagnostics-client";
 import { dismissMobileKeyboard } from "@/hooks/use-dismiss-keyboard-on-enter";
 import {
@@ -34,7 +45,6 @@ export type PreviousExperience = {
 
 // Internal step includes client-only transitions
 type InternalStep =
-  | "role"
   | "customer_type"
   | GateFormStep;
 
@@ -91,97 +101,6 @@ function FormShell({ children, onBack, backLabel = "Back" }: { children: React.R
   );
 }
 
-/**
- * The approved onboarding image composition (single source of truth for the
- * role-selection AND customer-choice screens): full-bleed main_pic.png anchored
- * to the bottom so the lower camera UI (progress row, the instruction sentence
- * "صوّر غرفتك، اختر المنتج، وشاهد التصميم قبل التنفيذ.", shutter and camera-switch
- * icon) stays visible, a soft white fade that only softens the bottom edge, and a
- * white content section. Callers pass the heading + buttons as children.
- */
-/**
- * Two variants share this single image/fade implementation:
- *  • "selection" (role, customer_type): tall 70svh image, small bottom fade.
- *  • "form" (customer_new, customer_existing): shorter, responsive image height
- *    (clamp) + a larger fade that starts earlier, so the whole form fits in one
- *    mobile viewport (no scroll) while the camera-interface look is preserved.
- * `imageHeight` lets a caller fine-tune the form height per step.
- */
-function OnboardingImageLayout({
-  children,
-  variant = "selection",
-  imageHeight,
-  onBack,
-  backLabel = "Back",
-}: {
-  children: React.ReactNode;
-  variant?: "selection" | "form";
-  imageHeight?: string;
-  onBack?: () => void;
-  backLabel?: string;
-}) {
-  const isForm = variant === "form";
-  const height = imageHeight ?? (isForm ? "clamp(230px, 42svh, 400px)" : "70svh");
-  const fade = isForm
-    ? {
-        // Larger fade, begins earlier — hides the shorter-image cut, ends in white.
-        height: "30%",
-        background:
-          "linear-gradient(to bottom, rgba(255,255,255,0) 0%, rgba(255,255,255,0.22) 38%, rgba(255,255,255,0.82) 74%, #ffffff 100%)",
-      }
-    : {
-        height: "22%",
-        background:
-          "linear-gradient(to bottom, rgba(255,255,255,0) 0%, rgba(255,255,255,0.08) 20%, rgba(255,255,255,0.35) 45%, rgba(255,255,255,0.75) 72%, #ffffff 100%)",
-      };
-  return (
-    // Normal document flow with a one-screen minimum: screens fill exactly one
-    // viewport (no scroll in the resting state); when the keyboard opens the page
-    // scrolls naturally (no fixed positioning, no overflow lock).
-    <div className="relative flex w-full flex-col bg-white" style={{ minHeight: "100svh" }}>
-      {onBack ? (
-        <RoomPreviewBackButton
-          ariaLabel={backLabel}
-          onClick={onBack}
-          size={40}
-          className="z-50"
-          style={{ top: "max(16px, env(safe-area-inset-top))", left: 16 }}
-        />
-      ) : null}
-      {/* Main image — edge to edge, anchored bottom to keep the camera UI visible */}
-      <div className="relative w-full shrink-0" style={{ height }}>
-        <Image
-          src="/room-preview/main_pic.png"
-          alt=""
-          fill
-          priority
-          unoptimized
-          sizes="100vw"
-          className="object-cover object-bottom"
-        />
-        {/* Soft white fade — softens the bottom edge into the white content area */}
-        <div
-          aria-hidden
-          className="pointer-events-none absolute inset-x-0 bottom-0"
-          style={fade}
-        />
-      </div>
-
-      {/* White content section — heading + page-specific content */}
-      <div
-        className="flex flex-1 flex-col items-center bg-white px-5 text-center"
-        style={{
-          paddingBottom: isForm
-            ? "max(1.25rem, env(safe-area-inset-bottom))"
-            : "max(2rem, env(safe-area-inset-bottom))",
-        }}
-      >
-        {children}
-      </div>
-    </div>
-  );
-}
-
 function RolePill({ label, color = "cyan" }: { label: string; color?: "cyan" | "navy" }) {
   const colors =
     color === "cyan"
@@ -219,6 +138,49 @@ function SubmitButton({
   );
 }
 
+/**
+ * Shared login-card layout for every customer gate step (customer type, new
+ * customer, existing customer): company logo with a soft breathing halo in the
+ * Border Beam colors, then a Magic UI Border Beam card. Logo + halo appear first
+ * (0–0.6s; CompanyLogo then adds its own letter stagger and periodic shimmer),
+ * the card rises in just after (0.5–1.1s). Entrances are pure CSS so content is
+ * visible even before JS hydrates on mobile.
+ */
+function GateCardLayout({ children }: { children: React.ReactNode }) {
+  return (
+    <div className="flex min-h-svh w-full flex-col items-center justify-center gap-8 bg-white px-5 py-8">
+      <div className="relative flex items-center justify-center animate-in fade-in slide-in-from-bottom-4 duration-600 ease-out fill-mode-both motion-reduce:animate-none">
+        <div
+          aria-hidden
+          className="gate-logo-halo pointer-events-none absolute -inset-x-10 -inset-y-8 rounded-full blur-3xl"
+          style={{
+            background:
+              "radial-gradient(closest-side, rgba(255,170,64,0.35), rgba(156,64,255,0.22) 55%, transparent)",
+          }}
+        />
+        <CompanyLogo className="relative h-auto w-[200px] text-[var(--brand-navy)]" />
+      </div>
+
+      <div className="w-[350px] max-w-full animate-in fade-in slide-in-from-bottom-6 duration-600 delay-500 ease-out fill-mode-both motion-reduce:animate-none">
+        <Card className="relative w-full overflow-hidden shadow-sm">
+          {children}
+          <BorderBeam duration={8} size={100} />
+        </Card>
+      </div>
+    </div>
+  );
+}
+
+/** Primary card-footer submit button; shows the pending label while the server action runs. */
+function CardSubmitButton({ label, pendingLabel }: { label: React.ReactNode; pendingLabel: string }) {
+  const { pending } = useFormStatus();
+  return (
+    <Button type="submit" disabled={pending}>
+      {pending ? pendingLabel : label}
+    </Button>
+  );
+}
+
 // ─── Main component ────────────────────────────────────────────────────────────
 
 export function GateForm({
@@ -236,9 +198,10 @@ export function GateForm({
   error,
 }: GateFormProps) {
   const isRtl = locale === "ar";
-  const router = useRouter();
 
-  const [step, setStep] = useState<InternalStep>(() => initialStep ?? "role");
+  const [step, setStep] = useState<InternalStep>(() => initialStep ?? "customer_type");
+  const [rolePending, setRolePending] = useState(false);
+  const [roleError, setRoleError] = useState<string | null>(null);
   const [selectedCountry, setSelectedCountry] = useState<CountryDialOption>(() =>
     initialCountryCode ? getCountryByCode(initialCountryCode) : DEFAULT_COUNTRY,
   );
@@ -263,22 +226,21 @@ export function GateForm({
     });
   }
 
-  // Shared phone row: compact country dropdown + phone input in one line
+  // Shared phone row: compact country dropdown + phone input in one line,
+  // styled to match the card's shadcn inputs.
   function renderCountryAndPhone(defaultPhone?: string) {
     return (
-      <div>
-        <label className="block text-sm font-medium text-[var(--text-primary)] mb-1.5">
-          {t.phone} <span className="text-[var(--brand-gold)]">*</span>
-        </label>
+      <div className="flex flex-col space-y-1.5">
+        <Label htmlFor="gate-phone">{t.phone}</Label>
 
         {/* Always LTR so dropdown stays left, input stays right */}
         <div className="flex gap-2" dir="ltr">
           {/* Country dropdown — compact, shows "SA +966" */}
           <select
+            aria-label={t.phone}
             value={selectedCountry.countryCode}
             onChange={(e) => setSelectedCountry(getCountryByCode(e.target.value))}
-            className="ds-input shrink-0 min-h-[48px] px-2 text-sm"
-            style={{ width: "130px" }}
+            className="h-8 w-[110px] shrink-0 rounded-lg border border-input bg-transparent px-2 text-base outline-none focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50 md:text-sm"
             dir="ltr"
           >
             {COUNTRY_DIAL_OPTIONS.map((c) => (
@@ -291,7 +253,8 @@ export function GateForm({
           <input type="hidden" name="dialCode" value={selectedCountry.dialCode} />
 
           {/* Phone number — local digits only */}
-          <input
+          <Input
+            id="gate-phone"
             name="phone"
             type="tel"
             inputMode="numeric"
@@ -299,7 +262,7 @@ export function GateForm({
             required
             defaultValue={defaultPhone}
             placeholder={t.phoneLocalPlaceholder}
-            className="ds-input min-h-[48px] flex-1 min-w-0"
+            className="flex-1"
             dir="ltr"
           />
         </div>
@@ -307,178 +270,168 @@ export function GateForm({
     );
   }
 
-  // ── Role selection — onboarding composition mirroring Figma node 1:604 ──────
-  // Structure (top → bottom): full-bleed image (≈66.9% height) → light white fade
-  // that overlaps the image bottom and ends in solid white → one Arabic heading →
-  // two stacked pill buttons (350×56, radius 32) in the white section (no logo).
-  if (step === "role") {
-    return (
-      <OnboardingImageLayout>
-        {/* Heading — ~24px below the fade */}
-        <h1 className="pt-6 font-display text-2xl font-extrabold leading-tight text-[#192126]">
-          كيف ترغب بالمتابعة؟
-        </h1>
-
-        {/* Two stacked buttons — Figma node 5239:2890 component, 10px between them */}
-        <div className="flex w-full flex-col gap-[10px] pt-[18px]">
-          {/* عميل — primary/recommended action (project brand #192126). UNCHANGED logic. */}
-          <MobileActionButton
-            variant="light"
-            onClick={async () => {
-              await selectCustomerRole(sessionId);
-              setStep("customer_type");
-            }}
-          >
-            {t.customer}
-          </MobileActionButton>
-
-          {/* بائع — secondary choice (#0088FF). Opens /login?type=seller. UNCHANGED logic. */}
-          <MobileActionButton
-            variant="blue"
-            onClick={() => router.push("/login?type=seller")}
-          >
-            {t.seller}
-          </MobileActionButton>
-        </div>
-      </OnboardingImageLayout>
-    );
-  }
-
-  // ── Customer type selection — same onboarding composition as the role screen,
-  // only the two buttons change (عميل جديد / عميل حالي). No chip, arrow, or
-  // subtitle. ───────────────────────────────────────────────────────────────
+  // ── First screen: customer type (عميل جديد / عميل حالي) — Magic UI Border
+  // Beam login card. Picking either option records the customer role on the
+  // session (selectCustomerRole) and then opens the matching form. ──────────
   if (step === "customer_type") {
-    return (
-      <OnboardingImageLayout onBack={() => setStep("role")} backLabel={isRtl ? "رجوع" : "Back"}>
-        {/* Heading — identical to the role screen for a continuous look */}
-        <h1 className="pt-6 font-display text-2xl font-extrabold leading-tight text-[#192126]">
-          كيف ترغب بالمتابعة؟
-        </h1>
+    const chooseCustomerType = async (next: "customer_new" | "customer_existing") => {
+      if (rolePending) return;
+      setRoleError(null);
+      setRolePending(true);
+      try {
+        const selected = await selectCustomerRole(sessionId);
+        if (!selected) {
+          setRoleError(
+            isRtl
+              ? "تعذر التحقق من الجلسة. أعد فتح رمز QR وحاول مجددًا."
+              : "Could not verify this session. Reopen the QR code and try again.",
+          );
+          return;
+        }
+        setStep(next);
+      } catch (error) {
+        console.error("[room-preview] customer role selection failed", error);
+        setRoleError(
+          isRtl
+            ? "تعذر تسجيل اختيارك. تحقق من الاتصال وحاول مجددًا."
+            : "Could not save your choice. Check your connection and try again.",
+        );
+      } finally {
+        setRolePending(false);
+      }
+    };
 
-        {/* Two stacked buttons — same Figma component as the role screen, 10px gap */}
-        <div className="flex w-full flex-col gap-[10px] pt-[18px]">
-          {/* عميل جديد — primary/recommended action (project brand #192126). UNCHANGED logic. */}
-          <MobileActionButton
-            variant="light"
-            onClick={() => setStep("customer_new")}
+    return (
+      <GateCardLayout>
+        <CardHeader>
+          <CardTitle>{isRtl ? "تسجيل الدخول" : "Login"}</CardTitle>
+          <CardDescription>
+            {isRtl ? "اختر نوع الحساب للمتابعة." : "Choose how you'd like to continue."}
+          </CardDescription>
+        </CardHeader>
+        {roleError ? (
+          <CardContent>
+            <ErrorBanner message={roleError} />
+          </CardContent>
+        ) : null}
+        <CardFooter className="flex justify-between border-t-0 bg-transparent">
+          <Button
+            variant="outline"
+            disabled={rolePending}
+            onClick={() => chooseCustomerType("customer_new")}
           >
             {t.newCustomer}
-          </MobileActionButton>
-
-          {/* عميل حالي — secondary choice (#0088FF). Existing customer flow. UNCHANGED logic. */}
-          <MobileActionButton
-            variant="blue"
-            onClick={() => setStep("customer_existing")}
+          </Button>
+          <Button
+            disabled={rolePending}
+            onClick={() => chooseCustomerType("customer_existing")}
           >
             {t.existingCustomer}
-          </MobileActionButton>
-        </div>
-      </OnboardingImageLayout>
+          </Button>
+        </CardFooter>
+      </GateCardLayout>
     );
   }
 
-  // ── New customer form — same onboarding composition; only the white section
-  // changes to a form. No chip/back-arrow. ──────────────────────────────────
+  // ── New customer form — same login card as the first screen; the card body
+  // holds the form. `contents` lets the form's children sit directly in the
+  // card's flex layout while keeping the footer submit inside the <form>. ────
   if (step === "customer_new") {
     return (
-      <OnboardingImageLayout
-        variant="form"
-        imageHeight="clamp(220px, 40svh, 380px)"
-        onBack={() => setStep("customer_type")}
-        backLabel={isRtl ? "رجوع" : "Back"}
-      >
-        <h1 className="pt-4 font-display text-2xl font-extrabold leading-tight text-[#192126]">
-          أدخل بياناتك
-        </h1>
-        <form
-          action={submitGateForm}
-          onSubmit={handleSubmit}
-          className="w-full max-w-sm mx-auto space-y-3 pt-4 text-start"
-        >
+      <GateCardLayout>
+        <form action={submitGateForm} onSubmit={handleSubmit} className="contents">
           <input type="hidden" name="sessionId" value={sessionId} />
           <input type="hidden" name="locale" value={locale} />
           <input type="hidden" name="flow" value="customer_new" />
 
-          {error && <ErrorBanner message={error} />}
-
-          {/* Full name */}
-          <div>
-            <label className="block text-sm font-medium text-[var(--text-primary)] mb-1.5">
-              {t.fullName} <span className="text-[var(--brand-gold)]">*</span>
-            </label>
-            <input
-              name="name"
-              type="text"
-              autoComplete="name"
-              required
-              defaultValue={initialName}
-              placeholder={t.namePlaceholder}
-              dir="auto"
-              className="ds-input min-h-[48px]"
+          <CardHeader>
+            <CardTitle>{t.newCustomer}</CardTitle>
+            <CardDescription>
+              {isRtl ? "أدخل بياناتك لبدء التجربة." : "Enter your details to start the experience."}
+            </CardDescription>
+          </CardHeader>
+          <CardContent>
+            <div className="grid w-full items-center gap-4">
+              {error && <ErrorBanner message={error} />}
+              <div className="flex flex-col space-y-1.5">
+                <Label htmlFor="gate-name">{t.fullName}</Label>
+                <Input
+                  id="gate-name"
+                  name="name"
+                  type="text"
+                  autoComplete="name"
+                  required
+                  defaultValue={initialName}
+                  placeholder={t.namePlaceholder}
+                  dir="auto"
+                />
+              </div>
+              {renderCountryAndPhone(initialPhone)}
+              <p className="text-xs text-muted-foreground">{t.privacyNote}</p>
+            </div>
+          </CardContent>
+          <CardFooter className="flex justify-between border-t-0 bg-transparent">
+            <Button type="button" variant="outline" onClick={() => setStep("customer_type")}>
+              {isRtl ? "رجوع" : "Back"}
+            </Button>
+            <CardSubmitButton
+              label={t.submitBtn}
+              pendingLabel={isRtl ? "جاري بدء التجربة..." : "Starting..."}
             />
-          </div>
-
-          {renderCountryAndPhone(initialPhone)}
-
-          <SubmitButton
-            label={t.submitBtn}
-            pendingLabel={isRtl ? "جاري بدء التجربة..." : "Starting..."}
-          />
-          <p className="text-center text-xs text-[var(--text-muted)] pt-0.5">{t.privacyNote}</p>
+          </CardFooter>
         </form>
-      </OnboardingImageLayout>
+      </GateCardLayout>
     );
   }
 
-  // ── Existing customer lookup form — same onboarding composition; only the
-  // white section changes to a form. No chip/back-arrow. ────────────────────
+  // ── Existing customer lookup form — same login card as the first screen. ──
   if (step === "customer_existing") {
     return (
-      <OnboardingImageLayout
-        variant="form"
-        imageHeight="clamp(240px, 44svh, 410px)"
-        onBack={() => setStep("customer_type")}
-        backLabel={isRtl ? "رجوع" : "Back"}
-      >
-        <h1 className="pt-4 font-display text-2xl font-extrabold leading-tight text-[#192126]">
-          أدخل رقم جوالك
-        </h1>
-        <form
-          action={submitGateForm}
-          onSubmit={handleSubmit}
-          className="w-full max-w-sm mx-auto space-y-3 pt-4 text-start"
-        >
+      <GateCardLayout>
+        <form action={submitGateForm} onSubmit={handleSubmit} className="contents">
           <input type="hidden" name="sessionId" value={sessionId} />
           <input type="hidden" name="locale" value={locale} />
           <input type="hidden" name="flow" value="customer_existing" />
 
-          {/* Not-found banner */}
-          {notFound && (
-            <div className="rounded-xl bg-amber-50 border border-amber-200 px-4 py-3 text-sm dark:bg-amber-500/10 dark:border-amber-500/25">
-              <p className="font-medium text-amber-800 dark:text-amber-300">
-                {t.existingCustomerNotFound}
-              </p>
-              <button
-                type="button"
-                onClick={() => setStep("customer_new")}
-                className="mt-2 text-xs font-semibold underline text-amber-700 dark:text-amber-400"
-              >
-                {t.switchToNewCustomer}
-              </button>
+          <CardHeader>
+            <CardTitle>{t.existingCustomer}</CardTitle>
+            <CardDescription>
+              {isRtl ? "أدخل رقم جوالك للمتابعة." : "Enter your phone number to continue."}
+            </CardDescription>
+          </CardHeader>
+          <CardContent>
+            <div className="grid w-full items-center gap-4">
+              {/* Not-found banner */}
+              {notFound && (
+                <div className="rounded-xl bg-amber-50 border border-amber-200 px-4 py-3 text-sm dark:bg-amber-500/10 dark:border-amber-500/25">
+                  <p className="font-medium text-amber-800 dark:text-amber-300">
+                    {t.existingCustomerNotFound}
+                  </p>
+                  <button
+                    type="button"
+                    onClick={() => setStep("customer_new")}
+                    className="mt-2 text-xs font-semibold underline text-amber-700 dark:text-amber-400"
+                  >
+                    {t.switchToNewCustomer}
+                  </button>
+                </div>
+              )}
+              {error && !notFound && <ErrorBanner message={error} />}
+              {renderCountryAndPhone(initialPhone)}
+              <p className="text-xs text-muted-foreground">{t.privacyNote}</p>
             </div>
-          )}
-
-          {error && !notFound && <ErrorBanner message={error} />}
-
-          {renderCountryAndPhone(initialPhone)}
-
-          <SubmitButton
-            label={t.lookupBtn}
-            pendingLabel={isRtl ? "جاري..." : "Loading..."}
-          />
-          <p className="text-center text-xs text-[var(--text-muted)] pt-1">{t.privacyNote}</p>
+          </CardContent>
+          <CardFooter className="flex justify-between border-t-0 bg-transparent">
+            <Button type="button" variant="outline" onClick={() => setStep("customer_type")}>
+              {isRtl ? "رجوع" : "Back"}
+            </Button>
+            <CardSubmitButton
+              label={t.lookupBtn}
+              pendingLabel={isRtl ? "جاري..." : "Loading..."}
+            />
+          </CardFooter>
         </form>
-      </OnboardingImageLayout>
+      </GateCardLayout>
     );
   }
 
@@ -552,7 +505,7 @@ export function GateForm({
   // ── Employee form ──────────────────────────────────────────────────────────
   if (step === "employee") {
     return (
-      <FormShell onBack={() => setStep("role")} backLabel={isRtl ? "رجوع" : "Back"}>
+      <FormShell onBack={() => setStep("customer_type")} backLabel={isRtl ? "رجوع" : "Back"}>
       <div className="w-full max-w-sm mx-auto">
         <form action={submitGateForm} onSubmit={handleSubmit} className="space-y-4">
           <input type="hidden" name="sessionId" value={sessionId} />

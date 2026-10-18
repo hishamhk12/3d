@@ -67,7 +67,7 @@ export default function ScreenSessionClient({
 
   const devEntryHref =
     process.env.NODE_ENV === "development"
-      ? `/api/room-preview/dev-entry?sessionId=${sessionId}&lang=${locale}`
+      ? `/api/room-preview/dev-entry?sessionId=${encodeURIComponent(sessionId)}&lang=${locale}`
       : null;
 
   // ── Non-ready states ──────────────────────────────────────────────────────
@@ -79,7 +79,7 @@ export default function ScreenSessionClient({
     // reads as one uninterrupted branded loading screen. (Renders inside the
     // page's existing screen-kiosk-page <main>, so no nested <main>.)
     return (
-      <BrandedGlassStage backgroundImage='url("/room-preview/private.jpg")'>
+      <BrandedGlassStage backgroundImage='url("/room-preview/private.webp")'>
         <div
           style={{
             position: "absolute",

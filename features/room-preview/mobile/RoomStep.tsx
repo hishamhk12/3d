@@ -101,7 +101,7 @@ export default function RoomStep({
       className={
         hasPreview
           ? `mt-4 ${dir === "rtl" ? "text-right" : "text-left"}`
-          : "flex min-h-[calc(100svh-2.25rem)] w-full flex-col items-center justify-center py-6 text-center"
+          : "flex w-full flex-col items-center justify-center py-6 text-center"
       }
     >
       <input

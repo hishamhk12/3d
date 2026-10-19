@@ -421,12 +421,17 @@ export default function MobileSessionClient({
   const isRoomUploadError = isRoomUploadStep && roomSaveStatus === "error";
 
   return (
+    // White steps render in a fixed layer pinned to the VISIBLE viewport
+    // (inset-0 follows the browser toolbar as it shows/hides), so the page
+    // itself never scrolls, no off-white page background peeks out below, and
+    // content stays centered. Overflow (small phones, keyboard) scrolls inside
+    // the layer only.
     <div
       className={
         isProductShellStep
-          ? "relative mx-[calc(50%-50vw)] my-[-2.5rem] flex h-[100svh] w-screen flex-col overflow-hidden bg-white px-6 text-[var(--text-primary)]"
+          ? "fixed inset-0 z-10 flex flex-col overflow-hidden bg-white px-6 text-[var(--text-primary)]"
           : isWhiteMobileStep
-            ? "relative mx-[calc(50%-50vw)] my-[-2.5rem] flex min-h-[100svh] w-screen flex-col bg-white px-6 text-[var(--text-primary)]"
+            ? "fixed inset-0 z-10 flex flex-col overflow-y-auto overscroll-contain bg-white px-6 text-[var(--text-primary)]"
             : "relative tour-panel w-full rounded-[32px] p-8 text-center"
       }
       style={
@@ -447,6 +452,15 @@ export default function MobileSessionClient({
           style={{ top: "max(16px, env(safe-area-inset-top))", left: 16 }}
         />
       ) : null}
+      <div
+        className={
+          isProductShellStep
+            ? "flex min-h-0 flex-1 flex-col"
+            : isWhiteMobileStep
+              ? "my-auto w-full"
+              : "contents"
+        }
+      >
       {!isWhiteMobileStep ? (
         <p className="mb-6 text-xs font-semibold tracking-[0.22em] text-[var(--brand-cyan)] uppercase whitespace-nowrap">
           {t.roomPreview.shared.eyebrow}
@@ -651,6 +665,7 @@ export default function MobileSessionClient({
           onModify={handleModifyResult}
         />
       ) : null}
+      </div>
     </div>
   );
 }

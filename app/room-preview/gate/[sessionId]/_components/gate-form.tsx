@@ -147,8 +147,12 @@ function SubmitButton({
  * visible even before JS hydrates on mobile.
  */
 function GateCardLayout({ children }: { children: React.ReactNode }) {
+  // Fixed layer pinned to the visible viewport (same approach as the mobile
+  // session steps): the page never scrolls and the card stays centered; my-auto
+  // keeps the top reachable if the content ever overflows (e.g. keyboard open).
   return (
-    <div className="flex min-h-svh w-full flex-col items-center justify-center gap-8 bg-white px-5 py-8">
+    <div className="fixed inset-0 z-20 flex flex-col overflow-y-auto overscroll-contain bg-white px-5">
+    <div className="my-auto flex w-full flex-col items-center gap-8 py-8">
       <div className="relative flex items-center justify-center animate-in fade-in slide-in-from-bottom-4 duration-600 ease-out fill-mode-both motion-reduce:animate-none">
         <div
           aria-hidden
@@ -167,6 +171,7 @@ function GateCardLayout({ children }: { children: React.ReactNode }) {
           <BorderBeam duration={8} size={100} />
         </Card>
       </div>
+    </div>
     </div>
   );
 }
